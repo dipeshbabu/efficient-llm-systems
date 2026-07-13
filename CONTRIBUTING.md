@@ -6,7 +6,7 @@ clearly separated.
 
 ## Repository boundaries
 
-- `components/refract/` contains the published `refract-llm` package.
+- `components/refract/` contains the publishable `refract-llm` package.
 - `components/turboquant-reference/` contains the NumPy/SciPy TurboQuant
   reference implementation.
 - `docs/` contains current guidance and repository documentation.
@@ -91,13 +91,21 @@ Before submitting a change:
 
 ```bash
 uv run pre-commit run --all-files
-uv run pytest
+uv run pytest components/turboquant-reference/tests components/refract/tests --cov=turboquant --cov=refract --cov-report=term-missing -v --tb=short
 uv run python -m build components/refract
 uv run python -m build components/turboquant-reference
 ```
 
 Changes to packaging must verify that REFRACT prompts, examples, `LICENSE`,
 and `NOTICE` are present in the built artifacts.
+
+## Releases
+
+Publishing is restricted to maintainers. `refract-llm` releases use a
+`refract-v<VERSION>` tag, the protected `pypi` GitHub environment, and PyPI
+Trusted Publishing. Follow the [release procedure](docs/guides/releasing.md)
+for the required configuration and validation steps. The
+`turboquant-reference` package is not included in that publishing workflow.
 
 ## Research and artifact policy
 

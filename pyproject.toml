@@ -97,5 +97,9 @@ branch = true
 source = ["turboquant", "refract"]
 
 [tool.coverage.report]
+# The full suite currently reports just over 90% branch coverage. Keep that
+# baseline from regressing while reporting the gate at the same precision.
+fail_under = 90
+precision = 2
 show_missing = true
 skip_covered = true

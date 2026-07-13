@@ -15,10 +15,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.13"
 
@@ -32,7 +32,11 @@ jobs:
         run: uv sync --locked --all-packages
 
       - name: Run pre-commit checks
-        run: uv run --locked pre-commit run --all-files --show-diff-on-failure
+        shell: bash
+        run: |
+          uv_bin_dir="$(dirname "$(command -v uv)")"
+          export PATH="${uv_bin_dir}:${PATH}"
+          uv run --locked pre-commit run --all-files --show-diff-on-failure
 
   test:
     name: Tests / ${{ matrix.os }} / Python ${{ matrix.python-version }}
@@ -59,10 +63,10 @@ jobs:
             python-version: "3.13"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -88,10 +92,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 

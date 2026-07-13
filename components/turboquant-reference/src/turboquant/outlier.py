@@ -135,7 +135,7 @@ class OutlierTurboQuant:
             self.outlier_idx = np.sort(selected)
         else:
             self.outlier_idx = np.empty(0, dtype=int)
-        mask = np.ones(self.d, dtype=bool)
+        mask: np.ndarray = np.ones(self.d, dtype=bool)
         mask[self.outlier_idx] = False
         self.normal_idx = np.flatnonzero(mask)
         self.calibrated = True

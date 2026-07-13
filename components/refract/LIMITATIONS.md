@@ -1,4 +1,4 @@
-# REFRACT v0.3.3 — Known limitations
+# REFRACT v0.3.4 — Known limitations
 
 REFRACT compares KV-cache configurations against the same model's fp16/bf16
 behavior. It is a fidelity evaluator, not a general model-quality benchmark or
@@ -30,9 +30,9 @@ before deployment.
 ## 4. R-NIAH needs a working reference
 
 If the fp16/bf16 reference retrieves fewer than 20% of R-NIAH cells, the axis
-is low confidence. v0.3.3 retains the raw cells in reports but excludes the
-axis from the composite, preventing a candidate that merely matches a broken
-reference from receiving an inflated score.
+is low confidence. Since v0.3.3, REFRACT retains the raw cells in reports but
+excludes the axis from the composite, preventing a candidate that merely
+matches a broken reference from receiving an inflated score.
 
 ## 5. PLAD coverage can be partial
 
@@ -44,6 +44,9 @@ silently converted into failures or perfect scores.
 
 - llama.cpp trajectory capture needs compatible TurboQuant/REFRACT binaries;
   no version-sensitive patch is bundled in the Python wheel.
+- A pair of empty captured trajectories is treated as capture failure because
+  current backend results cannot distinguish immediate EOS from missing token
+  instrumentation.
 - MLX is Apple Silicon-only.
 - vLLM depends on the installed build's KV dtype support.
 - SGLang uses a separately managed server. KLD requires reference and

@@ -241,7 +241,7 @@ def text_report(
     if composite.gtm_score is not None:
         lines.append(" GTM diagnostics")
         lines.append(f"   prompts                    : {gtm.n_prompts}")
-        lines.append(f"   tokens decoded each        : {gtm.n_tokens_each}")
+        lines.append(f"   token cap each (n_predict) : {gtm.n_tokens_each}")
         lines.append(f"   full match rate            : {gtm.full_match_rate*100:5.1f} %")
         if gtm.median_first_divergence is not None:
             lines.append(

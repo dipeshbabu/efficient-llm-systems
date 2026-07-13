@@ -33,8 +33,11 @@ class _FakeBackend:
 
 
 def _gtm_result(score=95.0):
+    perfect = score == 100.0
     return GTMResult(
-        score=score, full_match_rate=0.9, median_first_divergence=10,
+        score=score,
+        full_match_rate=1.0 if perfect else 0.9,
+        median_first_divergence=None if perfect else 10,
         mean_prefix_agreement_length=score, mean_cand_length=100,
         mean_ref_length=100, n_prompts=1, n_tokens_each=128,
         per_prompt=[], notes=[],
@@ -42,8 +45,11 @@ def _gtm_result(score=95.0):
 
 
 def _traj_result(score=95.0):
+    perfect = score == 100.0
     return TrajectoryResult(
-        score=score, full_match_rate=0.9, median_first_divergence=10,
+        score=score,
+        full_match_rate=1.0 if perfect else 0.9,
+        median_first_divergence=None if perfect else 10,
         mean_prefix_agreement_length=score, mean_cand_length=100,
         mean_ref_length=100, n_prompts=1, n_tokens_each=128,
         per_prompt=[], notes=[],
@@ -333,6 +339,18 @@ def test_run_selftest_model_missing_fails(tmp_path, monkeypatch, capsys):
 # --- _run_repeatability --------------------------------------------------
 
 
+def test_run_repeatability_rejects_non_positive_runs_before_resolution(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(
+        cli, "_resolve_default_prompts",
+        lambda args: pytest.fail("invalid run count must fail before resolution"),
+    )
+    rc = cli._run_repeatability(argparse.Namespace(runs=0))
+    assert rc == 2
+    assert "at least 1" in capsys.readouterr().out
+
+
 def test_run_repeatability_aggregates_runs(tmp_path, monkeypatch, capsys):
     _patch_backends(monkeypatch)
     out_dir = tmp_path / "out"
@@ -368,6 +386,106 @@ def test_run_repeatability_aggregates_runs(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "REPEATABILITY" in out
     assert "HEALTHY" in out  # stdev=0 → healthy
+
+
+def test_run_repeatability_resolves_defaults_once(tmp_path, monkeypatch):
+    _patch_backends(monkeypatch)
+    prompts = tmp_path / "bundled.jsonl"
+    corpus = tmp_path / "wiki.test.raw"
+    haystack = tmp_path / "wiki.train.raw"
+    calls = {"prompts": 0, "paths": 0, "runs": []}
+
+    def fake_resolve_prompts(args):
+        calls["prompts"] += 1
+        args.prompts = prompts
+        return True
+
+    def fake_resolve_paths(args, *, need_corpus, need_haystack):
+        calls["paths"] += 1
+        assert need_corpus is True
+        assert need_haystack is True
+        args.corpus = corpus
+        args.rniah_haystack = haystack
+
+    def fake_run_score(args):
+        calls["runs"].append(args)
+        args.json_out.write_text(json.dumps({
+            "composite": 100.0,
+            "axes": {"gtm": {"score": 100.0}, "kld": {"score": 100.0}},
+        }))
+        return 0
+
+    monkeypatch.setattr(cli, "_resolve_default_prompts", fake_resolve_prompts)
+    monkeypatch.setattr(cli, "_resolve_default_paths", fake_resolve_paths)
+    monkeypatch.setattr(cli, "_run_score", fake_run_score)
+    args = argparse.Namespace(
+        model=tmp_path / "m.gguf",
+        reference="ctk=f16,ctv=f16", candidate="ctk=q8_0,ctv=q8_0",
+        prompts=None, corpus=None, no_auto_fetch=True,
+        runs=2, n_predict=8, ctx=512, chunks=32,
+        n_gpu_layers=99, seed=42,
+        axis_a="trajectory", full=True,
+        rniah_haystack=None, rniah_ctx_max=None,
+        backend="auto", out_dir=tmp_path / "out-defaults",
+    )
+
+    assert cli._run_repeatability(args) == 0
+    assert calls["prompts"] == 1
+    assert calls["paths"] == 1
+    assert len(calls["runs"]) == 2
+    for run_args in calls["runs"]:
+        assert run_args.prompts == prompts
+        assert run_args.corpus == corpus
+        assert run_args.rniah_haystack == haystack
+        assert run_args.no_auto_fetch is True
+
+
+def test_run_repeatability_real_resolvers_use_offline_cache(
+    tmp_path, monkeypatch
+):
+    _patch_backends(monkeypatch)
+    cache = tmp_path / "cache"
+    target = cache / "wikitext-2-raw"
+    target.mkdir(parents=True)
+    corpus = target / "wiki.test.raw"
+    haystack = target / "wiki.train.raw"
+    corpus.write_text("test")
+    haystack.write_text("train")
+    monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
+    monkeypatch.setattr(
+        cli, "_ensure_wikitext_2",
+        lambda *a, **kw: pytest.fail("offline cache should not download"),
+    )
+    captured = []
+
+    def fake_run_score(args):
+        captured.append(args)
+        args.json_out.write_text(json.dumps({
+            "composite": 100.0,
+            "axes": {"gtm": {"score": 100.0}, "kld": {"score": 100.0}},
+        }))
+        return 0
+
+    monkeypatch.setattr(cli, "_run_score", fake_run_score)
+    args = argparse.Namespace(
+        model=tmp_path / "m.gguf",
+        reference="ctk=f16,ctv=f16", candidate="ctk=q8_0,ctv=q8_0",
+        prompts=None, corpus=None, no_auto_fetch=True,
+        runs=1, n_predict=8, ctx=512, chunks=32,
+        n_gpu_layers=99, seed=42,
+        axis_a="trajectory", full=True,
+        rniah_haystack=None, rniah_ctx_max=None,
+        backend="auto", out_dir=tmp_path / "out-real-defaults",
+    )
+
+    assert cli._run_repeatability(args) == 0
+    assert len(captured) == 1
+    run_args = captured[0]
+    assert run_args.prompts.name == "v0.1.jsonl"
+    assert run_args.prompts.is_file()
+    assert run_args.corpus == corpus
+    assert run_args.rniah_haystack == haystack
+    assert run_args.no_auto_fetch is True
 
 
 def test_run_repeatability_aborts_on_score_failure(tmp_path, monkeypatch, capsys):

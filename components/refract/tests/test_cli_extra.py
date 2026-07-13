@@ -32,16 +32,123 @@ def test_run_score_measure_floor_passes(tmp_path, monkeypatch):
     assert rc == 0
 
 
-def test_run_score_floor_byte_identity_failure_aborts(tmp_path, monkeypatch, capsys):
-    """Floor composite = 100 but mean_prefix != mean_cand → byte-identity fail."""
+def test_run_score_measure_floor_uses_selected_trajectory(
+    tmp_path, monkeypatch
+):
+    _patch_backends(monkeypatch)
+    calls = []
+
+    def fake_trajectory(**kw):
+        calls.append((kw["reference_kv"], kw["candidate_kv"]))
+        return _traj_result(100.0)
+
+    monkeypatch.setattr(cli, "run_trajectory", fake_trajectory)
+    monkeypatch.setattr(
+        cli, "run_gtm",
+        lambda **kw: pytest.fail("trajectory floor must not call legacy GTM"),
+    )
+    monkeypatch.setattr(
+        cli, "run_kld",
+        lambda **kw: _kld_result(100.0, mean_kld=0.0),
+    )
+    args = _make_score_args(tmp_path, measure_floor=True)
+
+    assert cli._run_score(args) == 0
+    assert len(calls) == 2  # floor plus candidate score
+    assert calls[0][0] == calls[0][1]
+
+
+def test_run_score_measure_floor_trajectory_identity_failure_aborts(
+    tmp_path, monkeypatch, capsys
+):
+    _patch_backends(monkeypatch)
+
+    def broken_trajectory(**kw):
+        from refract.axes.trajectory import TrajectoryResult
+        return TrajectoryResult(
+            score=100.0, full_match_rate=0.0, median_first_divergence=50,
+            mean_prefix_agreement_length=50.0,
+            mean_cand_length=50.0, mean_ref_length=100.0,
+            n_prompts=1, n_tokens_each=128, per_prompt=[], notes=[],
+        )
+
+    monkeypatch.setattr(cli, "run_trajectory", broken_trajectory)
+    monkeypatch.setattr(
+        cli, "run_kld",
+        lambda **kw: _kld_result(100.0, mean_kld=0.0),
+    )
+    args = _make_score_args(tmp_path, measure_floor=True)
+
+    assert cli._run_score(args) == 2
+    output = capsys.readouterr().out
+    assert "trajectory ref-vs-ref" in output
+    assert "token-identical" in output
+
+
+def test_run_score_measure_floor_honors_skip_kld(
+    tmp_path, monkeypatch
+):
+    _patch_backends(monkeypatch)
+    monkeypatch.setattr(cli, "run_trajectory", lambda **kw: _traj_result(100.0))
+    monkeypatch.setattr(
+        cli, "run_kld",
+        lambda **kw: pytest.fail("--skip-kld must skip KLD floor and score"),
+    )
+    args = _make_score_args(
+        tmp_path, measure_floor=True, skip_kld=True, corpus=None,
+    )
+    assert cli._run_score(args) == 0
+
+
+def test_run_score_measure_floor_honors_skip_axis_a(
+    tmp_path, monkeypatch
+):
+    _patch_backends(monkeypatch)
+    calls = {"kld": 0}
+
+    def fake_kld(**kw):
+        calls["kld"] += 1
+        return _kld_result(100.0, mean_kld=0.0)
+
+    monkeypatch.setattr(cli, "run_kld", fake_kld)
+    monkeypatch.setattr(
+        cli, "run_gtm",
+        lambda **kw: pytest.fail("--skip-gtm must skip legacy GTM"),
+    )
+    monkeypatch.setattr(
+        cli, "run_trajectory",
+        lambda **kw: pytest.fail("--skip-gtm must skip Trajectory"),
+    )
+    args = _make_score_args(tmp_path, measure_floor=True, skip_gtm=True)
+
+    assert cli._run_score(args) == 0
+    assert calls["kld"] == 2  # floor plus candidate score
+
+
+def test_run_score_measure_floor_rejects_both_default_axes_skipped(
+    tmp_path, capsys
+):
+    args = _make_score_args(
+        tmp_path, measure_floor=True, skip_gtm=True, skip_kld=True,
+    )
+    assert cli._run_score(args) == 2
+    assert "requires at least one active" in capsys.readouterr().out
+
+
+def test_run_score_floor_token_identity_failure_aborts(
+    tmp_path, monkeypatch, capsys
+):
+    """A strict-prefix ref-vs-ref result must fail even with score 100."""
     _patch_backends(monkeypatch)
 
     def _broken_gtm(**kw):
         from refract.axes.gtm import GTMResult
         return GTMResult(
-            score=100.0, full_match_rate=1.0, median_first_divergence=None,
-            mean_prefix_agreement_length=99.0,  # != mean_cand_length 100.0
-            mean_cand_length=100.0, mean_ref_length=100.0,
+            score=100.0, full_match_rate=0.0, median_first_divergence=50,
+            # This ratio was 1.0 under the old candidate-only check even
+            # though the reference trajectory continued for 50 more tokens.
+            mean_prefix_agreement_length=50.0,
+            mean_cand_length=50.0, mean_ref_length=100.0,
             n_prompts=1, n_tokens_each=128, per_prompt=[], notes=[],
         )
 
@@ -51,7 +158,7 @@ def test_run_score_floor_byte_identity_failure_aborts(tmp_path, monkeypatch, cap
     args = _make_score_args(tmp_path, axis_a="gtm", measure_floor=True)
     rc = cli._run_score(args)
     assert rc == 2
-    assert "byte-identical" in capsys.readouterr().out
+    assert "token-identical" in capsys.readouterr().out
 
 
 def test_run_selftest_model_probe_succeeds(tmp_path, monkeypatch, capsys):

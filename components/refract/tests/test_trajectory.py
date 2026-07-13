@@ -162,8 +162,7 @@ def test_run_trajectory_happy_path(monkeypatch, tmp_path):
 
     def fake_run(model, prompt, kv, **_kw):
         call_order.append((prompt, kv.label()))
-        # Reference call first per prompt, then candidate. Trajectory v0.1.4
-        # alternates ref/cand in run_trajectory().
+        # Trajectory batches all reference calls before all candidate calls.
         is_ref = "f16" in kv.label()
         return (ref_tokens if is_ref else cand_tokens, {"n_tokens": 0})
 
@@ -181,13 +180,13 @@ def test_run_trajectory_happy_path(monkeypatch, tmp_path):
     )
 
     # Both prompts diverge at step 5 ⇒ prefix_agreement_length = 5
-    # mean_cand_length = 8, score = 100 * 5 / 8 = 62.5
+    # Per-prompt comparison length = max(ref=10, cand=8), so score = 5/10.
     assert res.n_prompts == 2
     assert res.full_match_rate == 0.0
     assert res.mean_prefix_agreement_length == 5.0
     assert res.mean_cand_length == 8.0
     assert res.median_first_divergence == 5
-    assert res.score == pytest.approx(62.5)
+    assert res.score == pytest.approx(50.0)
     # Per-prompt diagnostics carry token-ID lists, not text — the v0.1.4 fix.
     assert res.per_prompt[0]["ref_token_ids"] == ref_tokens
     assert res.per_prompt[0]["cand_token_ids"] == cand_tokens

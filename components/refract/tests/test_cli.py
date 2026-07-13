@@ -17,6 +17,7 @@ import refract.cli as cli
 from refract.cli import (
     _ensure_wikitext_2,
     _resolve_default_paths,
+    _resolve_default_prompts,
     _run_compare,
     _run_fetch,
     _stub_gtm,
@@ -72,6 +73,38 @@ def test_top_level_help_lists_subcommands(capsys):
     out = capsys.readouterr().out
     for cmd in ("score", "selftest", "compare", "fetch", "repeatability"):
         assert cmd in out
+
+
+def test_repeatability_parser_uses_score_input_defaults(monkeypatch):
+    captured = {}
+
+    def fake_run_repeatability(args):
+        captured.update(vars(args))
+        return 0
+
+    monkeypatch.setattr(cli, "_run_repeatability", fake_run_repeatability)
+    rc = main([
+        "repeatability",
+        "--model", "model.gguf",
+        "--candidate", "ctk=q8_0,ctv=q8_0",
+        "--no-auto-fetch",
+    ])
+    assert rc == 0
+    assert captured["prompts"] is None
+    assert captured["corpus"] is None
+    assert captured["rniah_haystack"] is None
+    assert captured["no_auto_fetch"] is True
+
+
+@pytest.mark.parametrize("runs", ["0", "-1"])
+def test_repeatability_parser_rejects_non_positive_runs(runs):
+    with pytest.raises(SystemExit):
+        main([
+            "repeatability",
+            "--model", "model.gguf",
+            "--candidate", "ctk=q8_0,ctv=q8_0",
+            "--runs", runs,
+        ])
 
 
 # --- _ensure_wikitext_2 (mock urlretrieve + zipfile) ---------------------
@@ -158,6 +191,99 @@ def test_resolve_default_paths_uses_cache_when_present(tmp_path, monkeypatch, ca
     assert args.rniah_haystack == target / "wiki.train.raw"
 
 
+def test_resolve_default_paths_fetches_into_active_cache(tmp_path, monkeypatch):
+    cache = tmp_path / "cache"
+    calls = []
+
+    def fake_ensure(*, cache_dir, silent=False):
+        calls.append((cache_dir, silent))
+        target = cache_dir / "wikitext-2-raw"
+        target.mkdir(parents=True)
+        (target / "wiki.test.raw").write_text("test")
+        (target / "wiki.train.raw").write_text("train")
+        return target
+
+    args = argparse.Namespace(
+        corpus=None, rniah_haystack=None, no_auto_fetch=False,
+    )
+    monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
+    monkeypatch.setattr(cli, "_ensure_wikitext_2", fake_ensure)
+
+    _resolve_default_paths(args, need_corpus=True, need_haystack=True)
+    assert calls == [(cache, False)]
+    assert args.corpus == cache / "wikitext-2-raw" / "wiki.test.raw"
+    assert args.rniah_haystack == cache / "wikitext-2-raw" / "wiki.train.raw"
+
+
+def test_resolve_default_paths_accepts_partial_cache_for_quick_run(
+    tmp_path, monkeypatch
+):
+    cache = tmp_path / "cache"
+    target = cache / "wikitext-2-raw"
+    target.mkdir(parents=True)
+    (target / "wiki.test.raw").write_text("test")
+    args = argparse.Namespace(
+        corpus=None, rniah_haystack=None, no_auto_fetch=True,
+    )
+    monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
+    monkeypatch.setattr(
+        cli, "_ensure_wikitext_2",
+        lambda *a, **kw: pytest.fail("partial cache should not download"),
+    )
+
+    _resolve_default_paths(args, need_corpus=True, need_haystack=False)
+    assert args.corpus == target / "wiki.test.raw"
+    assert args.rniah_haystack is None
+
+
+def test_resolve_default_paths_offline_error_names_missing_haystack(
+    tmp_path, monkeypatch
+):
+    cache = tmp_path / "cache"
+    target = cache / "wikitext-2-raw"
+    target.mkdir(parents=True)
+    (target / "wiki.test.raw").write_text("test")
+    args = argparse.Namespace(
+        corpus=None, rniah_haystack=None, no_auto_fetch=True,
+    )
+    monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
+
+    with pytest.raises(SystemExit) as exc:
+        _resolve_default_paths(args, need_corpus=True, need_haystack=True)
+    message = str(exc.value)
+    assert "--rniah-haystack" in message
+    assert "--corpus" not in message
+
+
+# --- _resolve_default_prompts --------------------------------------------
+
+
+def test_resolve_default_prompts_preserves_explicit_path(tmp_path):
+    prompts = tmp_path / "custom.jsonl"
+    args = argparse.Namespace(prompts=prompts)
+    assert _resolve_default_prompts(args) is True
+    assert args.prompts == prompts
+
+
+def test_resolve_default_prompts_uses_packaged_file():
+    args = argparse.Namespace(prompts=None)
+    assert _resolve_default_prompts(args) is True
+    assert args.prompts.name == "v0.1.jsonl"
+    assert args.prompts.is_file()
+
+
+def test_resolve_default_prompts_reports_missing_resource(monkeypatch, capsys):
+    import importlib.resources
+
+    monkeypatch.setattr(
+        importlib.resources, "files",
+        lambda package: (_ for _ in ()).throw(FileNotFoundError("missing")),
+    )
+    args = argparse.Namespace(prompts=None)
+    assert _resolve_default_prompts(args) is False
+    assert "Pass --prompts" in capsys.readouterr().out
+
+
 # --- _run_fetch ----------------------------------------------------------
 
 
@@ -171,6 +297,20 @@ def test_run_fetch_idempotent(tmp_path, capsys):
     assert rc == 0
     out = capsys.readouterr().out
     assert "wiki.test.raw" in out
+    assert "not auto-discovered" in out
+
+
+def test_run_fetch_default_cache_reports_auto_discovery(
+    tmp_path, monkeypatch, capsys
+):
+    target = tmp_path / "wikitext-2-raw"
+    target.mkdir()
+    (target / "wiki.test.raw").write_text("t")
+    (target / "wiki.train.raw").write_text("t")
+    monkeypatch.setattr(cli, "_REFRACT_CACHE", tmp_path)
+
+    assert _run_fetch(argparse.Namespace(cache_dir=tmp_path)) == 0
+    assert "will auto-find" in capsys.readouterr().out
 
 
 # --- _run_compare --------------------------------------------------------

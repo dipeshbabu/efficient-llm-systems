@@ -1,4 +1,4 @@
-# REFRACT v0.3.3
+# REFRACT v0.3.4
 
 > **BETA.** The Python package, CLI, prompts, reports, and four backends are
 > implemented and unit-tested. Backend-specific engine builds and model files
@@ -116,14 +116,14 @@ close the quantized model's behaviour stays to its fp16 self.
 Read [`research/papers/attn-rotation-and-ppl-artifact.md`](../../research/papers/attn-rotation-and-ppl-artifact.md)
 for the full motivation.
 
-## What ships in v0.3.3
+## What ships in v0.3.4
 
 Four axes, each scored 0–100 (higher is better) against the model's own
 fp16-KV reference:
 
 | Axis | Name | What it measures | Notes |
 |------|------|------------------|-------|
-| A | **Trajectory** | Token-level agreement on greedy decode (decode-time IDs, no detokenize round-trip) | v0.1.4+; replaces the buggy GTM default |
+| A | **Trajectory** | Token-level agreement on greedy decode (decode-time IDs, no detokenize round-trip) | Symmetric length normalization penalizes unilateral early stops |
 | B | **KLD@D** | Distribution-level divergence on a natural-text corpus | Bit-exact zero on Metal at ref==cand |
 | C | **R-NIAH** | Long-context retrieval quality (needle-in-haystack at multiple lengths/positions) | v0.2.0+; opt-in via `--full` |
 | D | **PLAD** | Robustness to small prompt perturbations (typo/case/punct/paraphrase) | v0.2.0+; opt-in via `--full` |
@@ -178,8 +178,6 @@ python3 -m refract.cli selftest --backend auto --model path/to/model.gguf
 python3 -m refract.cli score \
     --model path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
-    --corpus path/to/wiki.test.raw \
     --json-out report.json \
     --html-out report.html
 
@@ -187,10 +185,7 @@ python3 -m refract.cli score \
 python3 -m refract.cli score \
     --model path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
-    --corpus path/to/wiki.test.raw \
     --full \
-    --rniah-haystack path/to/wiki.train.raw \
     --rniah-ctx-max 16384 \
     --json-out report.json --html-out report.html
 
@@ -198,10 +193,15 @@ python3 -m refract.cli score \
 python3 -m refract.cli repeatability \
     --model path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
-    --corpus path/to/wiki.test.raw \
     --runs 4
 ```
+
+These commands use the prompt set bundled in the package. The corpus is
+resolved from `~/.cache/refract/` or downloaded on first use; `--full` also
+resolves the cached haystack. Explicit `--prompts`, `--corpus`, and
+`--rniah-haystack` paths remain available for pinned runs. For offline/CI
+execution, run `refract fetch` first or pass explicit paths, then add
+`--no-auto-fetch`.
 
 ## Documentation
 

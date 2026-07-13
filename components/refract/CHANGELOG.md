@@ -5,6 +5,26 @@ matrix result that motivated or validated the change.
 
 ---
 
+## v0.3.4 — symmetric trajectory scoring and repeatable defaults (2026-07-13)
+
+- Axis A now divides total prefix agreement by the per-prompt longer observed
+  reference/candidate trajectory. A unilateral early stop or continued
+  generation can no longer score 100; identical non-empty captured early-EOS
+  pairs still do.
+  The selectable legacy GTM implementation uses the same normalization.
+- The ref-vs-ref floor now runs the selected Axis A implementation and honors
+  skipped axes. Its identity guard requires every captured pair to match,
+  closing the same strict-prefix loophole in noise-floor validation.
+- `refract repeatability` now shares `score` defaults: bundled prompts,
+  cached or auto-downloaded WikiText corpus, and cached R-NIAH haystack under
+  `--full`. `--no-auto-fetch` works consistently with explicit or cached
+  inputs, including corpus-only partial caches, and non-positive run counts
+  are rejected instead of producing an empty success report.
+- Reports retain schema `refract.report.v0.3.2`; only affected Axis A and
+  composite values change, so results should be cited with framework v0.3.4.
+
+---
+
 ## v0.3.3 — repository coherence and portability (2026-07-11)
 
 - Windows-safe UTF-8 CLI/help and report output; path and newline tests are
@@ -15,7 +35,7 @@ matrix result that motivated or validated the change.
   composite when fp16 reference accuracy is below 20%.
 - Native vLLM/SGLang KLD uses a normalized top-k union plus omitted-mass
   bucket and is labeled approximate in report metadata.
-- `repeatability --full` now forwards `rniah_up_to` and all score defaults.
+- `repeatability --full` now forwards `rniah_up_to` and score execution flags.
 - Reports sanitize both POSIX and Windows home paths and use no external font
   or stylesheet resources.
 - Packaging, Apache-2.0 metadata, source dependencies, CI coverage, and

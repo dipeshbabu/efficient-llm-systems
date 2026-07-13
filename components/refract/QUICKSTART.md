@@ -144,9 +144,10 @@ Once REFRACT is installed and you're inside `components/refract/`, you need:
     ```
     python3 -m refract.cli fetch
     ```
-    Disable auto-download with `--no-auto-fetch` if you want to require
-    explicit paths (CI-friendly).
-  - The prompts JSONL ships at `src/refract/prompts/v0.1.jsonl`.
+    Disable network access with `--no-auto-fetch`; already-cached files and
+    explicit paths still work (CI-friendly).
+  - The prompts JSONL is bundled in the package. `--prompts` is optional and
+    remains available when you want to pin a custom prompt set.
 
 ## Constrained VRAM? Pass extra llama.cpp flags
 
@@ -204,15 +205,15 @@ finding out your setup is broken.
 python3 -m refract.cli score \
     --model /path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
     --json-out my-first-report.json \
     --html-out my-first-report.html
 ```
 
-`--corpus` is auto-resolved from `~/.cache/refract/` (downloaded on
-first run). This runs Trajectory + KLD@D — the two cheap axes. You'll
-get a composite score, a band (EXCELLENT/PASS/DEGRADED/FAIL), and a
-plain-English diagnosis of what the per-axis pattern means.
+The bundled prompt set is used automatically, and `--corpus` is resolved
+from `~/.cache/refract/` (downloaded on first run). This runs Trajectory +
+KLD@D — the two cheap axes. You'll get a composite score, a band
+(EXCELLENT/PASS/DEGRADED/FAIL), and a plain-English diagnosis of what the
+per-axis pattern means.
 
 ## Step 4 — full audit (25–30 min on a 7B Q8)
 
@@ -222,7 +223,6 @@ Add `--full`. Both haystack file and corpus are auto-resolved from the cache.
 python3 -m refract.cli score \
     --model /path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
     --full \
     --rniah-up-to 16384 \
     --json-out my-full-report.json \
@@ -258,7 +258,6 @@ Discord, or open offline:
 python3 -m refract.cli score \
     --model /path/to/model.gguf \
     --candidate "ctk=q8_0,ctv=q8_0" \
-    --prompts src/refract/prompts/v0.1.jsonl \
     --json-out report.json \
     --html-out report.html
 ```
@@ -345,6 +344,20 @@ Override default with `--backend mlx` (or `REFRACT_BACKEND=mlx`).
   numbers; the cell is recorded as `skipped_perturbations` in JSON.
 
 ## Reproducibility
+
+Run the same configuration repeatedly without restating the default inputs:
+
+```
+python3 -m refract.cli repeatability \
+    --model /path/to/model.gguf \
+    --candidate "ctk=q8_0,ctv=q8_0" \
+    --runs 4
+```
+
+`repeatability` uses the same bundled prompts and cached/auto-downloaded
+corpus as `score`. Add `--full` to include R-NIAH and PLAD; the haystack is
+resolved from cached `wiki.train.raw`. Explicit paths and `--no-auto-fetch`
+have the same meaning on both commands.
 
 Reports embed:
   - `framework_version` (REFRACT version)

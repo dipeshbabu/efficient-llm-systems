@@ -24,7 +24,7 @@ Backend selection
 
 Override via env var ``REFRACT_BACKEND``.
 
-Status (v0.3.3):
+Status (v0.3.4):
 
   - llamacpp: production (primary dev target on macOS Apple Silicon
               + Linux Ubuntu via the patched binary)

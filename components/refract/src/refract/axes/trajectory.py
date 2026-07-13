@@ -13,10 +13,14 @@ patched ``llama-completion`` (REFRACT_TRAJECTORY env var → JSONL stream of
 ``{"step":N,"token_id":ID}`` records). No detokenize, no retokenize, no
 whitespace-vs-model-token unit mismatch.
 
-Score mapping (v0.1.4):
-    Trajectory_score = 100 * mean_prefix_agreement_steps / mean_cand_steps
+Score mapping (v0.3.4):
+    Trajectory_score = 100 * sum(prefix_agreement_steps)
+                           / sum(max(ref_steps, cand_steps))
 
-where both quantities are in true model-token units. Bounded in [0, 1] by
+where all quantities are in true model-token units and the denominator is
+computed per prompt before aggregation. A unilateral early stop or continued
+generation is therefore penalized symmetrically; identical non-empty captured
+trajectories that reach EOS together still score 100. Bounded in [0, 100] by
 construction.
 
 Diagnostics returned alongside the score:
@@ -194,8 +198,12 @@ def run_trajectory(
     mean_prefix = sum(prefix_lens) / n if n else 0.0
     mean_cand = sum(cand_lens) / n if n else 0.0
     mean_ref = sum(ref_lens) / n if n else 0.0
-    if mean_cand > 0:
-        score = 100.0 * (mean_prefix / mean_cand)
+    comparison_steps = sum(
+        max(ref_len, cand_len)
+        for ref_len, cand_len in zip(ref_lens, cand_lens)
+    )
+    if comparison_steps > 0:
+        score = 100.0 * (sum(prefix_lens) / comparison_steps)
     else:
         score = 0.0
     score = max(0.0, min(100.0, score))
@@ -211,6 +219,16 @@ def run_trajectory(
             f"{short_cands}/{n} candidates stopped before n_predict={n_predict} "
             f"(EOS or other stop condition). Per-prompt cand_length records "
             f"the actual decoded length."
+        )
+    length_mismatches = sum(
+        1 for ref_len, cand_len in zip(ref_lens, cand_lens)
+        if ref_len != cand_len
+    )
+    if length_mismatches > 0:
+        notes.append(
+            f"{length_mismatches}/{n} reference/candidate trajectory lengths "
+            f"differed. Length mismatches are penalized against the longer "
+            f"trajectory for each prompt."
         )
 
     return TrajectoryResult(

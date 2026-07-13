@@ -5,14 +5,15 @@ reference (fp16-KV) and the candidate config. Compare token sequences via
 the model's own tokenizer (``llama-tokenize``) so the units match
 ``--n-predict``.
 
-Score mapping (v0.1.3):
-    GTM_score = 100 * mean_prefix_agreement_length / mean_cand_length
+Score mapping (v0.3.4):
+    GTM_score = 100 * sum(prefix_agreement_length)
+                      / sum(max(ref_length, cand_length))
 
-i.e. "fraction of the candidate's generated text that matches the
-reference," bounded in [0, 1] regardless of how detokenize→retokenize
-inflates token counts. Earlier versions divided by ``n_predict``, which
-broke when re-tokenizing chain-of-thought outputs returned more tokens than
-the model decoded (gemma-31B v0.1.2 hit a 2.87× inflation factor).
+The denominator is computed per prompt before aggregation, so either side
+ending early is penalized and only identical sequences score 100. Using the
+longer observed sequence also keeps the score bounded when
+detokenize→retokenize inflates token counts. Earlier versions normalized by
+``n_predict`` and then by candidate length alone.
 
 We additionally report:
     full_match_rate                    (binary, diagnostic only)
@@ -184,14 +185,17 @@ def run_gtm(
     mean_prefix = sum(prefix_lens) / n if n else 0.0
     mean_cand = sum(cand_lens) / n if n else 0.0
     mean_ref = sum(ref_lens) / n if n else 0.0
-    # v0.1.3 score: divide by mean_cand_length (the candidate's actual
-    # retokenized length), NOT by n_predict. This is "fraction of the
-    # candidate's generated text that matches the reference," bounded in
-    # [0, 1] regardless of detokenize→retokenize inflation. Earlier versions
-    # divided by n_predict and tripped a unit mismatch when retokenize
-    # produced more tokens than the model decoded.
-    if mean_cand > 0:
-        score = 100.0 * (mean_prefix / mean_cand)
+    # v0.3.4 score: normalize each prompt against the longer observed
+    # sequence before aggregation. Candidate-only normalization let a strict
+    # candidate prefix score 100; aggregating max(ref_len, cand_len) makes
+    # early stops symmetric and prevents opposite-direction mismatches from
+    # cancelling across prompts.
+    comparison_tokens = sum(
+        max(ref_len, cand_len)
+        for ref_len, cand_len in zip(ref_lens, cand_lens)
+    )
+    if comparison_tokens > 0:
+        score = 100.0 * (sum(prefix_lens) / comparison_tokens)
     else:
         score = 0.0
     score = max(0.0, min(100.0, score))
@@ -206,7 +210,17 @@ def run_gtm(
             f"detokenize→retokenize inflated candidate length: "
             f"mean_cand_length={mean_cand:.1f} vs n_predict={n_predict} "
             f"(ratio {mean_cand / n_predict:.2f}). Score normalized by "
-            f"mean_cand_length to stay bounded."
+            f"the longer reference/candidate sequence per prompt."
+        )
+    length_mismatches = sum(
+        1 for ref_len, cand_len in zip(ref_lens, cand_lens)
+        if ref_len != cand_len
+    )
+    if length_mismatches > 0:
+        notes.append(
+            f"{length_mismatches}/{n} reference/candidate tokenized lengths "
+            f"differed. Length mismatches are penalized against the longer "
+            f"sequence for each prompt."
         )
 
     return GTMResult(

@@ -1,6 +1,6 @@
 [project]
 name = "refract-llm"
-version = "0.3.3"
+version = "0.3.4"
 description = "REFRACT — Reference-anchored Robust Acid-test for Compressed Transformers. Multi-axis KV-cache fidelity scoring for LLMs across llama.cpp, MLX, vLLM, and SGLang."
 readme = "README.md"
 license = "Apache-2.0"

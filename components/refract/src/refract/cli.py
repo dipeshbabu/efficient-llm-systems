@@ -5,8 +5,6 @@ Usage:
         --model MODEL.gguf \\
         --reference "ctk=f16,ctv=f16" \\
         --candidate "ctk=q8_0,ctv=turbo4,attn_rot_v=0" \\
-        --prompts src/refract/prompts/v0.1.jsonl \\
-        --corpus ~/local_llms/llama.cpp/wikitext-2-raw/wiki.test.raw \\
         --chunks 32 -c 512 -ngl 99
 """
 
@@ -58,9 +56,10 @@ Four axes (A and B are cheap and run by default; C and D are opt-in):
   A — GTM / Trajectory  Greedy Trajectory Match.
                         Greedy-decode N tokens from each prompt under both
                         the reference and candidate KV configs; compare the
-                        emitted token IDs. Score = fraction of the candidate's
-                        decoded tokens that match the reference. Catches "the
-                        candidate generates different text" failures.
+                        emitted token IDs. Score = shared prefix divided by
+                        the longer reference/candidate trajectory for each
+                        prompt. Catches token drift and unilateral early-stop
+                        failures.
 
   B — KLD@D             KL Divergence at the Decoder.
                         Per-token KL between the candidate's next-token
@@ -100,19 +99,14 @@ Examples:
     python3 -m refract.cli score \\
         --model model.gguf \\
         --candidate "ctk=q8_0,ctv=q8_0" \\
-        --prompts src/refract/prompts/v0.1.jsonl \\
-        --corpus  ~/local_llms/llama.cpp/wikitext-2-raw/wiki.test.raw \\
         --axis-a trajectory
 
   Full audit (all four axes):
     python3 -m refract.cli score \\
         --model model.gguf \\
         --candidate "ctk=q8_0,ctv=turbo4" \\
-        --prompts src/refract/prompts/v0.1.jsonl \\
-        --corpus  ~/local_llms/llama.cpp/wikitext-2-raw/wiki.test.raw \\
         --axis-a trajectory \\
         --full \\
-        --rniah-haystack ~/local_llms/llama.cpp/wikitext-2-raw/wiki.train.raw \\
         --rniah-ctx-max 16384 \\
         --json-out report.json
 
@@ -149,7 +143,7 @@ def _ensure_wikitext_2(cache_dir: Path = _REFRACT_CACHE,
     target = cache_dir / "wikitext-2-raw"
     test_p = target / "wiki.test.raw"
     train_p = target / "wiki.train.raw"
-    if test_p.exists() and train_p.exists():
+    if test_p.is_file() and train_p.is_file():
         return target
 
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -165,7 +159,7 @@ def _ensure_wikitext_2(cache_dir: Path = _REFRACT_CACHE,
         zip_path.unlink()
     except OSError:
         pass
-    if not test_p.exists() or not train_p.exists():
+    if not test_p.is_file() or not train_p.is_file():
         raise RuntimeError(
             f"Wikitext-2 unzip didn't produce expected files at {target}. "
             f"Inspect {cache_dir} or fetch manually."
@@ -178,9 +172,9 @@ def _ensure_wikitext_2(cache_dir: Path = _REFRACT_CACHE,
 def _resolve_default_paths(args, *, need_corpus: bool, need_haystack: bool):
     """Auto-resolve --corpus and --rniah-haystack from the wikitext-2 cache.
 
-    If the cache is missing AND ``--no-auto-fetch`` is NOT set, this
-    triggers a one-time wikitext-2 download. With ``--no-auto-fetch``,
-    raises with a clear remediation message.
+    If a required cached file is missing and ``--no-auto-fetch`` is not set,
+    this triggers a one-time wikitext-2 download. With ``--no-auto-fetch``,
+    it raises with a clear remediation message.
     """
     if not (need_corpus or need_haystack):
         return
@@ -190,22 +184,80 @@ def _resolve_default_paths(args, *, need_corpus: bool, need_haystack: bool):
         return
     no_fetch = bool(getattr(args, "no_auto_fetch", False))
     target = _REFRACT_CACHE / "wikitext-2-raw"
-    have_cache = (target / "wiki.test.raw").exists() and (target / "wiki.train.raw").exists()
-    if not have_cache:
+    default_corpus = target / "wiki.test.raw"
+    default_haystack = target / "wiki.train.raw"
+    missing_corpus = need_corpus and not have_corpus and not default_corpus.is_file()
+    missing_haystack = (
+        need_haystack and not have_haystack and not default_haystack.is_file()
+    )
+    if missing_corpus or missing_haystack:
         if no_fetch:
+            missing_flags = []
+            if missing_corpus:
+                missing_flags.append("--corpus")
+            if missing_haystack:
+                missing_flags.append("--rniah-haystack")
             raise SystemExit(
-                "Missing --corpus (and/or --rniah-haystack) and "
-                "--no-auto-fetch was passed. Either pass paths explicitly "
-                "or drop --no-auto-fetch to let REFRACT download "
-                "wikitext-2-raw to ~/.cache/refract/ (~10MB)."
+                f"Missing cached default for {' and '.join(missing_flags)} "
+                f"while --no-auto-fetch is set. Pass the missing path "
+                f"explicitly, run `refract fetch` ahead of time, or omit "
+                f"--no-auto-fetch to download wikitext-2-raw (~10MB)."
             )
-        _ensure_wikitext_2()
+        _ensure_wikitext_2(cache_dir=_REFRACT_CACHE)
     if need_corpus and not have_corpus:
-        args.corpus = target / "wiki.test.raw"
+        args.corpus = default_corpus
         print(f"  using cached corpus  : {args.corpus}")
     if need_haystack and not have_haystack:
-        args.rniah_haystack = target / "wiki.train.raw"
+        args.rniah_haystack = default_haystack
         print(f"  using cached haystack: {args.rniah_haystack}")
+
+
+def _resolve_default_prompts(args) -> bool:
+    """Resolve the bundled prompt set unless the user supplied a path."""
+    if getattr(args, "prompts", None) is not None:
+        return True
+    try:
+        import importlib.resources
+
+        resource = importlib.resources.files("refract").joinpath(
+            "prompts/v0.1.jsonl"
+        )
+        if not resource.is_file():
+            raise FileNotFoundError(resource)
+        args.prompts = Path(str(resource))
+    except Exception as e:
+        print(
+            f"ERROR: --prompts not given and bundled prompts not found "
+            f"({e}). Pass --prompts /path/to/prompts.jsonl explicitly."
+        )
+        return False
+    return True
+
+
+_PROMPTS_HELP = (
+    "Path to JSONL prompts file. If omitted, REFRACT uses the bundled "
+    "prompt set shipped in the wheel (30 CC0 prompts; see prompts/README.md)."
+)
+_CORPUS_HELP = (
+    "Path to plain-text corpus for KLD axis. If omitted, REFRACT "
+    "auto-downloads wikitext-2-raw (~10MB) to ~/.cache/refract/ and uses "
+    "wiki.test.raw. Pass --no-auto-fetch to disable downloading."
+)
+_NO_AUTO_FETCH_HELP = (
+    "Disable downloading wikitext-2-raw. Explicit paths and files already "
+    "present in ~/.cache/refract/ are still accepted."
+)
+
+
+def _positive_int(value: str) -> int:
+    """Argparse type for counts that must be at least one."""
+    try:
+        parsed = int(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"expected an integer, got {value!r}") from e
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("value must be at least 1")
+    return parsed
 
 
 def _add_score_parser(sub):
@@ -224,18 +276,11 @@ def _add_score_parser(sub):
     p.add_argument("--candidate", required=True,
                    help="Candidate KV config to score.")
     p.add_argument("--prompts", type=Path, default=None,
-                   help="Path to JSONL prompts file. If omitted, REFRACT uses "
-                        "the bundled prompt set shipped in the "
-                        "wheel (30 CC0 prompts; see prompts/README.md).")
+                   help=_PROMPTS_HELP)
     p.add_argument("--corpus", type=Path, default=None,
-                   help="Path to plain-text corpus for KLD axis. "
-                        "If omitted, REFRACT auto-downloads wikitext-2-raw "
-                        "(~10MB) to ~/.cache/refract/ and uses wiki.test.raw. "
-                        "Pass --no-auto-fetch to require an explicit path.")
+                   help=_CORPUS_HELP)
     p.add_argument("--no-auto-fetch", action="store_true",
-                   help="Disable auto-download of wikitext-2-raw. Requires "
-                        "--corpus and --rniah-haystack to be passed "
-                        "explicitly.")
+                   help=_NO_AUTO_FETCH_HELP)
     p.add_argument("--chunks", type=int, default=32,
                    help="--chunks for llama-perplexity (default: 32).")
     p.add_argument("-c", "--ctx", type=int, default=512,
@@ -268,12 +313,13 @@ def _add_score_parser(sub):
                         "Override via REFRACT_BACKEND env var.")
     p.add_argument("--full", action="store_true",
                    help="Enable all v0.2 axes (R-NIAH + PLAD). Equivalent to "
-                        "passing --axis-rniah --axis-plad. R-NIAH still "
-                        "requires --rniah-haystack and --rniah-ctx-max.")
+                        "passing --axis-rniah --axis-plad. R-NIAH uses the "
+                        "cached/auto-downloaded haystack and defaults its "
+                        "context ceiling to --rniah-up-to.")
     p.add_argument("--axis-rniah", action="store_true",
                    help="Enable Axis C (R-NIAH, v0.2). Probes long-context "
-                        "retrieval degradation. Requires --rniah-haystack "
-                        "(auto-resolved from cache when omitted). Cost: "
+                        "retrieval degradation. Uses --rniah-haystack or "
+                        "auto-resolves it from cache when omitted. Cost: "
                         "~10–15 min on a 7B Q8 at 16K, scaling roughly "
                         "linearly with max length.")
     p.add_argument("--rniah-haystack", type=Path, default=None,
@@ -323,21 +369,15 @@ def _run_score(args) -> int:
     from .backends import auto_backend, get_backend
     from .runner import set_active_backend
 
-    # If --prompts wasn't passed, fall back to the bundled prompts file
-    # shipped inside the wheel via package_data.
-    if args.prompts is None:
-        try:
-            import importlib.resources
-            args.prompts = Path(
-                str(importlib.resources.files("refract").joinpath(
-                    "prompts/v0.1.jsonl"))
-            )
-        except Exception as e:
-            print(
-                f"ERROR: --prompts not given and bundled prompts not found "
-                f"({e}). Pass --prompts /path/to/prompts.jsonl explicitly."
-            )
-            return 2
+    if args.measure_floor and args.skip_gtm and args.skip_kld:
+        print(
+            "ERROR: --measure-floor requires at least one active default "
+            "axis; do not combine it with both --skip-gtm and --skip-kld."
+        )
+        return 2
+
+    if not _resolve_default_prompts(args):
+        return 2
 
     ref_kv = KVConfig.parse(args.reference)
     cand_kv = KVConfig.parse(args.candidate)
@@ -398,51 +438,66 @@ def _run_score(args) -> int:
     floor_score = None
     if args.measure_floor:
         print("Measuring noise floor: REFRACT(ref, ref) ...")
-        floor_gtm = run_gtm(
-            model=args.model, reference_kv=ref_kv, candidate_kv=ref_kv,
-            prompts_path=args.prompts, n_predict=args.n_predict,
-            ctx=args.ctx, n_gpu_layers=args.n_gpu_layers, seed=args.seed,
-            progress=not args.no_progress,
+        floor_axis_a = None
+        floor_axis_a_label = args.axis_a
+        if not args.skip_gtm:
+            floor_axis_runner = (
+                run_trajectory if args.axis_a == "trajectory" else run_gtm
+            )
+            floor_axis_a = floor_axis_runner(
+                model=args.model, reference_kv=ref_kv, candidate_kv=ref_kv,
+                prompts_path=args.prompts, n_predict=args.n_predict,
+                ctx=args.ctx, n_gpu_layers=args.n_gpu_layers, seed=args.seed,
+                progress=not args.no_progress,
+            )
+
+        floor_kld = None
+        if not args.skip_kld:
+            floor_kld = run_kld(
+                model=args.model, corpus=args.corpus,
+                reference_kv=ref_kv, candidate_kv=ref_kv,
+                chunks=args.chunks, ctx=args.ctx,
+                n_gpu_layers=args.n_gpu_layers,
+                progress=not args.no_progress,
+            )
+
+        floor_composite = composite_score(
+            floor_axis_a.score if floor_axis_a is not None else None,
+            floor_kld.score if floor_kld is not None else None,
         )
-        floor_kld = run_kld(
-            model=args.model, corpus=args.corpus,
-            reference_kv=ref_kv, candidate_kv=ref_kv,
-            chunks=args.chunks, ctx=args.ctx,
-            n_gpu_layers=args.n_gpu_layers,
-            progress=not args.no_progress,
-        )
-        floor_composite = composite_score(floor_gtm.score, floor_kld.score)
         floor_score = floor_composite.composite
-        print(f"  floor: {floor_score:.2f} (gtm={floor_gtm.score:.2f}, "
-              f"kld={floor_kld.score:.2f}, kld nats={floor_kld.mean_kld:.6f})")
+        floor_details = []
+        if floor_axis_a is not None:
+            floor_details.append(
+                f"{floor_axis_a_label}={floor_axis_a.score:.2f}"
+            )
+        if floor_kld is not None:
+            floor_details.extend([
+                f"kld={floor_kld.score:.2f}",
+                f"kld nats={floor_kld.mean_kld:.6f}",
+            ])
+        print(f"  floor: {floor_score:.2f} ({', '.join(floor_details)})")
         if floor_score < MIN_FLOOR:
             print()
             print(f"ERROR: noise floor {floor_score:.2f} < {MIN_FLOOR}.")
-            print("The reference itself is non-deterministic on this build.")
-            print("KLD deltas vs this reference cannot be trusted. Aborting.")
+            print("An active reference axis is non-deterministic on this build.")
+            print("Scores against this reference cannot be trusted. Aborting.")
             return 2
-        # v0.1.3: composite-level floor passes if KLD is ~100 (bit-exact zero
-        # on Metal) even when GTM is in a "high-score broken" state. Add a
-        # GTM-level byte-identity check: ref-vs-ref greedy must match for
-        # the FULL retokenized candidate length on every prompt. If
-        # mean_prefix != mean_cand, the tokenizer or runner is broken.
-        if floor_gtm.mean_cand_length > 0:
-            ratio = (
-                floor_gtm.mean_prefix_agreement_length
-                / floor_gtm.mean_cand_length
-            )
-        else:
-            ratio = 0.0
-        if abs(ratio - 1.0) > 1e-9:
+        # A composite-level floor can pass when KLD is bit-exact even if Axis A
+        # is broken. Require every selected ref-vs-ref trajectory to be
+        # identical instead of inferring identity from aggregate lengths.
+        if (
+            floor_axis_a is not None
+            and abs(floor_axis_a.full_match_rate - 1.0) > 1e-9
+        ):
             print()
             print(
-                f"ERROR: GTM ref-vs-ref ratio = {ratio:.6f} (expected 1.0). "
-                f"mean_prefix={floor_gtm.mean_prefix_agreement_length:.2f}, "
-                f"mean_cand_length={floor_gtm.mean_cand_length:.2f}."
+                f"ERROR: {floor_axis_a_label} ref-vs-ref full_match_rate = "
+                f"{floor_axis_a.full_match_rate:.6f} (expected 1.0)."
             )
             print(
-                "GTM ref-vs-ref isn't byte-identical, your tokenizer or "
-                "runner is broken. Aborting."
+                f"{floor_axis_a_label} ref-vs-ref isn't token-identical; "
+                f"the runner or backend is non-deterministic. Aborting."
             )
             return 2
         print()
@@ -904,13 +959,16 @@ def _add_fetch_parser(sub):
             "Pre-fetch the wikitext-2-raw corpus (10MB zip → wiki.test.raw "
             "+ wiki.train.raw) into ~/.cache/refract/. Subsequent score / "
             "repeatability invocations will auto-find these files when "
-            "--corpus / --rniah-haystack are omitted.\n\n"
+            "--corpus / --rniah-haystack are omitted. Custom cache "
+            "directories require explicit input paths.\n\n"
             "Idempotent: re-running with the cache already populated is a "
             "no-op. Skips any download if files already exist."
         ),
     )
     p.add_argument("--cache-dir", type=Path, default=_REFRACT_CACHE,
-                   help=f"Override cache location (default: {_REFRACT_CACHE}).")
+                   help=f"Override cache location (default: {_REFRACT_CACHE}). "
+                        "Custom locations are not auto-discovered by score "
+                        "or repeatability.")
     return p
 
 
@@ -920,7 +978,16 @@ def _run_fetch(args) -> int:
     print(f"  test  : {target / 'wiki.test.raw'}")
     print(f"  train : {target / 'wiki.train.raw'}")
     print()
-    print("`refract score` will auto-find these when --corpus / --rniah-haystack are omitted.")
+    if args.cache_dir.resolve() == _REFRACT_CACHE.resolve():
+        print(
+            "`refract score` and `refract repeatability` will auto-find "
+            "these when --corpus / --rniah-haystack are omitted."
+        )
+    else:
+        print(
+            "Custom cache directories are not auto-discovered. Pass the "
+            "paths above via --corpus and --rniah-haystack."
+        )
     return 0
 
 
@@ -933,15 +1000,20 @@ def _add_repeatability_parser(sub):
             "candidate. Runs ``score`` N times back-to-back, then prints "
             "min/median/max + stdev for the composite and each axis. "
             "Healthy framework: composite stdev ≤ 1.0, per-axis stdev ≤ 2.0 "
-            "(R-NIAH may be noisier on n_trials=1)."
+            "(R-NIAH may be noisier on n_trials=1). Uses the same bundled "
+            "prompts and cached/auto-downloaded corpus defaults as score."
         ),
     )
     p.add_argument("--model", required=True, type=Path)
     p.add_argument("--candidate", required=True)
     p.add_argument("--reference", default="ctk=f16,ctv=f16")
-    p.add_argument("--prompts", required=True, type=Path)
-    p.add_argument("--corpus", required=True, type=Path)
-    p.add_argument("--runs", type=int, default=4,
+    p.add_argument("--prompts", type=Path, default=None,
+                   help=_PROMPTS_HELP)
+    p.add_argument("--corpus", type=Path, default=None,
+                   help=_CORPUS_HELP)
+    p.add_argument("--no-auto-fetch", action="store_true",
+                   help=_NO_AUTO_FETCH_HELP)
+    p.add_argument("--runs", type=_positive_int, default=4,
                    help="Number of repeat runs (default: 4).")
     p.add_argument("--n-predict", type=int, default=50)
     p.add_argument("--ctx", "-c", type=int, default=512)
@@ -954,7 +1026,10 @@ def _add_repeatability_parser(sub):
     p.add_argument("--axis-a", choices=["gtm", "trajectory"], default="trajectory")
     p.add_argument("--full", action="store_true",
                    help="Include R-NIAH + PLAD in each repeat run.")
-    p.add_argument("--rniah-haystack", type=Path, default=None)
+    p.add_argument("--rniah-haystack", type=Path, default=None,
+                   help="Long-text corpus for R-NIAH. With --full, omitted "
+                        "paths use cached wiki.train.raw (downloaded when "
+                        "needed unless --no-auto-fetch is set).")
     p.add_argument("--rniah-ctx-max", type=int, default=None)
     p.add_argument("--rniah-up-to", type=int, default=16384,
                    help="Maximum R-NIAH context when --full is used.")
@@ -974,6 +1049,17 @@ def _run_repeatability(args) -> int:
     from . import __version__
     from .backends import auto_backend, get_backend
     from .runner import set_active_backend
+
+    if args.runs < 1:
+        print("ERROR: --runs must be at least 1.")
+        return 2
+
+    if not _resolve_default_prompts(args):
+        return 2
+    full = bool(getattr(args, "full", False))
+    _resolve_default_paths(
+        args, need_corpus=True, need_haystack=full,
+    )
 
     # Set backend up front so all runs share it
     backend = (auto_backend(args.model) if args.backend == "auto"
@@ -1001,16 +1087,16 @@ def _run_repeatability(args) -> int:
         chunks=args.chunks, ctx=args.ctx, n_gpu_layers=args.n_gpu_layers,
         n_predict=args.n_predict, seed=args.seed,
         measure_floor=False, skip_gtm=False, skip_kld=False,
-        axis_a=args.axis_a, full=args.full,
-        axis_rniah=args.full,
+        axis_a=args.axis_a, full=full,
+        axis_rniah=full,
         rniah_haystack=args.rniah_haystack,
         rniah_ctx_max=args.rniah_ctx_max,
         rniah_up_to=getattr(args, "rniah_up_to", 16384),
         rniah_lengths=None, rniah_positions=None, rniah_trials=1,
-        axis_plad=args.full,
+        axis_plad=full,
         json_out=None, html_out=None, no_progress=True,
         backend=args.backend,
-        no_auto_fetch=False,
+        no_auto_fetch=bool(getattr(args, "no_auto_fetch", False)),
     )
 
     for i in range(1, args.runs + 1):

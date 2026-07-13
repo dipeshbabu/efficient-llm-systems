@@ -69,10 +69,76 @@ def test_run_gtm_partial_divergence(tmp_path, monkeypatch):
         model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
         prompts_path=pp, n_predict=10, progress=False,
     )
-    # prefix=2, mean_cand=4 → score 50
+    # prefix=2, comparison length=4 → score 50
     assert res.score == pytest.approx(50.0)
     assert res.full_match_rate == 0.0
     assert res.median_first_divergence == 2
+
+
+@pytest.mark.parametrize(
+    ("ref_tokens", "cand_tokens", "expected_score", "expected_divergence"),
+    [
+        ([1, 2, 3, 4], [1, 2], 50.0, 2),
+        ([1, 2], [1, 2, 3, 4], 50.0, 2),
+        ([1, 2], [], 0.0, 0),
+        ([], [1, 2], 0.0, 0),
+    ],
+)
+def test_run_gtm_strict_prefix_is_penalized_symmetrically(
+    tmp_path, monkeypatch, ref_tokens, cand_tokens,
+    expected_score, expected_divergence,
+):
+    pp = tmp_path / "p.jsonl"
+    _write_prompts(pp, [{"id": "p1", "prompt": "x"}])
+    completions = iter(["ref", "cand"])
+    monkeypatch.setattr(
+        "refract.axes.gtm.run_completion",
+        lambda **kw: (next(completions), {}),
+    )
+    monkeypatch.setattr(
+        "refract.axes.gtm.tokenize_to_ids",
+        lambda model, text: ref_tokens if text == "ref" else cand_tokens,
+    )
+
+    res = run_gtm(
+        model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
+        prompts_path=pp, n_predict=10, progress=False,
+    )
+    assert res.score == pytest.approx(expected_score)
+    assert res.full_match_rate == 0.0
+    assert res.median_first_divergence == expected_divergence
+    assert any("longer" in note for note in res.notes)
+
+
+def test_run_gtm_opposite_length_mismatches_do_not_cancel(
+    tmp_path, monkeypatch
+):
+    pp = tmp_path / "p.jsonl"
+    _write_prompts(pp, [
+        {"id": "p1", "prompt": "x"},
+        {"id": "p2", "prompt": "y"},
+    ])
+    completions = iter(["ref1", "cand1", "ref2", "cand2"])
+    token_ids = {
+        "ref1": [1, 2, 3, 4],
+        "cand1": [1, 2],
+        "ref2": [5, 6],
+        "cand2": [5, 6, 7, 8],
+    }
+    monkeypatch.setattr(
+        "refract.axes.gtm.run_completion",
+        lambda **kw: (next(completions), {}),
+    )
+    monkeypatch.setattr(
+        "refract.axes.gtm.tokenize_to_ids",
+        lambda model, text: token_ids[text],
+    )
+
+    res = run_gtm(
+        model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
+        prompts_path=pp, n_predict=10, progress=False,
+    )
+    assert res.score == pytest.approx(50.0)
 
 
 def test_run_gtm_empty_prompts_raises(tmp_path):
@@ -136,6 +202,64 @@ def test_run_trajectory_perfect_match(tmp_path, monkeypatch):
     assert res.full_match_rate == 1.0
 
 
+@pytest.mark.parametrize(
+    ("ref_tokens", "cand_tokens", "expected_score", "expected_divergence"),
+    [
+        ([1, 2, 3, 4], [1, 2], 50.0, 2),
+        ([1, 2], [1, 2, 3, 4], 50.0, 2),
+        ([1, 2], [], 0.0, 0),
+        ([], [1, 2], 0.0, 0),
+    ],
+)
+def test_run_trajectory_strict_prefix_is_penalized_symmetrically(
+    tmp_path, monkeypatch, ref_tokens, cand_tokens,
+    expected_score, expected_divergence,
+):
+    pp = tmp_path / "p.jsonl"
+    _write_prompts(pp, [{"id": "p1", "prompt": "x"}])
+    trajectories = iter([ref_tokens, cand_tokens])
+    monkeypatch.setattr(
+        "refract.axes.trajectory.run_completion_trajectory",
+        lambda **kw: (next(trajectories), {}),
+    )
+
+    res = run_trajectory(
+        model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
+        prompts_path=pp, n_predict=10, progress=False,
+    )
+    assert res.score == pytest.approx(expected_score)
+    assert res.full_match_rate == 0.0
+    assert res.median_first_divergence == expected_divergence
+    assert any("longer" in note for note in res.notes)
+
+
+def test_run_trajectory_opposite_length_mismatches_do_not_cancel(
+    tmp_path, monkeypatch
+):
+    pp = tmp_path / "p.jsonl"
+    _write_prompts(pp, [
+        {"id": "p1", "prompt": "x"},
+        {"id": "p2", "prompt": "y"},
+    ])
+    # Batch order is ref p1, ref p2, candidate p1, candidate p2.
+    trajectories = iter([
+        [1, 2, 3, 4], [5, 6],
+        [1, 2], [5, 6, 7, 8],
+    ])
+    monkeypatch.setattr(
+        "refract.axes.trajectory.run_completion_trajectory",
+        lambda **kw: (next(trajectories), {}),
+    )
+
+    res = run_trajectory(
+        model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
+        prompts_path=pp, n_predict=10, progress=False,
+    )
+    # sum(prefix)=4, sum(per-prompt max length)=8. max(sum lengths) would
+    # incorrectly produce 4/6 by allowing opposite directions to cancel.
+    assert res.score == pytest.approx(50.0)
+
+
 def test_run_trajectory_both_empty_raises(tmp_path, monkeypatch):
     pp = tmp_path / "p.jsonl"
     _write_prompts(pp, [{"id": "p1", "prompt": "x"}])
@@ -161,6 +285,7 @@ def test_run_trajectory_emits_short_cand_note(tmp_path, monkeypatch):
         model=Path("m"), reference_kv=KVConfig(), candidate_kv=KVConfig(),
         prompts_path=pp, n_predict=10, progress=False,
     )
+    assert res.score == pytest.approx(100.0)
     assert any("stopped before" in n for n in res.notes)
 
 

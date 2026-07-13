@@ -144,6 +144,7 @@ score surface:
 | v0.3.0  | Chat-template handling via `--jinja -rea off` | Fixed instruct-model engagement |
 | v0.3.1  | Backend abstraction + confidence guards + version stamps | No score impact |
 | v0.3.2  | HTML reports + repeatability subcommand | No score impact |
+| v0.3.4  | Symmetric per-prompt trajectory length normalization | Scores can decrease when reference/candidate decoded lengths differ |
 
 Cite results as "Mistral-24B got 90.86 EXCELLENT on REFRACT v0.3.0,
 candidate ctk=q8_0/ctv=turbo4, llamacpp backend, M5 Max" — the version

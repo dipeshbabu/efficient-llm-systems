@@ -26,7 +26,10 @@ English. Below is the deeper "what to do about it" guide per axis.
 
 Measures: **Token-level agreement with fp16**. Greedy-decodes N tokens
 under both reference and candidate KV configs, captures token IDs at
-decode time, computes prefix agreement length / candidate length.
+decode time, and divides total prefix agreement by the longer observed
+reference/candidate trajectory for each prompt. A unilateral early stop or
+continued generation is penalized; identical non-empty captured trajectories
+that reach EOS together still score 100.
 
 - **EXCELLENT (90–100):** the model decodes essentially the same tokens
   under both configs. KV quantization is doing nothing visible in the

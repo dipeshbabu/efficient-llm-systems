@@ -1,0 +1,33 @@
+Dense 27B sparse V validation (clean runs, M5 Max 128GB)
+Model: Qwen3.5-27B Q8_0 (dense)
+Date: 2026-03-27
+All stale processes killed, no GPU contention.
+
+=== A/B/A SHORT CONTEXT (order swap to rule out thermal) ===
+Run 1 (WITHOUT): 16.87 ± 0.06 tok/s
+Run 2 (WITH):    16.95 ± 0.04 tok/s
+Run 3 (WITHOUT): 16.56 ± 0.55 tok/s
+Delta: +0.5% (within noise, no regression)
+
+=== LONG CONTEXT DECODE ===
+--- WITH sparse V ---
+tg128:          16.73 ± 0.07
+pp8192+tg128:   298.27 ± 1.13
+pp16384+tg128:  316.98 ± 0.41
+
+--- WITHOUT sparse V ---
+tg128:          16.61 ± 0.17
+pp8192+tg128:   294.52 ± 4.30
+pp16384+tg128:  311.24 ± 4.57
+
+=== DELTA ===
+Short (tg128):     +0.7%
+8K (pp8192):       +1.3%
+16K (pp16384):     +1.8%
+
+=== CONCLUSION ===
+No regression. Neutral-to-slight-positive. Trend improves with context.
+Safe to enable by default for dense models.
+
+Note: earlier run showed -5.4% regression but was contaminated by 4 stale
+llama-server processes eating ~85% memory. A/B/A test confirmed no regression.

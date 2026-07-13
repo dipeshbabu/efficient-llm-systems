@@ -1,0 +1,36 @@
+Turbo4 SET_ROWS Fix Results
+===========================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0
+Corpus: wikitext-2 wiki.test.raw, c=512, 8 chunks
+
+Fix: Dedicated kernel_set_rows_turbo4 with correct 3-bit packing + QJL signs.
+Replaces shared kernel_set_rows_turbo which used turbo3's 2+1 bit scheme.
+
+BEFORE FIX (shared SET_ROWS, turbo3 packing applied to turbo4):
+  turbo4 PPL = 679.27 (completely broken)
+
+AFTER FIX (dedicated SET_ROWS with correct 3-bit packing + QJL):
+  turbo4 PPL = 6.1894 +/- 0.331
+
+COMPARISON:
+  q8_0:   6.1109  (baseline)
+  turbo3: 6.1756  (+1.06% vs q8_0)
+  turbo4: 6.1894  (+1.28% vs q8_0, +0.22% vs turbo3)
+
+OBSERVATION:
+  turbo4 (4.25 bits) is WORSE than turbo3 (3.5 bits) by 0.22%.
+  This is unexpected — more bits should mean better quality.
+  Possible cause: QJL correction adding noise instead of signal.
+  Consistent with scos-lab finding (issue #45): QJL variance
+  amplified by softmax, MSE beats Prod for attention.
+
+NEXT STEPS:
+  1. Test turbo4 with QJL disabled (zero out signs) — isolate QJL effect
+  2. If QJL hurts, turbo4 becomes "turbo3 in 128-block format"
+  3. Run decode speed comparison
+
+turbo3 sanity: 6.1756 (unchanged, no regression from turbo4 fix)

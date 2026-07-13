@@ -1,0 +1,41 @@
+Turbo4 CUDA Data — buun (@spiritbuun, RTX 3090)
+=================================================
+
+Source: X post 2026-03-28 09:50 AM
+Model: Qwen3.5-27B, wikitext-2-raw
+
+Quality (PPL):
+  Context | q8_0   | turbo3 | turbo4 | turbo3 vs q8_0 | turbo4 vs q8_0
+  2K      | 5.8375 | 5.8323 | 5.8186 | -0.09%         | -0.28%
+  32K     | 7.2592 | 7.2139 | 7.2478 | -0.62%         | -0.16%
+  64K     | 6.4804 | 6.5122 | 6.7192 | +0.49%         | +3.69%
+
+Key finding: turbo4 wins at 2K (+0.19% vs turbo3) but LOSES at 64K (+3.08% vs turbo3)
+QJL noise accumulates with context length.
+
+Speed:
+  Metric          | q8_0  | turbo3 | turbo4
+  Decode (tok/s)  | 31.25 | 30.31  | 29.43
+  Decode vs q8_0  | —     | 97.0%  | 94.2%
+  Prefill (tok/s) | 1133  | 1125   | 588
+  Prefill vs q8_0 | —     | 99.3%  | 51.9%
+
+turbo4 prefill is 51.9% of q8_0 — catastrophically slow.
+turbo3 prefill is 99.3% — near parity.
+
+buun's conclusion: "turbo3 is better in every way. Do not bother using turbo4."
+
+Recommended configs (buun):
+  Quality (hd256):           -ctk turbo3 -ctv turbo3 (LA-1)
+  Quality (hd128, <8K ctx):  -ctk turbo3 -ctv turbo4
+  Quality (hd128, >8K ctx):  -ctk turbo3 -ctv turbo3
+  Max VRAM savings:          -ctk turbo3 -ctv turbo2
+  Long context (32K-128K):   -ctk turbo3 -ctv turbo3 (uniform)
+
+Our Metal findings align:
+  turbo4 WITH QJL:    6.1894 PPL (+0.22% worse than turbo3)
+  turbo4 WITHOUT QJL: 6.1756 PPL (identical to turbo3)
+  QJL hurts on both CUDA and Metal.
+
+@jackdaniel2025 independently confirmed: "turbo4 is not worth using"
+@skinbagwbones interested in collaboration on weight+KV compression stacking

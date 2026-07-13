@@ -1,0 +1,32 @@
+Turbo4 4-bit PolarQuant — Quality Breakthrough
+=================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+
+Change: Replace 3-bit PolarQuant + 1-bit QJL with 4-bit PolarQuant (16 centroids).
+Optimal centroids computed analytically for N(0, 1/sqrt(128)).
+Nibble packing: 2 indices per byte, no byte-spanning reads.
+
+Results:
+  Config              | PPL    | vs q8_0 | Decode tok/s | vs q8_0
+  q8_0                | 6.1109 | —       | 86.01        | 1.00x
+  turbo4 4-bit (NEW)  | 6.1250 | +0.23%  | 79.58        | 0.93x
+  turbo3 3-bit        | 6.1756 | +1.06%  | 78.24        | 0.91x
+  q4_0                | 6.1424 | +0.52%  | 83.36        | 0.97x
+
+turbo4 4-bit beats turbo3 on quality by 4.5x smaller PPL gap.
+turbo4 4-bit is closer to q8_0 than q4_0.
+turbo4 4-bit is slightly faster than turbo3 (79.58 vs 78.24).
+
+FULL TURBO4 OPTIMIZATION JOURNEY:
+  44.43 tok/s, PPL 679      → SET_ROWS fix
+  44.43 tok/s, PPL 6.1894   → drop QJL
+  48.05 tok/s, PPL 6.1756   → 2+1 bit packing
+  63.79 tok/s, PPL 6.1756   → direct-extract dequant
+  78.30 tok/s, PPL 6.1756   → 4-bit PolarQuant (16 centroids)
+  79.58 tok/s, PPL 6.1250   ← FINAL
+
+Total: 44.43 → 79.58 tok/s (+79%), PPL 679 → 6.125

@@ -1,0 +1,357 @@
+{
+  "diag_version": 3,
+  "timestamp": "2026-03-26T13:43:09Z",
+  "system": {
+    "platform": "Darwin",
+    "os_version": "25.3.0",
+    "arch": "arm64",
+    "cpu_brand": "Apple M5 Max",
+    "cpu_cores_physical": 18,
+    "cpu_cores_logical": 18,
+    "ram_total_gb": 128,
+    "apple_silicon": true,
+    "chip_model": "Apple M5 Max",
+    "l1_dcache": 65536,
+    "l2_cache": 8388608,
+    "gpu": {
+      "name": "MTL0",
+      "family": "MTLGPUFamilyApple10  (1010)",
+      "family_id": 1010,
+      "has_tensor": true,
+      "has_unified_memory": true,
+      "has_bfloat": true,
+      "recommended_max_working_set_mb": 115448.73,
+      "metal_version": "unknown",
+      "cuda_compute_cap": "",
+      "cuda_vram_mb": 0.0
+    }
+  },
+  "model": {
+    "filename": "Qwen3.5-35B-A3B-Q8_0.gguf",
+    "filesize_bytes": 0,
+    "architecture": "qwen35moe",
+    "name": "Qwen3.5-35B-A3B",
+    "file_type": "Q8_0",
+    "model_type": "35B.A3B",
+    "params": "34.66 B",
+    "n_layer": 40,
+    "n_head": 16,
+    "n_head_kv": 2,
+    "n_expert": 256,
+    "n_expert_used": 8,
+    "n_ctx_train": 262144,
+    "n_embd": 2048
+  },
+  "benchmarks": [
+    {
+      "label": "q8_0 prefill 2K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 2048,
+      "mode": "prefill",
+      "tok_per_sec": 2707.0,
+      "stddev": 9.17,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 prefill 4K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 4096,
+      "mode": "prefill",
+      "tok_per_sec": 2429.0,
+      "stddev": 39.91,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 prefill 8K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 8192,
+      "mode": "prefill",
+      "tok_per_sec": 2052.0,
+      "stddev": 18.6,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 prefill 16K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 16384,
+      "mode": "prefill",
+      "tok_per_sec": 1685.0,
+      "stddev": 11.5,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 prefill 32K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 32768,
+      "mode": "prefill",
+      "tok_per_sec": 1224.0,
+      "stddev": 8.5,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 prefill 2K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 2048,
+      "mode": "prefill",
+      "tok_per_sec": 2632.0,
+      "stddev": 13.13,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 prefill 4K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 4096,
+      "mode": "prefill",
+      "tok_per_sec": 2362.0,
+      "stddev": 118.7,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 prefill 8K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 8192,
+      "mode": "prefill",
+      "tok_per_sec": 2014.0,
+      "stddev": 26.99,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 prefill 16K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 16384,
+      "mode": "prefill",
+      "tok_per_sec": 1660.0,
+      "stddev": 6.21,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 prefill 32K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 32768,
+      "mode": "prefill",
+      "tok_per_sec": 1214.0,
+      "stddev": 8.52,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 decode (short)",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 0,
+      "mode": "decode",
+      "tok_per_sec": 85.8,
+      "stddev": 0.17,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 decode @4K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 4096,
+      "mode": "decode",
+      "tok_per_sec": 79.9,
+      "stddev": 1.55,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 decode @8K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 8192,
+      "mode": "decode",
+      "tok_per_sec": 77.4,
+      "stddev": 0.95,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 decode @16K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 16384,
+      "mode": "decode",
+      "tok_per_sec": 74.0,
+      "stddev": 0.8,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "q8_0 decode @32K",
+      "cache_type_k": "q8_0",
+      "cache_type_v": "q8_0",
+      "context_depth": 32768,
+      "mode": "decode",
+      "tok_per_sec": 68.0,
+      "stddev": 0.5,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 decode (short)",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 0,
+      "mode": "decode",
+      "tok_per_sec": 77.4,
+      "stddev": 0.05,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 decode @4K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 4096,
+      "mode": "decode",
+      "tok_per_sec": 70.9,
+      "stddev": 1.27,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 decode @8K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 8192,
+      "mode": "decode",
+      "tok_per_sec": 66.6,
+      "stddev": 0.5,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 decode @16K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 16384,
+      "mode": "decode",
+      "tok_per_sec": 60.0,
+      "stddev": 0.4,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "turbo3 decode @32K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 32768,
+      "mode": "decode",
+      "tok_per_sec": 52.0,
+      "stddev": 0.3,
+      "wall_ms": 0,
+      "env": ""
+    },
+    {
+      "label": "mode2 decode (short)",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 0,
+      "mode": "decode",
+      "tok_per_sec": 78.7,
+      "stddev": 0.16,
+      "wall_ms": 0,
+      "env": "TURBO_LAYER_ADAPTIVE=2"
+    },
+    {
+      "label": "mode2 decode @4K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 4096,
+      "mode": "decode",
+      "tok_per_sec": 73.1,
+      "stddev": 1.22,
+      "wall_ms": 0,
+      "env": "TURBO_LAYER_ADAPTIVE=2"
+    },
+    {
+      "label": "mode2 decode @8K",
+      "cache_type_k": "turbo3",
+      "cache_type_v": "turbo3",
+      "context_depth": 8192,
+      "mode": "decode",
+      "tok_per_sec": 69.4,
+      "stddev": 0.34,
+      "wall_ms": 0,
+      "env": "TURBO_LAYER_ADAPTIVE=2"
+    }
+  ],
+  "ppl_results": [
+    {
+      "cache_type": "q8_0",
+      "chunks": 8,
+      "ppl": 6.111,
+      "stddev": 0.326,
+      "env": ""
+    },
+    {
+      "cache_type": "turbo3",
+      "chunks": 8,
+      "ppl": 6.211,
+      "stddev": 0.333,
+      "env": ""
+    },
+    {
+      "cache_type": "turbo3",
+      "chunks": 8,
+      "ppl": 6.12,
+      "stddev": 0.327,
+      "env": "TURBO_LAYER_ADAPTIVE=2"
+    },
+    {
+      "cache_type": "q8_0",
+      "chunks": 32,
+      "ppl": 5.415,
+      "stddev": 0.14,
+      "env": ""
+    },
+    {
+      "cache_type": "turbo3",
+      "chunks": 32,
+      "ppl": 5.471,
+      "stddev": 0.142,
+      "env": ""
+    },
+    {
+      "cache_type": "turbo3",
+      "chunks": 32,
+      "ppl": 5.435,
+      "stddev": 0.141,
+      "env": "TURBO_LAYER_ADAPTIVE=2"
+    }
+  ],
+  "load_snapshots": [
+    {
+      "label": "pre_benchmark",
+      "timestamp": "2026-03-26T13:43:09Z",
+      "load_avg": "1.5 2.0 1.8",
+      "free_ram_mb": 50000,
+      "swap_used": "",
+      "process_count": 0,
+      "thermal": "",
+      "gpu_util": ""
+    }
+  ],
+  "build_commit": "dfc1097"
+}

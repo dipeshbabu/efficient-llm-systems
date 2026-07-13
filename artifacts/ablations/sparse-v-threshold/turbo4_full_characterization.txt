@@ -1,0 +1,123 @@
+Turbo4 4-bit PolarQuant — Full Characterization
+==================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation @ 661794f
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+Sparse V: enabled (auto on M5)
+
+=== PPL (wikitext-2, 512c, 8 chunks) ===
+
+| Cache | PPL | vs q8_0 | Bits/val | Compression |
+|-------|-----|---------|----------|-------------|
+| q8_0 | 6.1109 | — | 8.5 | 1.88x |
+| turbo4 | 6.1250 | +0.23% | 4.25 | 3.76x |
+| q4_0 | 6.1424 | +0.52% | 4.5 | 3.56x |
+| turbo3 | 6.1756 | +1.06% | 3.5 | 4.57x |
+
+=== PREFILL CONTEXT SCALING (tok/s) ===
+
+| Context | turbo4 | turbo3 | q8_0 | turbo4/q8_0 | turbo3/q8_0 |
+|---------|--------|--------|------|------------|------------|
+| 2K | 2682 | 2708 | 2665 | 1.01x | 1.02x |
+| 4K | 2370 | 2289 | 2255 | 1.05x | 1.01x |
+| 8K | 2041 | 2054 | 2002 | 1.02x | 1.03x |
+| 16K | 1621 | 1698 | 1605 | 1.01x | 1.06x |
+| 32K | 1141 | 1204 | 1098 | 1.04x | 1.10x |
+
+=== DECODE (tok/s) ===
+NOTE: Initial run affected by battery throttling. Rerun below on AC power.
+
+Clean rerun (plugged in):
+| Config | tg128 | pp32768+tg128 | vs q8_0 |
+|--------|-------|---------------|---------|
+| q8_0 | 85.71 ± 0.81 | 1173.91 ± 5.41 | — |
+| turbo4 | 79.87 ± 0.16 | 1060.12 ± 7.04 | 0.93x |
+| turbo3 | 76.84 ± 1.02 | 1141.74 ± 13.59 | 0.90x |
+
+turbo4 is FASTER than turbo3 on decode (79.87 vs 76.84).
+Nibble packing + direct-extract dequant is simpler and faster than
+turbo3's 2+1 bit scheme + constant-memory centroid LUT.
+
+=== LONG-CONTEXT PPL (wikitext-2, 8 chunks) ===
+
+| Context | turbo4 | turbo3 | q8_0 | turbo4 vs q8_0 |
+|---------|--------|--------|------|---------------|
+| 512 | 6.1250 | 6.1756 | 6.1109 | +0.23% |
+| 8K | 5.5546 | 5.5700 | 5.5093 | +0.82% |
+| 16K | 5.0813 | 5.0630 | 5.0468 | +0.68% |
+
+=== KLD vs f16 (wikitext-2, 512c, 8 chunks) ===
+
+| Cache | Mean KLD | Δp RMS | Same top-p % |
+|-------|----------|--------|-------------|
+| q8_0 | 0.001549 | 1.23% | 98.43% |
+| turbo4 | 0.009633 | 2.71% | 95.98% |
+| q4_0 | 0.008091 | 2.75% | 95.83% |
+| turbo3 | 0.016145 | 4.09% | 94.31% |
+
+turbo4 KLD is better than turbo3 (0.0096 vs 0.0161).
+turbo4 same-top-p matches q4_0 exactly (95.98% vs 95.83%).
+
+=== NIAH (single needle, seed 42, 3 depths × 3 positions) ===
+
+turbo4:
+| Depth  | 4K   | 8K   | 16K  |
+|--------|------|------|------|
+| 0   %  | FAIL | PASS | PASS |
+| 50  %  | PASS | PASS | PASS |
+| 100 %  | PASS | FAIL | PASS |
+
+Score: 7/9
+
+NIAH v2 (expanded: 11 depths × 3 contexts = 33 tests):
+
+| Depth  | 4K   | 8K   | 16K  |
+|--------|------|------|------|
+| 0   %  | FAIL | PASS | PASS |
+| 10  %  | PASS | PASS | PASS |
+| 20  %  | PASS | PASS | PASS |
+| 30  %  | PASS | PASS | PASS |
+| 40  %  | PASS | PASS | PASS |
+| 50  %  | PASS | PASS | PASS |
+| 60  %  | PASS | PASS | PASS |
+| 70  %  | PASS | PASS | PASS |
+| 80  %  | PASS | PASS | PASS |
+| 90  %  | PASS | PASS | PASS |
+| 100 %  | PASS | FAIL | PASS |
+
+Score: 31/33 (93.9%)
+Consistent failures at 4K/0% and 8K/100% (same in both runs).
+Edge cases: very start and very end of context.
+
+Reference:
+  q8_0: 7/9 (3-position sweep)
+  turbo3 + sparse V: 9/9 (3-position sweep)
+  turbo3 (no sparse V): 7/9 (3-position sweep)
+
+=== 70-PAGE PDF SERVER BENCHMARK (~24K context) ===
+
+| Config | Prefill tok/s | Decode tok/s |
+|--------|-------------|-------------|
+| q8_0 | 1449.9 | 68.2 |
+| turbo4 | 1405.9 | 63.7 |
+| turbo3 | 1417.8 | 53.3 |
+
+turbo4 beats turbo3 by 20% on real-world server decode (63.7 vs 53.3).
+turbo4 server decode is 93% of q8_0 (63.7 / 68.2).
+
+=== DENSE MODEL (Qwen3.5-27B Q8_0) ===
+
+| Config | PPL (512) | vs q8_0 | Short decode | pp8192+tg128 | pp16384+tg128 |
+|--------|----------|---------|-------------|-------------|--------------|
+| q8_0 | 6.8884 | — | 17.17 tok/s | — | — |
+| turbo4 | 6.9378 | +0.72% | 17.25 tok/s | 304.70 | 320.72 |
+| turbo3 (ref) | — | 16.73 tok/s | 298.27 | 316.98 |
+
+turbo4 matches q8_0 on dense. Slightly faster than turbo3.
+No regressions — safe for dense models.
+
+Commands used:
+  llama-perplexity ... -ctk turbo4 -ctv turbo4 -fa on --chunks 8 -ngl 99
+  llama-bench ... -ctk turbo4 -ctv turbo4 -fa 1 -ngl 99

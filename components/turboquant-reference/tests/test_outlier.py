@@ -1,0 +1,118 @@
+"""Tests for outlier channel strategy (Issue #17).
+
+Non-integer bit precision: split channels into outlier (higher bits) and
+non-outlier (lower bits) for 2.5-bit and 3.5-bit rates.
+"""
+
+import numpy as np
+import pytest
+
+
+class TestOutlierQuantizer:
+    """Test mixed-precision outlier channel quantization."""
+
+    def test_2_5_bit_effective_rate(self):
+        """2.5-bit: 50% channels at 3 bits + 50% at 2 bits."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=2.5, seed=42)
+
+        assert oq.effective_bits == pytest.approx(2.5, abs=0.01)
+
+    def test_3_5_bit_effective_rate(self):
+        """3.5-bit: 50% channels at 4 bits + 50% at 3 bits."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+        assert oq.effective_bits == pytest.approx(3.5, abs=0.01)
+
+    def test_round_trip_quality(self):
+        """Outlier quantization should have bounded MSE."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+        rng = np.random.default_rng(99)
+
+        mses = []
+        for _ in range(200):
+            x = rng.standard_normal(d)
+            x = x / np.linalg.norm(x)
+            compressed = oq.quantize(x)
+            x_hat = oq.dequantize(compressed)
+            mses.append(np.mean((x - x_hat) ** 2))
+
+        avg_mse = np.mean(mses)
+        # 3.5-bit should be between 3-bit (0.03) and 4-bit (0.009) bounds
+        assert avg_mse < 0.03 * 2.0, f"3.5-bit MSE {avg_mse:.5f} too high"
+
+    def test_compression_ratio_2_5bit(self):
+        """2.5-bit should give ~6× compression vs fp16."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=2.5, seed=42)
+        ratio = oq.compression_ratio()
+        # 16 / 2.5 ≈ 6.4 (minus metadata overhead)
+        assert ratio > 4.5, f"2.5-bit ratio {ratio:.1f}× too low"
+
+    def test_compression_ratio_3_5bit(self):
+        """3.5-bit should give ~4× compression vs fp16."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+        ratio = oq.compression_ratio()
+        assert ratio > 3.5, f"3.5-bit ratio {ratio:.1f}× too low"
+
+    def test_outlier_channels_identified(self):
+        """Outlier channels should be the ones with highest magnitude."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=2.5, seed=42)
+
+        calibration = np.ones((8, d))
+        calibration[:, 64:] = 100.0
+        oq.calibrate(calibration)
+
+        # Should have some outlier and some non-outlier channels
+        assert oq.n_outlier > 0
+        assert oq.n_outlier < d
+        assert oq.n_outlier + oq.n_normal == d
+        np.testing.assert_array_equal(oq.outlier_idx, np.arange(64, 128))
+
+    def test_batch_matches_single(self):
+        """Batch quantization should match single-vector."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        oq = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+        rng = np.random.default_rng(7)
+        X = rng.standard_normal((5, d))
+
+        batch_compressed = oq.quantize(X)
+        batch_recon = oq.dequantize(batch_compressed)
+
+        for i in range(5):
+            single_compressed = oq.quantize(X[i])
+            single_recon = oq.dequantize(single_compressed)
+            np.testing.assert_allclose(batch_recon[i], single_recon, atol=1e-10)
+
+    def test_deterministic(self):
+        """Same seed → same output."""
+        from turboquant.outlier import OutlierTurboQuant
+
+        d = 128
+        x = np.random.default_rng(1).standard_normal(d)
+
+        oq1 = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+        oq2 = OutlierTurboQuant(d=d, target_bits=3.5, seed=42)
+
+        c1 = oq1.quantize(x)
+        c2 = oq2.quantize(x)
+        r1 = oq1.dequantize(c1)
+        r2 = oq2.dequantize(c2)
+        np.testing.assert_allclose(r1, r2, atol=1e-15)

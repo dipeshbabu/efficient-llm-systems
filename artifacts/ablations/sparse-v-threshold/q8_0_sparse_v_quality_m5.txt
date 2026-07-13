@@ -1,0 +1,34 @@
+Sparse V quality validation on q8_0 (non-TurboQuant) KV cache
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0
+Date: 2026-03-27
+
+=== PPL (8-chunk wikitext-2) ===
+q8_0 + sparse V:    6.1109 +/- 0.32553
+q8_0 (no sparse V): 6.1109 +/- 0.32553
+Delta: 0.0000 (identical)
+
+=== NIAH Single Needle (seed 42, depths 0%/50%/100%, contexts 4K/8K/16K) ===
+
+q8_0 + sparse V (7/9):
+| Depth  | 4K   | 8K   | 16K  |
+|--------|------|------|------|
+| 0   %  | PASS | PASS | PASS |
+| 50  %  | PASS | PASS | PASS |
+| 100 %  | PASS | FAIL | FAIL |
+
+q8_0 without sparse V (7/9):
+| Depth  | 4K   | 8K   | 16K  |
+|--------|------|------|------|
+| 0   %  | PASS | PASS | PASS |
+| 50  %  | PASS | PASS | PASS |
+| 100 %  | PASS | FAIL | FAIL |
+
+Delta: identical (same 2 failures at 100% depth for 8K and 16K)
+
+=== SUMMARY ===
+Sparse V has zero quality or retrieval impact on q8_0.
+PPL identical. NIAH identical (same pass/fail pattern).
+Combined with +5% decode speedup: pure win.
+
+Raw NIAH JSON: niah_q8_0_sparse_v/ and niah_q8_0_no_sparse_v/

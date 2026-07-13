@@ -1,0 +1,29 @@
+M2 Pro: 4-mag LUT + sparse V combined decode test
+Hardware: Apple M2 Pro 12-core CPU / 19-GPU, 32GB
+Model: Qwen2.5-7B-Instruct Q4_K_M
+Date: 2026-03-27
+Build: 7d1bd95 (feature/turboquant-kv-cache, sparse V auto-enabled, 4-mag auto-detected)
+
+=== TURBO3 (4-mag LUT + sparse V) ===
+ggml_metal_library_init: turbo3 using 4-mag LUT (pre-M5 hardware)
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | turbo3 | turbo3 | 1 | tg128 | 23.58 ± 0.16 |
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | turbo3 | turbo3 | 1 | pp8192+tg128 | 189.14 ± 0.09 |
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | turbo3 | turbo3 | 1 | pp16384+tg128 | 155.12 ± 0.12 |
+
+=== Q8_0 BASELINE ===
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | q8_0 | q8_0 | 1 | tg128 | 32.12 ± 0.20 |
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | q8_0 | q8_0 | 1 | pp8192+tg128 | 210.11 ± 0.12 |
+| qwen2 7B Q4_K - Medium | 4.36 GiB | 7.62 B | MTL,BLAS | 8 | q8_0 | q8_0 | 1 | pp16384+tg128 | 171.94 ± 0.03 |
+
+=== RATIOS ===
+Short decode (tg128):    23.58 / 32.12 = 0.734x
+pp8192+tg128 (blended):  189.14 / 210.11 = 0.900x
+pp16384+tg128 (blended): 155.12 / 171.94 = 0.902x
+
+=== HISTORICAL COMPARISON (M2 Pro decode) ===
+Before 4-mag LUT:           0.45x (8.0 tok/s at 16K)
+After 4-mag LUT only:       0.67x (11.6 tok/s at 16K)
+After 4-mag + sparse V:     0.73x (23.6 tok/s short)
+
+4-mag + sparse V confirmed stacking on M2 Pro. Both optimizations address
+independent bottlenecks (K dequant constant memory vs V dequant skip).

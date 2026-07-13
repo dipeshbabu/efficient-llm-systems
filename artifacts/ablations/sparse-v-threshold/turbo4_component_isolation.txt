@@ -1,0 +1,59 @@
+Turbo4 Component Isolation — Decode Speed Breakdown
+=====================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+Test: llama-bench, tg128 (short context decode)
+
+Method: Strip turbo4 dequant layer by layer, rebuild, bench.
+
+Results:
+  q8_0 baseline:           86.01 tok/s (1.00x)
+  turbo3 baseline:         78.24 tok/s (0.91x)
+  D. turbo4 no-op dequant: 72.33 tok/s (0.84x)  — memory/tiling only
+  B. turbo4 no QJL:        48.05 tok/s (0.56x)  — PolarQuant only
+  A. turbo4 full:          44.43 tok/s (0.52x)  — PolarQuant + QJL
+
+Cost Breakdown:
+  Component                      | tok/s lost | % of gap
+  128-block FA tiling overhead   | 13.7       | 33%
+  3-bit unpack + centroid lookup | 24.3       | 58%
+  QJL sign unpack + scale        | 3.6        | 9%
+  TOTAL gap vs q8_0              | 41.6       | 100%
+
+Analysis:
+  1. THE KILLER IS 3-BIT UNPACK (58% of cost)
+     turbo4 uses packed 3-bit indices spanning byte boundaries:
+       bit_offset = j * 3; byte_idx = bit_offset / 8; bit_pos = bit_offset % 8;
+       raw = qs[byte_idx]; if (bit_pos > 5) raw |= qs[byte_idx+1] << 8;
+     This is dramatically more expensive than turbo3's byte-aligned 2+1 scheme:
+       idx = (qs[j/4] >> ((j%4)*2)) & 0x3; if (signs[j/8] & (1<<(j%8))) idx |= 4;
+
+  2. 128-BLOCK TILING OVERHEAD (33% of cost)
+     turbo4 uses nl=8 (128 elements / 16 per dequant call).
+     turbo3 uses nl=2 (32 elements / 16 per dequant call).
+     FA calls dequant 4x more per position for turbo4.
+     Even with per-thread block caching, the overhead is significant.
+
+  3. QJL IS PURE WASTE (9% speed cost, negative quality)
+     QJL adds 3.6 tok/s overhead and makes PPL 0.22% WORSE.
+     Removing it saves speed AND improves quality. No reason to keep it.
+
+Comparison with turbo3:
+  turbo3 dequant is 78.24 tok/s (0.91x q8_0)
+  turbo4 no-op is 72.33 tok/s (0.84x q8_0)
+  Even with ZERO dequant work, turbo4's format is 7.6% slower than turbo3
+  due to the 128-block tiling overhead alone.
+
+  turbo4 with full dequant (44.43) is 43% slower than turbo3 (78.24).
+  The 3-bit unpack is responsible for most of this gap.
+
+Recommendations:
+  1. turbo4 as-is is not viable for production
+  2. If turbo4 is kept, it needs:
+     a. Drop QJL (saves speed + improves quality)
+     b. Redesign 3-bit packing to be byte-aligned (biggest win)
+     c. Reduce nl from 8 to 2 somehow (block caching improvement?)
+  3. Alternative: 4-bit PolarQuant with byte-aligned packing (new format)

@@ -1,0 +1,55 @@
+#!/bin/bash
+# TurboQuant Diagnostic Launcher
+# Auto-creates an isolated venv, installs optional deps, runs the diagnostic.
+# Usage: bash turbo-diag [args...]
+#
+# This wrapper ensures we never pollute the user's Python environment.
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIAG_SCRIPT="${SCRIPT_DIR}/turbo_hardware_diag.py"
+VENV_DIR="${SCRIPT_DIR}/.turbo-diag-venv"
+
+# Require Python 3.10+
+PYTHON=""
+for candidate in python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" &>/dev/null; then
+        version=$("$candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null)
+        major=$(echo "$version" | cut -d. -f1)
+        minor=$(echo "$version" | cut -d. -f2)
+        if [ "${major:-0}" -ge 3 ] && [ "${minor:-0}" -ge 10 ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo "ERROR: Python 3.10+ required but not found."
+    echo "Install Python 3.10+ and try again."
+    exit 1
+fi
+
+echo "Using Python: $PYTHON ($($PYTHON --version 2>&1))"
+
+# Create venv if needed
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating isolated venv at ${VENV_DIR}..."
+    "$PYTHON" -m venv "$VENV_DIR" 2>&1 || {
+        echo "ERROR: Failed to create venv. Running without venv."
+        exec "$PYTHON" "$DIAG_SCRIPT" "$@"
+    }
+
+    # Install optional deps for rich terminal UI
+    echo "Installing optional dependencies (rich)..."
+    "${VENV_DIR}/bin/pip" install --quiet rich 2>&1 || {
+        echo "WARNING: Could not install 'rich'. Using plain text output."
+    }
+    echo "Venv ready."
+else
+    echo "Using existing venv at ${VENV_DIR}"
+fi
+
+# Run diagnostic with the venv Python
+exec "${VENV_DIR}/bin/python3" "$DIAG_SCRIPT" "$@"

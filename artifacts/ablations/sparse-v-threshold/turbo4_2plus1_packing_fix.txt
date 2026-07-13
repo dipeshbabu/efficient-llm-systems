@@ -1,0 +1,37 @@
+Turbo4 2+1 Bit Packing Fix — +33% Decode Speed
+=================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+
+Change: Replaced byte-spanning 3-bit packed index extraction with
+turbo3-style 2+1 bit scheme (low 2 bits in qs[], high 1 bit in signs[]).
+Also dropped QJL entirely (signs[] now stores index high bit, not QJL signs).
+
+Results:
+  Config                          | PPL    | Decode tok/s | vs q8_0
+  q8_0                            | 6.1109 | 86.01        | 1.00x
+  turbo3                          | 6.1756 | 78.24        | 0.91x
+  turbo4 2+1 bit (NEW)            | 6.1756 | 63.79        | 0.74x
+  turbo4 no QJL (old 3-bit pack)  | 6.1756 | 48.05        | 0.56x
+  turbo4 full (old, with QJL)     | 6.1894 | 44.43        | 0.52x
+
+Improvement: 48.05 → 63.79 tok/s (+33% from packing fix alone)
+PPL: identical to turbo3 (6.1756)
+
+Remaining gap vs turbo3 (63.79 vs 78.24 = 18% slower):
+  Entirely due to 128-block FA tiling overhead (nl=8 vs nl=2).
+  turbo4 block is 128 elements → dequant called 4x more per position.
+  The per-thread block cache mitigates this but doesn't eliminate it.
+
+Updated component breakdown:
+  Component                      | tok/s lost | % of gap
+  128-block FA tiling overhead   | 13.7       | 62%
+  2+1 bit unpack + centroid LUT  | 8.4        | 38%
+  QJL (removed)                  | 0.0        | 0%
+  TOTAL gap vs q8_0              | 22.2       | 100%
+
+The 3-bit byte-spanning unpack was the single biggest fixable bottleneck.
+Remaining gap is structural (block size in FA kernel).

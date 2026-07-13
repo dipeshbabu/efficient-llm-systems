@@ -1,0 +1,4 @@
+τ = 1e-5
+PPL (8-chunk): 6.1756 +/- 0.33034
+tg128 (short decode): 76.45 tok/s
+pp32768+tg128 (blended): 1112.67 tok/s

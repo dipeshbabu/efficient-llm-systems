@@ -1,0 +1,35 @@
+Turbo4 Direct-Extract Dequant — Matches Turbo3 Speed
+======================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+
+Change: Replaced full-block cache dequant with direct per-element extraction.
+Old: allocate float cache[128], dequant all 128 elements, return 4 (called 32x per block)
+New: directly extract needed elements using 2+1 bit packing (identical to turbo3 pattern)
+
+FULL OPTIMIZATION JOURNEY:
+  Config                            | PPL    | Decode tok/s | vs q8_0
+  q8_0 baseline                     | 6.1109 | 86.01        | 1.00x
+  turbo3 baseline                   | 6.1756 | 78.24        | 0.91x
+  turbo4 original (broken)          | 6.1894 | 44.43        | 0.52x
+  + SET_ROWS fix                    | 6.1894 | 44.43        | 0.52x
+  + drop QJL                        | 6.1756 | 48.05        | 0.56x
+  + 2+1 bit packing                 | 6.1756 | 63.79        | 0.74x
+  + direct-extract dequant (FINAL)  | 6.1756 | 78.30        | 0.91x
+
+Total improvement: 44.43 → 78.30 tok/s (+76%)
+PPL: identical to turbo3 (6.1756)
+Speed: identical to turbo3 (78.30 vs 78.24, within noise)
+
+Root causes fixed:
+  1. SET_ROWS used turbo3 packing for turbo4 blocks (PPL 679 → 6.19)
+  2. QJL correction hurts quality, not helps (PPL 6.19 → 6.18)
+  3. 3-bit byte-spanning unpack (48 → 64 tok/s, +33%)
+  4. Full-block cache redundancy (64 → 78 tok/s, +23%)
+
+  Items 3+4 together: 48 → 78 tok/s (+63%)
+
+turbo3 sanity: 6.1756, 78.24 tok/s (unchanged, no regression)

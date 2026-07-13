@@ -1,0 +1,27 @@
+Turbo4 4-bit Prefill Speed Comparison
+======================================
+
+Date: 2026-03-28
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+Branch: experiment/turbo4-quality-investigation
+
+Prefill at 8K context:
+  f16 (ceiling):   2313.58 tok/s (1.09x q8_0)
+  q8_0 (baseline): 2123.03 tok/s (1.00x)
+  turbo4 4-bit:    2037.31 tok/s (0.96x q8_0)
+
+turbo4 prefill is 96% of q8_0 — near parity.
+The f16 ceiling is only 13% above turbo4.
+
+Compared to buun's CUDA turbo4 (old QJL format):
+  buun: 588 tok/s (51.9% of q8_0) — catastrophically slow
+  Us:   2037 tok/s (96% of q8_0) — near parity
+
+The massive CUDA prefill regression was caused by the old 3-bit
+byte-spanning dequant + QJL overhead. Our 4-bit nibble packing
+with direct-extract dequant eliminates both bottlenecks.
+
+Dequant-then-attend approach would give at most 2313 tok/s (+13%).
+Not worth the infrastructure complexity given current near-parity.
+Deprioritized — focus on other wins.

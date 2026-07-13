@@ -1,0 +1,33 @@
+Turbo4 4-bit PolarQuant — Long Context Validation
+===================================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+
+Context scaling (turbo4 4-bit vs turbo3 3-bit):
+
+| Context | turbo4 4-bit | turbo3 3-bit | q8_0 | turbo4 vs turbo3 |
+|---------|-------------|-------------|------|-----------------|
+| 512 | 6.1250 | 6.1756 | 6.1109 | -0.08% (better) |
+| 8K | 5.5546 | 5.5700 | — | -0.28% (better) |
+| 16K | 5.0813 | 5.0630 | 5.0008 | +0.36% (worse) |
+
+turbo4 wins at short-medium context, turbo3 wins at 16K.
+Differences are small (0.04-0.05 PPL) and within noise for 8-chunk runs.
+Crucially: NO degradation trend — unlike buun's QJL turbo4 which degraded
+from -0.28% at 2K to +3.69% at 64K. Our 4-bit approach is stable.
+
+Decode speed at 32K:
+  turbo4 4-bit:  79.36 tok/s (short), 1042.79 tok/s (pp32768+tg128)
+  turbo3:        78.24 tok/s (short)
+
+turbo4 prefill at 32K now works (1042.79 tok/s) — previously stuck/crashed.
+The 4-bit nibble dequant is much faster than the old 3-bit byte-spanning path.
+
+Half-precision LUT test:
+  PPL: 6.1250 (identical)
+  Decode: 79.06 tok/s (within noise of 79.58 without)
+  Half LUT doesn't help on M5 Max — constant cache not the bottleneck at 16 entries.
+  May help on M1/M2 where constant cache is more constrained.

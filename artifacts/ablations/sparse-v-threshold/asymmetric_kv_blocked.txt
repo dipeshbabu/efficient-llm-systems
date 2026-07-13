@@ -1,0 +1,26 @@
+Asymmetric K/V Testing — BLOCKED
+==================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+
+Attempted: -ctk turbo3 -ctv turbo4
+
+Result: KV cache allocates correctly (K turbo3: 4.38 MiB, V turbo4: 5.31 MiB)
+but inference hangs at warmup. FA vec kernel has no cross-type instantiation.
+
+Current instantiations (same K/V type only):
+  turbo3 K + turbo3 V: ✅
+  turbo4 K + turbo4 V: ✅
+  turbo3 K + turbo4 V: ❌ (no kernel)
+  turbo4 K + turbo3 V: ❌ (no kernel)
+
+Fix needed: Add cross-type FA kernel template instantiations.
+The kernel template already supports separate K and V types — just needs
+the host_name + template lines for mixed configurations.
+
+buun's CUDA fork likely has these since he tested turbo3-K + turbo4-V
+and got -0.28% vs q8_0.
+
+Priority: Medium — valuable for quality optimization but needs ~20 new
+kernel instantiations (all K/V type combos × all dk/dv sizes).

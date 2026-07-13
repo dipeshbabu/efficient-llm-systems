@@ -1,0 +1,25 @@
+# Repository-level tool configuration.
+#
+# Efficient LLM Systems is a monorepo, not a publishable root distribution.
+# Each component owns its package manifest and release lifecycle.
+
+[tool.pytest.ini_options]
+testpaths = [
+    "components/turboquant-reference/tests",
+    "components/refract/tests",
+]
+pythonpath = [
+    "components/turboquant-reference/src",
+    "components/refract/src",
+]
+markers = [
+    "integration: requires external engines, models, or corpora",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["turboquant", "refract"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

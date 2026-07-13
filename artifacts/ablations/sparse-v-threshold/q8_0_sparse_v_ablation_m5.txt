@@ -1,0 +1,20 @@
+Sparse V impact on q8_0 (non-TurboQuant) KV cache
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0
+Date: 2026-03-27
+
+=== Q8_0 WITH SPARSE V (auto-enabled on M5) ===
+ggml_metal_library_init: turbo3 sparse V dequant enabled
+| qwen35moe 35B.A3B Q8_0 | 34.36 GiB | 34.66 B | MTL,BLAS | 6 | q8_0 | q8_0 | 1 | tg128 | 84.69 ± 0.38 |
+| qwen35moe 35B.A3B Q8_0 | 34.36 GiB | 34.66 B | MTL,BLAS | 6 | q8_0 | q8_0 | 1 | pp32768+tg128 | 1145.19 ± 2.19 |
+
+=== Q8_0 WITHOUT SPARSE V (TURBO_SPARSE_V=0 force-disabled) ===
+| qwen35moe 35B.A3B Q8_0 | 34.36 GiB | 34.66 B | MTL,BLAS | 6 | q8_0 | q8_0 | 1 | tg128 | 80.69 ± 0.67 |
+| qwen35moe 35B.A3B Q8_0 | 34.36 GiB | 34.66 B | MTL,BLAS | 6 | q8_0 | q8_0 | 1 | pp32768+tg128 | 1096.73 ± 3.39 |
+
+=== SUMMARY ===
+Short decode (tg128): 80.69 → 84.69 tok/s (+5.0%)
+Blended (pp32768+tg128): 1096.73 → 1145.19 tok/s (+4.4%)
+
+Sparse V benefits q8_0 even though q8_0's per-position dequant is much cheaper than turbo3's.
+The skip still saves work at positions with negligible attention weights.

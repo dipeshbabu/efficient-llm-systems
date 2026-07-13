@@ -1,0 +1,20 @@
+Dense vs MoE sparse V comparison
+Hardware: Apple M5 Max 128GB
+Date: 2026-03-27
+Clean run: all stale llama-server processes killed before bench
+
+=== DENSE 27B (Qwen3.5-27B Q8_0): WITH SPARSE V ===
+ggml_metal_library_init: turbo3 sparse V dequant enabled
+| qwen35 27B Q8_0 | 26.62 GiB | 26.90 B | MTL,BLAS | 6 | turbo3 | turbo3 | 1 | tg128 | 15.41 ± 0.31 |
+| qwen35 27B Q8_0 | 26.62 GiB | 26.90 B | MTL,BLAS | 6 | turbo3 | turbo3 | 1 | pp32768+tg128 | 265.18 ± 4.50 |
+
+=== DENSE 27B (Qwen3.5-27B Q8_0): WITHOUT SPARSE V ===
+| qwen35 27B Q8_0 | 26.62 GiB | 26.90 B | MTL,BLAS | 6 | turbo3 | turbo3 | 1 | tg128 | 16.29 ± 0.02 |
+| qwen35 27B Q8_0 | 26.62 GiB | 26.90 B | MTL,BLAS | 6 | turbo3 | turbo3 | 1 | pp32768+tg128 | 261.05 ± 4.88 |
+
+=== DELTA ===
+Short decode (tg128): 15.41 vs 16.29 = -5.4% (REGRESSION)
+pp32768+tg128: 265.18 vs 261.05 = +1.6%
+
+Note: "with" run had higher variance (±0.31 vs ±0.02).
+Confirms buun's CUDA finding: sparse V helps MoE, not dense.

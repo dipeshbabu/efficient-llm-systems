@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>REFRACT report — gemma-4-26B-A4B-it-Q8_0.gguf</title>
+<style>
+:root {
+    color-scheme: light dark;
+
+    /* light-dark() requires Chrome 123+ / Safari 17.5+ / Firefox 120+ (all 2024).
+       Fallback browsers see the light values. */
+    --bg:        light-dark(#f6f6f7, #0a0a0c);
+    --paper:     light-dark(#ffffff, #131316);
+    --subtle:    light-dark(#fafafa, #1c1c20);
+    --hover:     light-dark(#f4f4f5, #27272a);
+
+    --fg:        light-dark(#09090b, #fafafa);
+    --fg-2:      light-dark(#27272a, #e4e4e7);
+    --fg-muted:  light-dark(#52525b, #a1a1aa);
+    --fg-faint:  light-dark(#a1a1aa, #71717a);
+
+    --border:        light-dark(#e4e4e7, #27272a);
+    --border-strong: light-dark(#d4d4d8, #3f3f46);
+
+    --red:     light-dark(#b42318, #fca5a5);
+    --red-bg:  light-dark(#fef3f2, #2a1517);
+    --red-br:  light-dark(#fecdca, #5e2424);
+
+    --amber:     light-dark(#b54708, #fcd34d);
+    --amber-bg:  light-dark(#fffaeb, #2a1f0a);
+    --amber-br:  light-dark(#fedf89, #5c4319);
+
+    --green:     light-dark(#027a48, #86efac);
+    --green-bg:  light-dark(#ecfdf3, #0e1f13);
+    --green-br:  light-dark(#abefc6, #1f4a2c);
+
+    --blue:     light-dark(#175cd3, #93c5fd);
+    --blue-bg:  light-dark(#eff8ff, #0e1929);
+    --blue-br:  light-dark(#b2ddff, #1f3a5c);
+
+    --gray:     light-dark(#52525b, #a1a1aa);
+
+    --code-bg:   light-dark(#18181b, #0a0a0c);
+    --code-fg:   #e4e4e7;
+    --code-dim:  #71717a;
+    --code-line: light-dark(#27272a, #27272a);
+
+    --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+}
+
+/* Manual override — the toggle button sets data-theme on <html>.
+   Without it, color-scheme stays "light dark" and follows the OS. */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"]  { color-scheme: dark;  }
+* { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body {
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--fg);
+    background: var(--bg);
+    margin: 0;
+    padding: 32px 20px 80px;
+    font-feature-settings: "ss01", "cv11";
+}
+.report {
+    max-width: 1080px;
+    margin: 0 auto;
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* HEADER */
+.masthead {
+    position: relative;
+    padding: 24px 32px 20px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: start;
+}
+.masthead .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.masthead .brand-mark {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--fg); color: var(--paper);
+    display: grid; place-items: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: -0.04em;
+}
+.masthead .brand-text { font-family: var(--mono); font-size: 12px; font-weight: 500; }
+.masthead .brand-text .ver { color: var(--fg-faint); font-weight: 400; margin-left: 6px; }
+.masthead h1 {
+    margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em;
+    line-height: 1.2; font-family: var(--mono);
+}
+.masthead .subtitle { margin-top: 6px; font-size: 13px; color: var(--fg-muted); }
+.masthead .meta {
+    display: grid; gap: 4px; text-align: right;
+    font-family: var(--mono); font-size: 12px; color: var(--fg-muted);
+    margin-top: 32px; /* leave room for the absolute-positioned theme toggle */
+}
+.masthead .meta .row { display: flex; gap: 8px; justify-content: flex-end; align-items: center; }
+.masthead .meta .k { color: var(--fg-faint); }
+.masthead .meta .v { color: var(--fg-2); font-weight: 500; }
+
+/* THEME TOGGLE — sun/moon button at top-right of the masthead */
+.theme-toggle {
+    position: absolute;
+    top: 20px; right: 24px;
+    width: 30px; height: 30px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--paper);
+    color: var(--fg-muted);
+    cursor: pointer;
+    display: grid; place-items: center;
+    padding: 0; z-index: 1;
+    transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+.theme-toggle:hover { background: var(--hover); border-color: var(--border-strong); color: var(--fg); }
+.theme-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+.theme-toggle svg { width: 14px; height: 14px; display: block; }
+.theme-toggle .icon-sun { display: none; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
+    :root:not([data-theme="light"]) .theme-toggle .icon-sun  { display: block; }
+}
+:root[data-theme="dark"]  .theme-toggle .icon-moon { display: none; }
+:root[data-theme="dark"]  .theme-toggle .icon-sun  { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+:root[data-theme="light"] .theme-toggle .icon-sun  { display: none; }
+
+/* STATS STRIP */
+.stats-strip {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+    background: var(--subtle);
+}
+.stat { padding: 18px 24px 20px; border-right: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+.stat:last-child { border-right: none; }
+.stat .label { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--fg-muted); letter-spacing: -0.01em; }
+.stat .label .axis-letter { color: var(--fg-faint); margin-right: 6px; }
+.stat .value-row { display: flex; align-items: baseline; gap: 8px; }
+.stat .value {
+    font-family: var(--mono); font-size: 28px; font-weight: 500;
+    letter-spacing: -0.03em; color: var(--fg); line-height: 1;
+    font-feature-settings: "tnum", "ss01";
+}
+.stat .delta { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); font-weight: 400; }
+.stat.composite .value { font-size: 36px; font-weight: 600; }
+.stat .badge-row { margin-top: 2px; }
+
+/* BADGES */
+.badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px 2px 7px;
+    border-radius: 999px;
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    line-height: 1.5; letter-spacing: -0.01em;
+    border: 1px solid; white-space: nowrap;
+}
+.badge::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.badge.red   { color: var(--red);   background: var(--red-bg);   border-color: var(--red-br); }
+.badge.amber { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-br); }
+.badge.green { color: var(--green); background: var(--green-bg); border-color: var(--green-br); }
+.badge.blue  { color: var(--blue);  background: var(--blue-bg);  border-color: var(--blue-br); }
+.badge.gray  { color: var(--fg-muted); background: var(--subtle); border-color: var(--border); }
+
+/* SECTION */
+.section { padding: 28px 32px; border-bottom: 1px solid var(--border); }
+.section:last-of-type { border-bottom: none; }
+.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 16px; }
+.section-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+.section-head .hint { font-family: var(--mono); font-size: 11px; color: var(--fg-faint); letter-spacing: -0.01em; }
+
+/* SUMMARY BOX */
+.summary-box {
+    border-radius: 8px; padding: 14px 16px;
+    display: flex; gap: 12px; align-items: flex-start;
+    border: 1px solid;
+}
+.summary-box.red   { background: var(--red-bg);   border-color: var(--red-br); }
+.summary-box.red   .icon { background: var(--red); }
+.summary-box.red   .title { color: var(--red); }
+.summary-box.amber { background: var(--amber-bg); border-color: var(--amber-br); }
+.summary-box.amber .icon { background: var(--amber); }
+.summary-box.amber .title { color: var(--amber); }
+.summary-box.green { background: var(--green-bg); border-color: var(--green-br); }
+.summary-box.green .icon { background: var(--green); }
+.summary-box.green .title { color: var(--green); }
+.summary-box .icon {
+    width: 18px; height: 18px; border-radius: 50%;
+    color: #fff; display: grid; place-items: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    flex-shrink: 0; margin-top: 1px;
+}
+.summary-box .body { flex: 1; }
+.summary-box .title { font-weight: 600; font-size: 13.5px; margin-bottom: 4px; letter-spacing: -0.01em; }
+.summary-box .desc { color: var(--fg-2); font-size: 13px; }
+
+/* FINDINGS */
+.findings { display: flex; flex-direction: column; margin-top: 16px; }
+.finding {
+    display: grid; grid-template-columns: auto 1fr; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start;
+}
+.finding:last-child { border-bottom: none; }
+.finding:first-child { border-top: 1px solid var(--border); }
+.finding .num {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    color: var(--fg-faint); background: var(--subtle);
+    padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border);
+    flex-shrink: 0; margin-top: 1px;
+}
+.finding p { margin: 0; font-size: 13.5px; color: var(--fg-2); line-height: 1.5; }
+.finding p strong { font-weight: 600; color: var(--fg); }
+
+/* AXES TABLE */
+.axes-table { width: 100%; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.axes-table .head-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1.4fr) 90px 110px minmax(0, 1.2fr);
+    background: var(--subtle); border-bottom: 1px solid var(--border);
+    padding: 10px 16px; gap: 16px; align-items: center;
+    font-family: var(--mono); font-size: 11px; color: var(--fg-muted);
+    font-weight: 500; letter-spacing: -0.01em;
+}
+.axis-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1.4fr) 90px 110px minmax(0, 1.2fr);
+    padding: 14px 16px; gap: 16px; align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+.axis-row:last-of-type { border-bottom: none; }
+.axis-row .key {
+    font-family: var(--mono); font-size: 12px; color: var(--fg-muted);
+    font-weight: 500; display: flex; align-items: center; gap: 6px;
+}
+.axis-row .key .letter {
+    display: inline-grid; place-items: center;
+    width: 18px; height: 18px; border-radius: 4px;
+    background: var(--fg); color: #fff;
+    font-size: 10px; letter-spacing: 0; font-weight: 500;
+}
+.axis-row .name { font-size: 13.5px; font-weight: 500; color: var(--fg); letter-spacing: -0.01em; }
+.axis-row .name .desc {
+    display: block; font-size: 12px; color: var(--fg-muted);
+    font-weight: 400; margin-top: 2px; line-height: 1.4;
+}
+.axis-row .score {
+    font-family: var(--mono); font-size: 16px; font-weight: 500;
+    text-align: right; font-feature-settings: "tnum"; letter-spacing: -0.02em;
+}
+.axis-row .meter { position: relative; height: 6px; background: var(--hover); border-radius: 3px; overflow: hidden; }
+.axis-row .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+
+.axis-detail-row { padding: 0 16px 18px 16px; background: var(--subtle); border-bottom: 1px solid var(--border); }
+.axis-detail-row:last-of-type { border-bottom: none; }
+.detail-inner { padding: 16px 0 4px; border-top: 1px dashed var(--border); }
+.detail-label { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--fg-muted); margin-bottom: 10px; letter-spacing: -0.01em; }
+.detail-label .legend { color: var(--fg-faint); margin-left: 8px; font-weight: 400; }
+
+/* MATRIX */
+.matrix {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    font-family: var(--mono); font-size: 12px;
+    border: 1px solid var(--border); border-radius: 6px;
+    overflow: hidden; background: var(--paper);
+}
+.matrix th, .matrix td {
+    padding: 10px 14px; text-align: center;
+    border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+    font-feature-settings: "tnum";
+}
+.matrix th:last-child, .matrix td:last-child { border-right: none; }
+.matrix tr:last-child th, .matrix tr:last-child td { border-bottom: none; }
+.matrix thead th { background: var(--subtle); font-weight: 500; font-size: 11px; color: var(--fg-muted); }
+.matrix tbody th { background: var(--subtle); font-weight: 500; color: var(--fg-2); font-size: 11px; }
+.matrix .cell-pass { color: var(--green); background: var(--green-bg); font-weight: 500; }
+.matrix .cell-fail { color: var(--red);   background: var(--red-bg);   font-weight: 500; }
+.matrix .cell-na   { color: var(--fg-faint); background: var(--paper); font-style: italic; }
+
+/* PLAD TABLE */
+.plad-table {
+    width: 100%; border-collapse: collapse;
+    background: var(--paper); border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden;
+}
+.plad-table th, .plad-table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.plad-table tr:last-child th, .plad-table tr:last-child td { border-bottom: none; }
+.plad-table thead th { background: var(--subtle); font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--fg-muted); }
+.plad-table .label { font-family: var(--mono); font-size: 12.5px; color: var(--fg); width: 18%; font-weight: 500; }
+.plad-table .score-cell { font-family: var(--mono); font-size: 14px; color: var(--fg); width: 14%; font-weight: 500; font-feature-settings: "tnum"; }
+.plad-table .band-cell { width: 16%; }
+.plad-table .meter-cell { width: 36%; }
+.plad-table .note-cell { width: 16%; font-size: 12px; color: var(--fg-faint); font-style: italic; }
+.plad-table .skipped { color: var(--fg-faint); font-style: italic; font-family: var(--mono); font-size: 12.5px; }
+.mini-meter { position: relative; height: 6px; background: var(--hover); border-radius: 3px; }
+.mini-meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; }
+
+/* RUN DETAILS */
+.run-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.run-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; background: var(--paper); }
+.run-card .card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.run-card .card-head .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-muted); }
+.run-card h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: -0.01em; }
+.run-card dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; }
+.run-card dt { font-family: var(--mono); font-size: 11.5px; color: var(--fg-muted); align-self: baseline; }
+.run-card dd { margin: 0; font-family: var(--mono); font-size: 12px; word-break: break-word; font-feature-settings: "tnum"; text-align: right; }
+
+/* CODE */
+.code-block {
+    background: var(--code-bg); color: var(--code-fg);
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.65;
+    padding: 14px 16px; border-radius: 8px; border: 1px solid var(--code-line);
+    display: flex; align-items: flex-start; gap: 10px;
+}
+.code-block .prompt { color: var(--code-dim); user-select: none; flex-shrink: 0; }
+.code-block code { color: var(--code-fg); white-space: pre-wrap; word-break: break-word; flex: 1; min-width: 0; }
+.code-block code .flag { color: #93c5fd; }
+.code-block code .arg { color: #fcd34d; }
+.code-block code .placeholder { color: var(--code-dim); font-style: italic; }
+
+details.json-toggle { margin-top: 16px; }
+details.json-toggle summary {
+    cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--fg-muted);
+    list-style: none; display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+    background: var(--paper); user-select: none; font-weight: 500;
+    transition: background 100ms ease, border-color 100ms ease;
+}
+details.json-toggle summary:hover { background: var(--hover); border-color: var(--border-strong); }
+details.json-toggle summary::-webkit-details-marker { display: none; }
+details.json-toggle summary::before {
+    content: "›"; color: var(--fg-faint); font-size: 14px; line-height: 1;
+    transition: transform 120ms ease; display: inline-block;
+}
+details.json-toggle[open] summary::before { transform: rotate(90deg); }
+details.json-toggle pre {
+    margin: 12px 0 0; background: var(--code-bg); color: var(--code-fg);
+    padding: 16px 18px; border-radius: 8px; overflow: auto;
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.65;
+    max-height: 480px; border: 1px solid var(--code-line);
+}
+
+/* FOOTER */
+.report-foot { padding: 0; background: var(--subtle); border-top: 1px solid var(--border); }
+.foot-info {
+    padding: 14px 32px; border-bottom: 1px solid var(--border);
+    font-size: 12.5px; color: var(--fg-muted); line-height: 1.5;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+}
+.foot-info .what { color: var(--fg-2); }
+.foot-info .docs-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 12px; color: var(--fg);
+    text-decoration: none; padding: 5px 10px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--paper); font-weight: 500;
+    transition: background 100ms ease, border-color 100ms ease;
+    white-space: nowrap; flex-shrink: 0;
+}
+.foot-info .docs-link:hover { background: var(--hover); border-color: var(--border-strong); }
+.foot-info .docs-link .arrow { color: var(--fg-faint); font-size: 11px; }
+.foot-bar { padding: 12px 32px; display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-size: 11px; color: var(--fg-muted); }
+.foot-bar .right { display: flex; gap: 14px; }
+.foot-bar .right span { color: var(--fg-faint); }
+
+/* RESPONSIVE */
+@media (max-width: 900px) {
+    .stats-strip { grid-template-columns: repeat(2, 1fr); }
+    .stat { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .stat:nth-child(2n) { border-right: none; }
+    .stat.composite { grid-column: 1 / -1; }
+    .axes-table .head-row { display: none; }
+    .axis-row { grid-template-columns: auto 1fr; gap: 10px 14px; padding: 14px; }
+    .axis-row .key { grid-row: 1; }
+    .axis-row .name { grid-row: 1; grid-column: 2; }
+    .axis-row .score { grid-row: 2; grid-column: 1 / 2; text-align: left; }
+    .axis-row .badge-cell { grid-row: 2; grid-column: 2; }
+    .axis-row .meter { grid-row: 3; grid-column: 1 / -1; }
+    .run-grid { grid-template-columns: 1fr; }
+    .masthead { grid-template-columns: 1fr; }
+    .masthead .meta { text-align: left; }
+    .masthead .meta .row { justify-content: flex-start; }
+}
+@media (max-width: 560px) {
+    body { padding: 12px; }
+    .section { padding: 20px 18px; }
+    .masthead { padding: 18px; }
+    .stats-strip { grid-template-columns: 1fr; }
+    .stat { border-right: none; }
+    .foot-info { flex-direction: column; align-items: flex-start; padding: 14px 18px; }
+    .foot-bar { padding: 12px 18px; }
+}
+</style>
+</head>
+<body>
+<div class="report">
+
+  <header class="masthead">
+    <button class="theme-toggle" type="button" aria-label="Toggle theme" title="Toggle light / dark">
+      <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </button>
+    <div>
+      <div class="brand">
+        <span class="brand-mark">R</span>
+        <span class="brand-text">refract <span class="ver">v0.3.2</span></span>
+      </div>
+      <h1>gemma-4-26B-A4B-it-Q8_0.gguf</h1>
+      <div class="subtitle">Quantization audit · ctk=q8_0,ctv=turbo4 against fp16 reference</div>
+    </div>
+    <div class="meta">
+      <div class="row"><span class="k">report</span><span class="v">#0430-1623</span></div>
+      <div class="row"><span class="k">generated</span><span class="v">2026-04-30 16:23:41</span></div>
+      <div class="row"><span class="k">scoring</span><span class="v">0–100, higher is better</span></div>
+    </div>
+  </header>
+
+  <div class="stats-strip">
+    <div class="stat composite"><div class="label">Composite score</div><div class="value-row"><div class="value">29.12</div><div class="delta">/ 100</div></div><div class="badge-row"><span class="badge red">Fail</span></div></div><div class="stat"><div class="label"><span class="axis-letter">A</span>GTM</div><div class="value-row"><div class="value">17.32</div></div><div class="badge-row"><span class="badge red">Fail</span></div></div><div class="stat"><div class="label"><span class="axis-letter">B</span>KLD@D</div><div class="value-row"><div class="value">17.59</div></div><div class="badge-row"><span class="badge red">Fail</span></div></div><div class="stat"><div class="label"><span class="axis-letter">C</span>R-NIAH</div><div class="value-row"><div class="value">100.00</div></div><div class="badge-row"><span class="badge green">Excellent</span></div></div><div class="stat"><div class="label"><span class="axis-letter">D</span>PLAD</div><div class="value-row"><div class="value">78.40</div></div><div class="badge-row"><span class="badge amber">Degraded</span></div></div>
+  </div>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Diagnosis</h2>
+      <span class="hint">2 findings</span>
+    </div>
+    <div class="summary-box red"><div class="icon">!</div><div class="body"><div class="title">Material quality loss. Treat as broken.</div><div class="desc">Composite of 29.12 falls in the Fail band. Surfaces below threshold: Trajectory fail, KLD fail, PLAD degraded.</div></div></div>
+    <div class="findings"><div class="finding"><span class="num">01</span><p><strong>Decode distribution drift detected:</strong> the candidate generates different tokens than fp16 on short-context prompts.</p></div><div class="finding"><span class="num">02</span><p><strong>Brittleness to small input changes:</strong> candidate&#x27;s output drifts more than fp16&#x27;s under typo / casing / punctuation perturbations.</p></div></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Per-axis breakdown</h2>
+      <span class="hint">4 axes</span>
+    </div>
+    <div class="axes-table">
+      <div class="head-row">
+        <div>axis</div>
+        <div>metric</div>
+        <div style="text-align: right;">score</div>
+        <div>band</div>
+        <div>distribution</div>
+      </div>
+      <div class="axis-row"><div class="key"><span class="letter">A</span>GTM</div><div class="name">Greedy Trajectory Match<span class="desc">Token-level agreement with the fp16 reference (greedy decode).</span></div><div class="score">17.32</div><div class="badge-cell"><span class="badge red">Fail</span></div><div class="meter"><div class="fill" style="width:17.3%; background:var(--red);"></div></div></div><div class="axis-row"><div class="key"><span class="letter">B</span>KLD@D</div><div class="name">KL Divergence at the Decoder<span class="desc">Distribution-level divergence from the fp16 reference (corpus KLD).</span></div><div class="score">17.59</div><div class="badge-cell"><span class="badge red">Fail</span></div><div class="meter"><div class="fill" style="width:17.6%; background:var(--red);"></div></div></div><div class="axis-row"><div class="key"><span class="letter">C</span>R-NIAH</div><div class="name">Retrieval Needle-In-A-Haystack<span class="desc">Long-context retrieval quality vs the reference (NIAH at multiple lengths).</span></div><div class="score">100.00</div><div class="badge-cell"><span class="badge green">Excellent</span></div><div class="meter"><div class="fill" style="width:100.0%; background:var(--green);"></div></div></div><div class="axis-detail-row"><div class="detail-inner"><div class="detail-label">R-NIAH per-cell <span class="legend">cand / base retrieval rate · green = match · red = candidate worse · n/a = base also fails at this cell</span></div><table class="matrix"><thead><tr><th>length \ position</th><th>0.10</th><th>0.50</th><th>0.90</th></tr></thead><tbody><tr><th>4096</th><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td></tr><tr><th>8192</th><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td><td class="cell-pass" title="candidate retrieves at 1.00, base at 1.00 — match">1.00 / 1.00</td></tr><tr><th>16384</th><td class="cell-na" title="fp16 baseline does not retrieve at this cell — uninformative for the candidate vs base comparison">n/a</td><td class="cell-na" title="fp16 baseline does not retrieve at this cell — uninformative for the candidate vs base comparison">n/a</td><td class="cell-na" title="fp16 baseline does not retrieve at this cell — uninformative for the candidate vs base comparison">n/a</td></tr></tbody></table></div></div><div class="axis-row"><div class="key"><span class="letter">D</span>PLAD</div><div class="name">Perturbation-Locality Aware Drift<span class="desc">Robustness to small prompt changes vs the reference (typo / case / punct / paraphrase).</span></div><div class="score">78.40</div><div class="badge-cell"><span class="badge amber">Degraded</span></div><div class="meter"><div class="fill" style="width:78.4%; background:var(--amber);"></div></div></div><div class="axis-detail-row"><div class="detail-inner"><div class="detail-label">PLAD per-perturbation</div><table class="plad-table"><thead><tr><th>perturbation</th><th>score</th><th>band</th><th>distribution</th><th></th></tr></thead><tbody><tr><td class="label">typo</td><td class="score-cell">83.66</td><td class="band-cell"><span class="badge green">Pass</span></td><td class="meter-cell"><div class="mini-meter"><div class="fill" style="width:83.7%; background:var(--green);"></div></div></td><td class="note-cell"></td></tr><tr><td class="label">case</td><td class="score-cell">68.77</td><td class="band-cell"><span class="badge amber">Degraded</span></td><td class="meter-cell"><div class="mini-meter"><div class="fill" style="width:68.8%; background:var(--amber);"></div></div></td><td class="note-cell"></td></tr><tr><td class="label">punct</td><td class="score-cell">81.84</td><td class="band-cell"><span class="badge green">Pass</span></td><td class="meter-cell"><div class="mini-meter"><div class="fill" style="width:81.8%; background:var(--green);"></div></div></td><td class="note-cell"></td></tr><tr><td class="label">paraphrase</td><td class="score-cell"><span class="skipped">skipped</span></td><td class="band-cell"><span class="badge gray">N/A</span></td><td class="meter-cell"></td><td class="note-cell">didn't apply on these prompts</td></tr></tbody></table></div></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Run details</h2>
+      <span class="hint">model · hardware · environment</span>
+    </div>
+    <div class="run-grid"><div class="run-card"><div class="card-head"><span class="dot"></span><h3>Model</h3></div><dl><dt>name</dt><dd>gemma-4-26B-A4B-it-Q8_0.gguf</dd><dt>size</dt><dd>25.02 GB</dd><dt>format</dt><dd>gguf</dd></dl></div><div class="run-card"><div class="card-head"><span class="dot"></span><h3>Hardware</h3></div><dl><dt>chip</dt><dd>Apple M5 Max</dd><dt>platform</dt><dd>macOS 26.4.1 arm64</dd><dt>ram</dt><dd>128.0 GB</dd><dt>arch</dt><dd>arm64</dd><dt>python</dt><dd>3.14.4</dd></dl></div><div class="run-card"><div class="card-head"><span class="dot"></span><h3>Environment</h3></div><dl><dt>reference</dt><dd>ctk=f16<br>ctv=f16</dd><dt>candidate</dt><dd>ctk=q8_0<br>ctv=turbo4</dd></dl></div></div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Reproduce</h2>
+      <span class="hint">command</span>
+    </div>
+    <div class="code-block">
+      <span class="prompt">$</span>
+      <code><span class="arg">python3</span> <span class="flag">-m</span> <span class="arg">refract.cli</span> <span class="arg">score</span> <span class="flag">--model</span> <span class="arg">gemma-4-26B-A4B-it-Q8_0.gguf</span> <span class="flag">--reference</span> <span class="arg">ctk=f16,ctv=f16</span> <span class="flag">--candidate</span> <span class="arg">ctk=q8_0,ctv=turbo4</span> <span class="flag">--prompts</span> <span class="arg">refract/prompts/v0.1.jsonl</span> <span class="flag">--full</span> <span class="flag">--rniah-up-to</span> <span class="arg">16384</span> <span class="flag">--json-out</span> <span class="arg">report.json</span> <span class="flag">--html-out</span> <span class="arg">report.html</span></code>
+    </div>
+
+    <details class="json-toggle">
+      <summary>Raw JSON · machine-readable</summary>
+<pre>{
+  &quot;schema&quot;: &quot;refract.report.v0.3.1&quot;,
+  &quot;framework_version&quot;: &quot;0.3.2&quot;,
+  &quot;environment&quot;: {},
+  &quot;repro_command&quot;: &quot;&quot;,
+  &quot;timestamp&quot;: &quot;2026-04-30T16:23:41&quot;,
+  &quot;score_direction&quot;: &quot;higher_is_better&quot;,
+  &quot;score_range&quot;: [
+    0,
+    100
+  ],
+  &quot;model&quot;: &quot;/Users/dipesh/models/gemma-4-26B-A4B-it-Q8_0.gguf&quot;,
+  &quot;reference&quot;: &quot;ctk=f16,ctv=f16&quot;,
+  &quot;candidate&quot;: &quot;ctk=q8_0,ctv=turbo4&quot;,
+  &quot;composite&quot;: 29.119378931499842,
+  &quot;band&quot;: &quot;FAIL&quot;,
+  &quot;summary&quot;: &quot;Material quality loss. Treat as broken.&quot;,
+  &quot;diagnosis&quot;: [
+    &quot;Decode distribution drift detected: the candidate generates different tokens than fp16 on short-context prompts.&quot;,
+    &quot;Brittleness to small input changes: candidate&#x27;s output drifts more than fp16&#x27;s under typo / casing / punctuation perturbations.&quot;
+  ],
+  &quot;composite_detail&quot;: {
+    &quot;gtm_score&quot;: 17.31690622861054,
+    &quot;kld_score&quot;: 17.585948209856365,
+    &quot;rniah_score&quot;: 100.0,
+    &quot;plad_score&quot;: 78.40093473438733,
+    &quot;floor_score&quot;: null,
+    &quot;floor_ok&quot;: null,
+    &quot;floor_min&quot;: 99.5,
+    &quot;notes&quot;: []
+  },
+  &quot;axes&quot;: {
+    &quot;gtm&quot;: {
+      &quot;score&quot;: 17.31690622861054,
+      &quot;full_match_rate&quot;: 0.1,
+      &quot;median_first_divergence&quot;: 2,
+      &quot;mean_prefix_agreement_length&quot;: 8.433333333333334,
+      &quot;mean_cand_length&quot;: 48.7,
+      &quot;mean_ref_length&quot;: 49.63333333333333,
+      &quot;n_prompts&quot;: 30,
+      &quot;n_tokens_each&quot;: 50,
+      &quot;per_prompt&quot;: [],
+      &quot;notes&quot;: [],
+      &quot;band&quot;: &quot;FAIL&quot;,
+      &quot;description&quot;: &quot;Token-level agreement with the fp16 reference.&quot;
+    },
+    &quot;kld&quot;: {
+      &quot;score&quot;: 17.585948209856365,
+      &quot;mean_kld&quot;: 1.73807,
+      &quot;ppl&quot;: null,
+      &quot;rms_dp_pct&quot;: null,
+      &quot;same_topp_pct&quot;: null,
+      &quot;base_path&quot;: &quot;&quot;,
+      &quot;chunks&quot;: 32,
+      &quot;ctx&quot;: 512,
+      &quot;is_self_reference&quot;: false,
+      &quot;corpus&quot;: null,
+      &quot;band&quot;: &quot;FAIL&quot;,
+      &quot;description&quot;: &quot;Distribution-level divergence from the fp16 reference.&quot;
+    },
+    &quot;rniah&quot;: {
+      &quot;score&quot;: 100.0,
+      &quot;n_cells&quot;: 9,
+      &quot;cells&quot;: [
+        {
+          &quot;length&quot;: 4096,
+          &quot;position&quot;: 0.1,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 4096,
+          &quot;position&quot;: 0.5,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 4096,
+          &quot;position&quot;: 0.9,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 8192,
+          &quot;position&quot;: 0.1,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 8192,
+          &quot;position&quot;: 0.5,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 8192,
+          &quot;position&quot;: 0.9,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 1.0,
+          &quot;cand_acc&quot;: 1.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 1,
+          &quot;cand_hits&quot;: 1
+        },
+        {
+          &quot;length&quot;: 16384,
+          &quot;position&quot;: 0.1,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 0.0,
+          &quot;cand_acc&quot;: 0.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 0,
+          &quot;cand_hits&quot;: 0
+        },
+        {
+          &quot;length&quot;: 16384,
+          &quot;position&quot;: 0.5,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 0.0,
+          &quot;cand_acc&quot;: 0.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 0,
+          &quot;cand_hits&quot;: 0
+        },
+        {
+          &quot;length&quot;: 16384,
+          &quot;position&quot;: 0.9,
+          &quot;n_trials&quot;: 1,
+          &quot;base_acc&quot;: 0.0,
+          &quot;cand_acc&quot;: 0.0,
+          &quot;degradation&quot;: 0.0,
+          &quot;base_hits&quot;: 0,
+          &quot;cand_hits&quot;: 0
+        }
+      ],
+      &quot;skipped_cells&quot;: [],
+      &quot;needle&quot;: &quot;Note: APRICOT-7-BLUE is the rare paint color featured in this article.&quot;,
+      &quot;password_keyword&quot;: &quot;APRICOT-7-BLUE&quot;,
+      &quot;notes&quot;: [],
+      &quot;confidence&quot;: &quot;ok&quot;,
+      &quot;base_acc_avg&quot;: 0.6666666666666666,
+      &quot;band&quot;: &quot;EXCELLENT&quot;,
+      &quot;description&quot;: &quot;Long-context retrieval quality vs the reference.&quot;
+    },
+    &quot;plad&quot;: {
+      &quot;score&quot;: 78.40093473438733,
+      &quot;per_perturbation_score&quot;: {
+        &quot;typo&quot;: 83.66015410668061,
+        &quot;case&quot;: 68.766446516516,
+        &quot;punct&quot;: 81.84221977573544,
+        &quot;paraphrase&quot;: NaN
+      },
+      &quot;per_prompt&quot;: [],
+      &quot;n_prompts&quot;: 30,
+      &quot;n_perturbations&quot;: 4,
+      &quot;notes&quot;: [
+        &quot;36 (prompt, perturbation) pairs were skipped (perturbation could not apply, e.g. no \u22654-char word for typo).&quot;
+      ],
+      &quot;skipped_perturbations&quot;: [
+        &quot;paraphrase&quot;
+      ],
+      &quot;confidence&quot;: &quot;partial&quot;,
+      &quot;band&quot;: &quot;DEGRADED&quot;,
+      &quot;description&quot;: &quot;Robustness to small prompt changes vs the reference.&quot;
+    }
+  },
+  &quot;extras&quot;: {}
+}</pre>
+    </details>
+  </section>
+
+  <footer class="report-foot">
+    <div class="foot-info">
+      <div class="what">
+        <strong style="color: var(--fg); font-weight: 600;">What is this?</strong>
+        REFRACT — <em>REFerence-anchored Robust Acid-test for Compressed Transformers</em> — is a quantization audit framework that scores how faithfully a quantized KV-cache config preserves the model's own fp16 behaviour. The repository contains documentation, the motivation paper, and guidance on interpreting these scores.
+      </div>
+      <a class="docs-link" href="https://github.com/dipeshbabu/efficient-llm-systems/tree/main/components/refract" target="_blank" rel="noopener">
+        github.com/dipeshbabu/efficient-llm-systems
+        <span class="arrow">↗</span>
+      </a>
+    </div>
+    <div class="foot-bar">
+      <span>refract · v0.3.2</span>
+      <div class="right">
+        <span>schema refract.report.v0.3.1</span>
+        <span>·</span>
+        <span>#0430-1623</span>
+      </div>
+    </div>
+  </footer>
+
+</div>
+<script>
+(function() {
+    var btn = document.querySelector('.theme-toggle');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var html = document.documentElement;
+        var current = html.getAttribute('data-theme');
+        if (!current) {
+            // No override yet — read OS preference and flip to opposite.
+            current = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        html.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    });
+})();
+</script>
+</body>
+</html>

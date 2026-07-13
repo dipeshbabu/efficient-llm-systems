@@ -1,0 +1,41 @@
+Turbo4 QJL Ablation — QJL Hurts Quality
+========================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0
+Corpus: wikitext-2 wiki.test.raw, c=512, 8 chunks
+
+Experiment: Disable QJL correction in turbo4 dequant to isolate its effect.
+Changed line 776 from:
+  cache[i] = (recon[i] + signs_f[i] * qjl_scale) * norm;
+To:
+  cache[i] = recon[i] * norm;  // PolarQuant only
+
+Results:
+  q8_0:                6.1109  (baseline)
+  turbo3:              6.1756  (+1.06%)
+  turbo4 WITH QJL:     6.1894  (+1.28%)
+  turbo4 WITHOUT QJL:  6.1756  (+1.06%)  ← same as turbo3
+
+Analysis:
+  QJL correction INCREASES perplexity by 0.22%.
+  Removing QJL makes turbo4 PPL identical to turbo3.
+
+  This confirms scos-lab's finding (issue #45):
+  - QJL variance is amplified by softmax
+  - MSE (PolarQuant alone) beats Prod (PolarQuant + QJL) for attention
+  - The 1-bit QJL correction adds noise, not signal, in the KV cache context
+
+Implication:
+  turbo4 as designed (3-bit PolarQuant + 1-bit QJL) is strictly worse than
+  turbo3 (3-bit PolarQuant) for KV cache. The QJL bit is wasted.
+
+  Options:
+  1. Drop QJL, make turbo4 = "turbo3 in 128-block format" (same quality, different block layout)
+  2. Use the extra bit for 4-bit PolarQuant (more centroids) instead of QJL
+  3. Keep turbo4 name but implement as 4-bit MSE-only (no QJL)
+
+  Option 3 is most promising — 4-bit PolarQuant should beat both turbo3
+  and q4_0 since PolarQuant is theoretically optimal at any bit rate.

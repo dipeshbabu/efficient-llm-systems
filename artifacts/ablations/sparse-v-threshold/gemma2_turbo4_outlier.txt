@@ -1,0 +1,26 @@
+Gemma 2 27B: turbo4 slightly worse than turbo3 (outlier)
+=========================================================
+
+Date: 2026-03-28
+Model: gemma-2-27b-it-Q4_K_M
+Architecture: ISWA, logit softcapping (50.0), hd128
+
+PPL (8-chunk, c=512):
+  q8_0:   7.0590
+  turbo3: 7.1489 (+1.3%)
+  turbo4: 7.1794 (+1.7%)
+
+Every other model: turbo4 beats turbo3.
+Gemma 2: turbo4 is 0.4% worse than turbo3.
+
+Possible causes to investigate:
+1. ISWA dual-cache interaction with 4-bit centroids
+2. Logit softcapping (tanh) amplifies 4-bit vs 3-bit centroid spacing differently
+3. Gemma 2's GQA ratio (32Q/16KV) interacts differently with more centroids
+4. The 8-entry constant LUT (turbo3) may have better cache behavior than
+   16-entry LUT (turbo4) on ISWA's alternating cache access pattern
+5. Statistical noise — 8 chunks at c=512 may not be enough to distinguish
+   a 0.04 PPL difference
+
+Priority: Low — both are within 2% of q8_0, and the difference is small.
+Investigate if the pattern persists on other ISWA models (Cohere2, OLMo2).

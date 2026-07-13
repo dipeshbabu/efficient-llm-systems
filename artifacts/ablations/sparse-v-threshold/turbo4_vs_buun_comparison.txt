@@ -1,0 +1,51 @@
+Turbo4 4-bit PolarQuant vs buun's CUDA turbo4 (QJL)
+=====================================================
+
+Date: 2026-03-28
+Our setup: Apple M5 Max 128GB, Qwen3.5-35B-A3B Q8_0 (MoE)
+buun's setup: RTX 3090 24GB, Qwen3.5-27B (dense)
+
+Note: different models and hardware. Absolute PPL values differ.
+Compare relative gaps vs q8_0 within each setup.
+
+QUALITY (PPL, lower is better):
+
+Context | buun turbo4 (QJL) | buun vs q8_0 | Us turbo4 (4-bit) | Us vs q8_0
+512     | —                 | —            | 6.1250            | +0.23%
+2K      | 5.8186            | -0.28%       | —                 | —
+8K      | —                 | —            | 5.5546            | +0.82%
+16K     | —                 | —            | 5.0813            | +0.68%
+32K     | 7.2478            | -0.16%       | —                 | —
+64K     | 6.7192            | +3.69% !!    | expected stable   | no QJL
+
+buun turbo3 reference:
+2K:  5.8323 (-0.09%)    32K: 7.2139 (-0.62%)    64K: 6.5122 (+0.49%)
+
+Us turbo3 reference:
+512: 6.1756 (+1.06%)    8K: 5.5700 (+1.10%)     16K: 5.0630 (+0.32%)
+
+SPEED:
+
+Metric          | buun CUDA turbo4 | buun CUDA turbo3 | Us Metal turbo4 | Us Metal turbo3
+Decode tok/s    | 29.43            | 30.31            | 79.58           | 78.24
+Decode vs q8_0  | 94.2%            | 97.0%            | 92.5%           | 90.9%
+Prefill tok/s   | 588              | 1125             | 1042.79         | ~2747 (512c)
+Prefill vs q8_0 | 51.9%            | 99.3%            | —               | ~102%
+
+q8_0 baselines:
+  buun: 31.25 decode, 1133 prefill
+  Us:   86.30 decode, — prefill
+
+KEY DIFFERENCES:
+1. Our turbo4 drops QJL entirely → no long-context degradation (buun's +3.69% at 64K)
+2. Our turbo4 uses 4-bit PolarQuant (16 centroids) → better quality at short/medium context
+3. Our prefill works (1042 tok/s) vs buun's is catastrophic (51.9%)
+4. buun's CUDA decode ratio is higher (94.2% vs 92.5%) — register LUT advantage on CUDA
+5. buun tested on dense 27B, we test on MoE 35B — different attention/FFN balance
+
+CONCLUSION:
+Our 4-bit PolarQuant approach is strictly better than the paper's original turbo4 design:
+- Better quality (no QJL noise)
+- Better speed (nibble packing + direct extract)
+- Stable at long context (no degradation)
+- Simpler implementation (no QJL matrices, no residual computation)

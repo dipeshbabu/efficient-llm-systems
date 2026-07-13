@@ -1,0 +1,151 @@
+Q4_0 Full Sparse V Validation Suite
+=====================================
+
+Date: 2026-03-28
+Hardware: Apple M5 Max 128GB
+Model: Qwen3.5-35B-A3B Q8_0 (MoE)
+Branch: feature/turboquant-kv-cache @ a52586e
+Sparse V threshold: τ = 1e-6
+
+Methodology:
+  - All tests run sequentially, no GPU contention
+  - Sparse V ON = default (auto-enabled on M5)
+  - Sparse V OFF = TURBO_SPARSE_V=0 environment variable
+  - Matches the full validation suite previously run for q8_0 and turbo3
+  - KLD already collected in prior run (docs/kl-divergence-results.md)
+
+=====================================
+1. PERPLEXITY (wikitext-103, 32K context, 50 chunks)
+=====================================
+
+Commands:
+  # ON
+  llama-perplexity -m $MODEL -f wikitext-103-raw/wiki.train.raw \
+    -c 32768 -ctk q4_0 -ctv q4_0 -fa on --chunks 50 -ngl 99
+
+  # OFF
+  TURBO_SPARSE_V=0 llama-perplexity -m $MODEL -f wikitext-103-raw/wiki.train.raw \
+    -c 32768 -ctk q4_0 -ctv q4_0 -fa on --chunks 50 -ngl 99
+
+Results:
+  q4_0 + sparse V ON:  PPL = 7.0857 +/- 0.02098
+  q4_0 + sparse V OFF: PPL = 7.0857 +/- 0.02098
+  Delta: 0.0000
+
+Reference baselines (same corpus/settings, prior runs):
+  q8_0: 7.0638 +/- 0.021
+  turbo3: 7.1796 +/- 0.021
+
+=====================================
+2. DECODE SPEED (llama-bench, MoE)
+=====================================
+
+Commands:
+  # ON
+  llama-bench -m $MODEL -ctk q4_0 -ctv q4_0 -fa 1 -ngl 99 \
+    -p 0 -n 128 -pg 8192,128 -pg 16384,128 -pg 32768,128
+
+  # OFF
+  TURBO_SPARSE_V=0 llama-bench -m $MODEL -ctk q4_0 -ctv q4_0 -fa 1 -ngl 99 \
+    -p 0 -n 128 -pg 8192,128 -pg 16384,128 -pg 32768,128
+
+  # q8_0 reference
+  llama-bench -m $MODEL -ctk q8_0 -ctv q8_0 -fa 1 -ngl 99 \
+    -p 0 -n 128 -pg 32768,128
+
+Results:
+  === Q4_0 + SPARSE V ON ===
+  tg128:          83.36 +/- 0.85 tok/s
+  pp8192+tg128:   1508.80 +/- 3.50 tok/s
+  pp16384+tg128:  1446.76 +/- 22.33 tok/s
+  pp32768+tg128:  1193.64 +/- 3.10 tok/s
+
+  === Q4_0 + SPARSE V OFF ===
+  tg128:          83.92 +/- 0.40 tok/s
+  pp8192+tg128:   1494.75 +/- 6.83 tok/s
+  pp16384+tg128:  1472.79 +/- 4.23 tok/s
+  pp32768+tg128:  1180.89 +/- 3.52 tok/s
+
+  === Q8_0 BASELINE ===
+  tg128:          85.09 +/- 0.31 tok/s
+  pp32768+tg128:  1135.03 +/- 5.02 tok/s
+
+Delta (ON vs OFF):
+  Short (tg128):     -0.7% (within noise)
+  pp8192+tg128:      +0.9% (within noise)
+  pp16384+tg128:     -1.8% (within noise, high variance on ON run)
+  pp32768+tg128:     +1.1% (within noise)
+
+Note: q4_0 dequant is cheap (simple scale+offset), so sparse V has
+minimal leverage. No regression, no meaningful improvement.
+
+Note: q4_0 pp32768 blended (1193) is faster than q8_0 (1135) because
+smaller cache = less memory bandwidth.
+
+=====================================
+3. NIAH RETRIEVAL (single needle, seed 42)
+=====================================
+
+Commands:
+  # ON
+  python3 scripts/niah_test.py ~/local_llms/llama.cpp $MODEL \
+    --mode single --cache-types q4_0 --depths 4096,8192,16384 \
+    --depths-sweep 0,50,100 --output-dir niah_q4_0_sparse_v
+
+  # OFF
+  TURBO_SPARSE_V=0 python3 scripts/niah_test.py ~/local_llms/llama.cpp $MODEL \
+    --mode single --cache-types q4_0 --depths 4096,8192,16384 \
+    --depths-sweep 0,50,100 --output-dir niah_q4_0_no_sparse_v
+
+Results:
+  === Q4_0 + SPARSE V ON (8/9) ===
+  | Depth  | 4K   | 8K   | 16K  |
+  |--------|------|------|------|
+  | 0   %  | PASS | PASS | PASS |
+  | 50  %  | PASS | PASS | FAIL |
+  | 100 %  | PASS | PASS | PASS |
+
+  === Q4_0 + SPARSE V OFF (8/9) ===
+  | Depth  | 4K   | 8K   | 16K  |
+  |--------|------|------|------|
+  | 0   %  | PASS | PASS | PASS |
+  | 50  %  | PASS | PASS | FAIL |
+  | 100 %  | PASS | PASS | PASS |
+
+Delta: identical (same miss at 16K 50% depth in both conditions)
+
+=====================================
+4. KL DIVERGENCE (from prior run)
+=====================================
+
+q4_0 KLD vs f16 (8-chunk wikitext-2, MoE):
+  Mean KLD: 0.008091
+  Δp RMS: 2.753%
+  Same top-p: 95.83%
+
+(Full KLD data in docs/kl-divergence-results.md)
+
+=====================================
+SUMMARY
+=====================================
+
+| Metric | q4_0 + sparse V | q4_0 no sparse V | Delta |
+|--------|----------------|-------------------|-------|
+| PPL (32K, 50ch) | 7.0857 | 7.0857 | 0.0000 |
+| NIAH (9 tests) | 8/9 | 8/9 | identical |
+| Decode short | 83.36 tok/s | 83.92 tok/s | -0.7% (noise) |
+| Decode pp32768 | 1193.64 tok/s | 1180.89 tok/s | +1.1% (noise) |
+| KLD vs f16 | 0.008091 | — | (baseline only) |
+
+Conclusion:
+  Sparse V is completely neutral on q4_0 — no quality impact, no speed
+  impact. q4_0's dequant is too cheap for the skip to provide meaningful
+  speedup, but it doesn't hurt either. Safe to enable by default.
+
+  q4_0 shows strong quality (PPL +0.31% vs q8_0) despite 4x compression.
+  This is an untuned baseline; no optimization was applied to q4_0 in
+  this work.
+
+Raw NIAH JSON:
+  niah_q4_0_sparse_v/niah_single_20260328_040732.json
+  niah_q4_0_no_sparse_v/niah_single_20260328_041021.json

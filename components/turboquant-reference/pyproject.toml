@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "turboquant-reference"
+version = "0.1.0"
+description = "NumPy/SciPy reference implementation of TurboQuant KV-cache compression"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.9"
+authors = [
+    { name = "Dipesh Tharu Mahato (dipeshbabu)" },
+]
+keywords = [
+    "llm",
+    "kv-cache",
+    "quantization",
+    "compression",
+    "polarquant",
+    "turboquant",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "numpy>=1.23",
+    "scipy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/dipeshbabu/efficient-llm-systems/tree/main/components/turboquant-reference"
+Repository = "https://github.com/dipeshbabu/efficient-llm-systems"
+Issues = "https://github.com/dipeshbabu/efficient-llm-systems/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "build>=1.0",
+    "twine>=5.0",
+]
+bench = [
+    "torch>=2.1",
+    "transformers>=4.40",
+    "accelerate>=0.28",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["turboquant*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

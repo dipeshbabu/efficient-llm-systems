@@ -1,0 +1,44 @@
+Turbo4 Dequant-Then-Attend — WIP, Stashed
+============================================
+
+Date: 2026-03-28
+Branch: experiment/turbo4-quality-investigation (stash)
+
+Approach: Bulk dequant turbo4 K/V to fp16 temp buffer during prefill,
+then dispatch f16 FA kernel for simdgroup matrix performance.
+
+What was done:
+1. kernel_turbo4_dequant_f16 Metal compute shader — committed (661794f)
+2. Extra tmp buffer allocation for fp16 K+V — partially done
+3. FA dispatch override (strides, pipeline, buffer IDs) — incomplete, stashed
+
+Why stashed:
+- FA dispatch code uses GGML_TENSOR_LOCALS (const) for strides
+- Shadowing all stride variables cascades through padding, blk, and FA dispatches
+- Two identical padding arg structs in non-vec path (kvpad + mask) need same override
+- Pipeline lookup needs manual name construction (type override)
+- Risk of breaking the entire FA path for 13% prefill gain
+
+Codex caught 6 issues in the dispatch code:
+1. CRITICAL: V buffer sized using K dims (FIXED in stash)
+2. HIGH: Pipeline fallback reads uninitialized data (FIXED)
+3. HIGH: Stride mismatch after buffer swap (PARTIALLY FIXED — stashed)
+4. MEDIUM: Block count floor division (FIXED with assert)
+5. MEDIUM: uint32 overflow risk (noted)
+6. LOW: Unused turbo4_dequanted flag (addressed)
+
+Prefill ceiling test:
+  turbo4 4-bit: 2037 tok/s (96% of q8_0)
+  f16 ceiling:  2314 tok/s (109% of q8_0)
+  Maximum gain: ~13%
+
+Recommendation:
+  Implement as a graph-level ggml_cast(turbo4 → f16) operation instead
+  of modifying FA dispatch. This avoids touching the fragile FA dispatch
+  code and can be inserted cleanly in llama-graph.cpp before the FA op.
+
+  Requires: ggml_metal_op_cast support for TURBO4_0 → F16 (new op).
+
+Alternative: Upstream llama.cpp may add a general "need_f16_K/V" flag
+  (apollosenvy's ROCm PR used this approach). Wait for that infrastructure
+  and plug turbo4 dequant into it.

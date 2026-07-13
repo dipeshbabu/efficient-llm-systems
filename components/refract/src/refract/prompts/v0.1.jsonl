@@ -1,0 +1,30 @@
+{"id": "fact-001", "category": "factual", "prompt": "The capital of France is", "license": "CC0"}
+{"id": "fact-002", "category": "factual", "prompt": "The largest ocean on Earth is the", "license": "CC0"}
+{"id": "fact-003", "category": "factual", "prompt": "The chemical symbol for gold is", "license": "CC0"}
+{"id": "fact-004", "category": "factual", "prompt": "The author of Romeo and Juliet is", "license": "CC0"}
+{"id": "fact-005", "category": "factual", "prompt": "The tallest mountain in the world is", "license": "CC0"}
+{"id": "arith-001", "category": "arithmetic", "prompt": "Two plus two equals", "license": "CC0"}
+{"id": "arith-002", "category": "arithmetic", "prompt": "17 times 24 equals", "license": "CC0"}
+{"id": "arith-003", "category": "arithmetic", "prompt": "100 divided by 4 is", "license": "CC0"}
+{"id": "arith-004", "category": "arithmetic", "prompt": "The square root of 81 is", "license": "CC0"}
+{"id": "arith-005", "category": "arithmetic", "prompt": "Half of 250 equals", "license": "CC0"}
+{"id": "code-001", "category": "code", "prompt": "def fib(n):\n    ", "license": "CC0"}
+{"id": "code-002", "category": "code", "prompt": "def is_prime(n):\n    ", "license": "CC0"}
+{"id": "code-003", "category": "code", "prompt": "// JavaScript function to reverse a string\nfunction reverse(s) {\n    ", "license": "CC0"}
+{"id": "code-004", "category": "code", "prompt": "# Python: list comprehension to square numbers 1 to 10\nsquares = ", "license": "CC0"}
+{"id": "code-005", "category": "code", "prompt": "SELECT name FROM users WHERE ", "license": "CC0"}
+{"id": "reason-001", "category": "reasoning", "prompt": "If a train leaves Boston at 3pm traveling 60 mph, after 2 hours it has traveled", "license": "CC0"}
+{"id": "reason-002", "category": "reasoning", "prompt": "If all roses are flowers and some flowers fade quickly, then", "license": "CC0"}
+{"id": "reason-003", "category": "reasoning", "prompt": "A bag has 3 red balls and 2 blue balls. The probability of drawing red is", "license": "CC0"}
+{"id": "reason-004", "category": "reasoning", "prompt": "If today is Wednesday, then in 10 days it will be", "license": "CC0"}
+{"id": "reason-005", "category": "reasoning", "prompt": "John is taller than Mary. Mary is taller than Sue. Therefore", "license": "CC0"}
+{"id": "instr-001", "category": "instruction", "prompt": "List three primary colors:", "license": "CC0"}
+{"id": "instr-002", "category": "instruction", "prompt": "Name three planets in our solar system:", "license": "CC0"}
+{"id": "instr-003", "category": "instruction", "prompt": "Give one example of a renewable energy source:", "license": "CC0"}
+{"id": "instr-004", "category": "instruction", "prompt": "Translate to French: Hello, how are you?", "license": "CC0"}
+{"id": "instr-005", "category": "instruction", "prompt": "Summarize in one sentence: The cat sat on the mat.", "license": "CC0"}
+{"id": "dlg-001", "category": "dialogue", "prompt": "User: What time is it?\nAssistant:", "license": "CC0"}
+{"id": "dlg-002", "category": "dialogue", "prompt": "Q: Who painted the Mona Lisa?\nA:", "license": "CC0"}
+{"id": "dlg-003", "category": "dialogue", "prompt": "Q: How many continents are there?\nA:", "license": "CC0"}
+{"id": "dlg-004", "category": "dialogue", "prompt": "Customer: I need help with my order.\nAgent:", "license": "CC0"}
+{"id": "dlg-005", "category": "dialogue", "prompt": "Teacher: What is photosynthesis?\nStudent:", "license": "CC0"}

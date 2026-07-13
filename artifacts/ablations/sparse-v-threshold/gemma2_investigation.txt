@@ -1,0 +1,38 @@
+Gemma 2 27B TurboQuant Failure Investigation
+==============================================
+
+Date: 2026-03-28
+
+Model: gemma-2-27b-it-Q4_K_M
+Architecture: gemma2, 46 layers, 32 heads, 16 KV heads
+Head dim: K=128, V=128 (explicitly set in GGUF, NOT n_embd/n_head)
+Special features: ISWA (interleaved sliding window attention), logit softcapping (50.0)
+
+PPL: turbo3 = 13.7 trillion, turbo4 = 8.6 trillion (catastrophic)
+q8_0 = 3.75 (works perfectly)
+
+INVESTIGATION:
+
+1. Head dim is 128 — NOT the problem. GGUF metadata confirms key_length=128.
+2. ISWA creates TWO KV caches (SWA + non-SWA, 23 layers each).
+   Both caches initialize turbo rotation matrices correctly.
+3. Logit softcapping (tanh) is in the generic FA path, applies to all types.
+4. Decode speed is normal (25-28 tok/s) — inference RUNS, just produces garbage.
+5. NIAH: 0/3 (confirms output is nonsensical).
+
+LIKELY ROOT CAUSES (to investigate):
+1. ISWA dual-cache interaction — SET_ROWS may not handle interleaved layer caching
+2. Graph-side Q rotation (ggml_turbo_wht) may not account for ISWA layer splits
+3. Sliding window masking interaction with turbo FA kernels
+4. Gemma 2 uses per-layer head dims or GQA in a way that breaks our block layout
+
+SIGNALNINE'S FORK:
+signalnine (issue #13, PR #3) has a working turbo3 on RTX 5090 with NIAH through 256K.
+Their fix includes VEC FA Q/K stride mismatch fix and supports_op guards.
+PPL ~6.3 on their setup. Check if their fixes apply to Gemma 2.
+
+TODO:
+- Check if signalnine's fork handles Gemma 2
+- Compare ISWA layer assignments between q8_0 and turbo3 caches
+- Test with -fa off (disable flash attention) to isolate FA vs SET_ROWS
+- Test with only K or only V as turbo (needs asymmetric support)

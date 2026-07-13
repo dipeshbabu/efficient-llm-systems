@@ -1,0 +1,152 @@
+{
+  "model": "Qwen3.5-35B-A3B-Q8_0",
+  "mode": "multi-key",
+  "seed": 42,
+  "timestamp": "2026-03-26T20:33:07.820219+00:00",
+  "results": [
+    {
+      "mode": "multi-key",
+      "context_length": 4096,
+      "cache_type": "q8_0",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "9976791",
+          "response": "9976791",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 4096
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 8192,
+      "cache_type": "q8_0",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "2255279",
+          "response": "2255279",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 8192
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 16384,
+      "cache_type": "q8_0",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "7073551",
+          "response": "7073551",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 16384
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 32768,
+      "cache_type": "q8_0",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "3599787",
+          "response": "3599787",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 32768
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 4096,
+      "cache_type": "turbo3",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "9976791",
+          "response": "9976791",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 4096
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 8192,
+      "cache_type": "turbo3",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "2255279",
+          "response": "2255279",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 8192
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 16384,
+      "cache_type": "turbo3",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "7073551",
+          "response": "7073551",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 16384
+        }
+      ]
+    },
+    {
+      "mode": "multi-key",
+      "context_length": 32768,
+      "cache_type": "turbo3",
+      "needle_depth_pct": 0.5,
+      "needle_count": 4,
+      "accuracy_pct": 100.0,
+      "passed": true,
+      "trials": [
+        {
+          "expected": "3599787",
+          "response": "3599787",
+          "found": true,
+          "needle_depth_pct": 0.5,
+          "context_length": 32768
+        }
+      ]
+    }
+  ]
+}

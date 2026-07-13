@@ -105,7 +105,7 @@ refract = [
 ]
 
 [build-system]
-requires = ["setuptools>=77", "wheel"]
+requires = ["setuptools>=83.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]

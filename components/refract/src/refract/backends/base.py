@@ -89,7 +89,9 @@ def approximate_topk_kl(
     q_total = sum(q)
     p = [value / p_total for value in p]
     q = [value / q_total for value in q]
-    value = sum(pi * math.log(pi / qi) for pi, qi in zip(p, q) if pi > 0.0)
+    value = sum(
+        pi * math.log(pi / qi) for pi, qi in zip(p, q, strict=False) if pi > 0.0
+    )
     return max(value, 0.0)
 
 

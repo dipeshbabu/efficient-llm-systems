@@ -22,6 +22,10 @@ matrix result that motivated or validated the change.
   are rejected instead of producing an empty success report.
 - Reports retain schema `refract.report.v0.3.2`; only affected Axis A and
   composite values change, so results should be cited with framework v0.3.4.
+- The supported Python floor is now 3.10. Backend and benchmark extras require
+  security-maintained releases of MLX, vLLM, Transformers, Requests, PyTorch,
+  and pytest, and the shared lockfile no longer carries Python 3.9-only
+  vulnerable resolution branches.
 
 ---
 

@@ -1185,7 +1185,7 @@ def run_multi_value_mode(
                         needle_count=vc,
                     )
 
-                    for needle, hit in zip(needles, hits):
+                    for needle, hit in zip(needles, hits, strict=False):
                         result.trials.append(
                             TrialResult(
                                 expected=needle.value,

@@ -74,7 +74,7 @@ Avoid `--all-extras`: the backend stacks have different platform and hardware
 requirements.
 
 Python code follows PEP 8. Ruff enforces linting and import order and formats
-the codebase using the repository's Python 3.9 target and 88 character line
+the codebase using the repository's Python 3.10 target and 88 character line
 length. Line-length rule `E501` is delegated to the formatter. Pre-commit runs
 Ruff, mypy, and the repository's lightweight file checks before each commit.
 See the [contribution guide](CONTRIBUTING.md) for check and fix commands.

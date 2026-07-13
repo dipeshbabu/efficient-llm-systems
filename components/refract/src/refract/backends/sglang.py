@@ -339,8 +339,8 @@ class SGLangBackend(Backend):
         n_dp = 0
         same_topp_hits = 0
         same_topp_n = 0
-        for ref_chunk, cand_chunk in zip(ref_logp, cand_logp):
-            for ref_pos, cand_pos in zip(ref_chunk, cand_chunk):
+        for ref_chunk, cand_chunk in zip(ref_logp, cand_logp, strict=False):
+            for ref_pos, cand_pos in zip(ref_chunk, cand_chunk, strict=False):
                 if not ref_pos or not cand_pos:
                     continue
                 n_pos += 1

@@ -124,7 +124,9 @@ def unpack_indices(
         return np.empty((*packed.shape[:-1], 0), dtype=np.uint8)
     groups = bits.reshape(*packed.shape[:-1], n_indices, bit_width)
     weights = (1 << np.arange(bit_width - 1, -1, -1)).astype(np.uint16)
-    return np.sum(groups * weights, axis=-1, dtype=np.uint16).astype(np.uint8)
+    return np.asarray(
+        np.sum(groups * weights, axis=-1, dtype=np.uint16), dtype=np.uint8
+    )
 
 
 def memory_footprint_bytes(n_vectors: int, d: int, bit_width: int) -> dict:

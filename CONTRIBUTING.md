@@ -21,8 +21,8 @@ the relevant guide separately and link it to the supporting evidence.
 
 ## Development setup
 
-Install `uv`, then create the shared workspace environment from the repository
-root:
+Use Python 3.10 or newer and `uv` 0.11.8 or newer, then create the shared
+workspace environment from the repository root:
 
 ```bash
 uv sync --all-packages
@@ -47,12 +47,11 @@ have different platform and hardware requirements.
 ## Python style
 
 Python code follows PEP 8. Ruff is the repository's formatter, linter, and
-import sorter. The root configuration targets Python 3.9 and uses an 88
+import sorter. The root configuration targets Python 3.10 and uses an 88
 character line length. `E501` is intentionally left to the formatter instead
 of being reported as a separate lint error. Mypy checks the two package source
-trees and repository tools using Python 3.9 language assumptions. It is pinned
-to 1.19.1 so the checker itself remains runnable for Python 3.9 contributors;
-individual optional tools may require a newer interpreter.
+trees and repository tools using Python 3.10 language assumptions. It is
+pinned to 1.19.1 so local and CI results use the same checker release.
 
 Check Python quality without changing files:
 

@@ -69,11 +69,11 @@ After install, the `refract` CLI is on your PATH and the v0.1 prompt set plus
 example reports ship inside the wheel. Inference engines and the
 version-sensitive llama.cpp trajectory extension are installed separately.
 
-> **macOS gotcha — system Python 3.9 won't work.** macOS ships
-> `/usr/bin/python3` as 3.9; mlx-lm requires Python 3.10+. Use a newer
-> Python (e.g. `brew install python@3.13` then `python3.13 -m venv ...`)
-> for the MLX backend. The base framework runs on 3.9, but the backend
-> extra refuses to resolve there.
+> **macOS gotcha — use Python 3.10 or newer.** Older macOS installations may
+> provide `/usr/bin/python3` as 3.9, which this release no longer supports.
+> Use a newer Python (for example, `brew install python@3.13`, then create
+> a virtual environment with `python3.13 -m venv ...`)
+> for the framework and MLX backend.
 
 ### Source install (for hacking / contributing)
 

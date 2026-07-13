@@ -8,9 +8,8 @@ dev = [
     "build>=1.0",
     "coverage>=7.0",
     "mypy==1.19.1",
-    "pre-commit>=4.3.0,<4.4; python_version < '3.10'",
-    "pre-commit>=4.6.0; python_version >= '3.10'",
-    "pytest>=7.0",
+    "pre-commit>=4.6.0",
+    "pytest>=9.0.3",
     "pytest-cov>=4.0",
     "ruff>=0.15.0",
     "twine>=5.0",
@@ -18,7 +17,7 @@ dev = [
 ]
 
 [tool.uv]
-required-version = ">=0.11.9"
+required-version = ">=0.11.8"
 
 [tool.uv.workspace]
 members = [
@@ -27,7 +26,7 @@ members = [
 ]
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 line-length = 88
 src = [
     "components/refract/src",
@@ -39,7 +38,7 @@ select = ["E", "W", "F", "I", "B", "UP"]
 ignore = [
     # Line wrapping is delegated to the formatter.
     "E501",
-    # Keep Optional[T] compatible with runtime annotation consumers on Python 3.9.
+    # Keep Optional[T] stable for runtime annotation consumers.
     "UP045",
 ]
 
@@ -53,7 +52,7 @@ files = [
     "components/turboquant-reference/src/turboquant",
     "tools",
 ]
-python_version = "3.9"
+python_version = "3.10"
 check_untyped_defs = true
 explicit_package_bases = true
 ignore_missing_imports = false

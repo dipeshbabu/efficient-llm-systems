@@ -205,7 +205,8 @@ def run_gtm(
     # early stops symmetric and prevents opposite-direction mismatches from
     # cancelling across prompts.
     comparison_tokens = sum(
-        max(ref_len, cand_len) for ref_len, cand_len in zip(ref_lens, cand_lens)
+        max(ref_len, cand_len)
+        for ref_len, cand_len in zip(ref_lens, cand_lens, strict=False)
     )
     if comparison_tokens > 0:
         score = 100.0 * (sum(prefix_lens) / comparison_tokens)
@@ -226,7 +227,9 @@ def run_gtm(
             f"the longer reference/candidate sequence per prompt."
         )
     length_mismatches = sum(
-        1 for ref_len, cand_len in zip(ref_lens, cand_lens) if ref_len != cand_len
+        1
+        for ref_len, cand_len in zip(ref_lens, cand_lens, strict=False)
+        if ref_len != cand_len
     )
     if length_mismatches > 0:
         notes.append(

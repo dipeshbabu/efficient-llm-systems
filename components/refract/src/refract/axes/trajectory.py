@@ -215,7 +215,8 @@ def run_trajectory(
     mean_cand = sum(cand_lens) / n if n else 0.0
     mean_ref = sum(ref_lens) / n if n else 0.0
     comparison_steps = sum(
-        max(ref_len, cand_len) for ref_len, cand_len in zip(ref_lens, cand_lens)
+        max(ref_len, cand_len)
+        for ref_len, cand_len in zip(ref_lens, cand_lens, strict=False)
     )
     if comparison_steps > 0:
         score = 100.0 * (sum(prefix_lens) / comparison_steps)
@@ -236,7 +237,9 @@ def run_trajectory(
             f"the actual decoded length."
         )
     length_mismatches = sum(
-        1 for ref_len, cand_len in zip(ref_lens, cand_lens) if ref_len != cand_len
+        1
+        for ref_len, cand_len in zip(ref_lens, cand_lens, strict=False)
+        if ref_len != cand_len
     )
     if length_mismatches > 0:
         notes.append(

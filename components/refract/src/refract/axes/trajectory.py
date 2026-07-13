@@ -57,12 +57,12 @@ from ..runner import KVConfig, run_completion_trajectory
 class TrajectoryResult:
     """Output of run_trajectory()."""
 
-    score: float                              # 0–100
-    full_match_rate: float                    # 0–1
-    median_first_divergence: Optional[int]    # token step; None if all match
+    score: float  # 0–100
+    full_match_rate: float  # 0–1
+    median_first_divergence: Optional[float]  # median token step; None if all match
     mean_prefix_agreement_length: float
-    mean_cand_length: float                   # decoded steps, candidate
-    mean_ref_length: float                    # decoded steps, reference
+    mean_cand_length: float  # decoded steps, candidate
+    mean_ref_length: float  # decoded steps, reference
     n_prompts: int
     n_tokens_each: int
     per_prompt: list[dict]
@@ -139,20 +139,34 @@ def run_trajectory(
     cand_traj: list[list[int]] = []
     for i, p in enumerate(prompts):
         if progress:
-            print(f"  ref [{i + 1}/{len(prompts)}] {p['id']:<10} ({p.get('category', '?')}) ...",
-                  flush=True)
+            print(
+                f"  ref [{i + 1}/{len(prompts)}] {p['id']:<10} ({p.get('category', '?')}) ...",
+                flush=True,
+            )
         toks, _ = run_completion_trajectory(
-            model=model, prompt=p["prompt"], kv=reference_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=p["prompt"],
+            kv=reference_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
         ref_traj.append(toks)
     for i, p in enumerate(prompts):
         if progress:
-            print(f"  cand [{i + 1}/{len(prompts)}] {p['id']:<10} ({p.get('category', '?')}) ...",
-                  flush=True)
+            print(
+                f"  cand [{i + 1}/{len(prompts)}] {p['id']:<10} ({p.get('category', '?')}) ...",
+                flush=True,
+            )
         toks, _ = run_completion_trajectory(
-            model=model, prompt=p["prompt"], kv=candidate_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=p["prompt"],
+            kv=candidate_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
         cand_traj.append(toks)
 
@@ -171,7 +185,7 @@ def run_trajectory(
         first_div, prefix_len = _diff(ref_toks, cand_toks)
         is_match = first_div is None
 
-        if is_match:
+        if first_div is None:
             matches += 1
         else:
             first_divs.append(first_div)
@@ -179,18 +193,20 @@ def run_trajectory(
         cand_lens.append(len(cand_toks))
         ref_lens.append(len(ref_toks))
 
-        per_prompt.append({
-            "id": p["id"],
-            "category": p.get("category"),
-            "prompt": p["prompt"],
-            "ref_token_ids": ref_toks,
-            "cand_token_ids": cand_toks,
-            "first_divergence": first_div,
-            "prefix_agreement_length": prefix_len,
-            "cand_length": len(cand_toks),
-            "ref_length": len(ref_toks),
-            "matched": is_match,
-        })
+        per_prompt.append(
+            {
+                "id": p["id"],
+                "category": p.get("category"),
+                "prompt": p["prompt"],
+                "ref_token_ids": ref_toks,
+                "cand_token_ids": cand_toks,
+                "first_divergence": first_div,
+                "prefix_agreement_length": prefix_len,
+                "cand_length": len(cand_toks),
+                "ref_length": len(ref_toks),
+                "matched": is_match,
+            }
+        )
 
     n = len(prompts)
     full_match_rate = matches / n
@@ -199,8 +215,7 @@ def run_trajectory(
     mean_cand = sum(cand_lens) / n if n else 0.0
     mean_ref = sum(ref_lens) / n if n else 0.0
     comparison_steps = sum(
-        max(ref_len, cand_len)
-        for ref_len, cand_len in zip(ref_lens, cand_lens)
+        max(ref_len, cand_len) for ref_len, cand_len in zip(ref_lens, cand_lens)
     )
     if comparison_steps > 0:
         score = 100.0 * (sum(prefix_lens) / comparison_steps)
@@ -221,8 +236,7 @@ def run_trajectory(
             f"the actual decoded length."
         )
     length_mismatches = sum(
-        1 for ref_len, cand_len in zip(ref_lens, cand_lens)
-        if ref_len != cand_len
+        1 for ref_len, cand_len in zip(ref_lens, cand_lens) if ref_len != cand_len
     )
     if length_mismatches > 0:
         notes.append(

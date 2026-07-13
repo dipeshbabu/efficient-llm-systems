@@ -26,9 +26,7 @@ from refract.backends.mlx import (
     MLXBackend,
     _apply_chat_template,
     _load_model,
-    _translate_kv_to_mlx,
 )
-
 
 # --- _apply_chat_template (no mlx required) ------------------------------
 
@@ -82,8 +80,10 @@ def fake_mlx(monkeypatch):
     class _MxArray:
         def __init__(self, data):
             self.data = data
+
         def __getitem__(self, idx):
             return self
+
         def item(self):
             # Used to coerce mx scalars to python floats. Return a small
             # non-zero value so the v0.3.2.3 KLD validity-counting path
@@ -108,12 +108,14 @@ def fake_mlx(monkeypatch):
 
     def _generate(m, tok, **kw):
         return "fake completion text<|im_end|>"
+
     mlx_lm.generate = _generate
 
     def _stream_generate(m, tok, **kw):
         # Yield 3 records each carrying a token ID.
         for tid in (10, 20, 30):
             yield types.SimpleNamespace(token=tid)
+
     mlx_lm.stream_generate = _stream_generate
 
     fake_tok = _FakeTokenizer()
@@ -122,6 +124,7 @@ def fake_mlx(monkeypatch):
 
     def _load(path):
         return fake_model, fake_tok
+
     mlx_lm.load = _load
 
     # cache module
@@ -132,8 +135,7 @@ def fake_mlx(monkeypatch):
 
     # _require_mlx returns this triple — patch the function directly so
     # tests don't have to wrestle with sys.modules + lazy imports.
-    monkeypatch.setattr(mlx_mod, "_require_mlx",
-                        lambda: (mx, mlx_lm, cache_mod))
+    monkeypatch.setattr(mlx_mod, "_require_mlx", lambda: (mx, mlx_lm, cache_mod))
     # Also expose mlx_lm via the import inside _load_model.
     monkeypatch.setitem(sys.modules, "mlx_lm", mlx_lm)
     # Reset the model cache between tests.
@@ -158,7 +160,8 @@ def test_load_model_caches(fake_mlx):
 def test_mlx_run_completion_strips_im_end_marker(fake_mlx):
     bk = MLXBackend()
     res = bk.run_completion(
-        model=Path("/m"), prompt="hi",
+        model=Path("/m"),
+        prompt="hi",
         kv_config_str="ctk=q8_0,ctv=q8_0",
         n_predict=10,
     )
@@ -172,7 +175,8 @@ def test_mlx_run_completion_strips_im_end_marker(fake_mlx):
 def test_mlx_run_completion_without_chat_template(fake_mlx):
     bk = MLXBackend()
     res = bk.run_completion(
-        model=Path("/m"), prompt="raw prompt",
+        model=Path("/m"),
+        prompt="raw prompt",
         kv_config_str="ctk=f16,ctv=f16",
         apply_chat_template=False,
     )
@@ -185,7 +189,8 @@ def test_mlx_run_completion_asymmetric_raises(fake_mlx):
     bk = MLXBackend()
     with pytest.raises(BackendCapabilityError):
         bk.run_completion(
-            model=Path("/m"), prompt="x",
+            model=Path("/m"),
+            prompt="x",
             kv_config_str="ctk=q8_0,ctv=q4_0",
         )
 
@@ -196,7 +201,8 @@ def test_mlx_run_completion_asymmetric_raises(fake_mlx):
 def test_mlx_trajectory_collects_token_ids(fake_mlx):
     bk = MLXBackend()
     res = bk.run_completion_trajectory(
-        model=Path("/m"), prompt="x",
+        model=Path("/m"),
+        prompt="x",
         kv_config_str="ctk=q8_0,ctv=q8_0",
     )
     assert isinstance(res, TrajectoryResult)
@@ -207,11 +213,14 @@ def test_mlx_trajectory_collects_token_ids(fake_mlx):
 def test_mlx_trajectory_handles_mx_array_token_scalar(fake_mlx, monkeypatch):
     """`record.token` is sometimes an mx.array scalar — int(tid) raises
     TypeError, so the code falls back to tid.item()."""
+
     class _MxScalar:
         def __init__(self, v):
             self._v = v
+
         def __int__(self):
             raise TypeError("not directly convertible")
+
         def item(self):
             return self._v
 
@@ -222,7 +231,8 @@ def test_mlx_trajectory_handles_mx_array_token_scalar(fake_mlx, monkeypatch):
     monkeypatch.setattr(fake_mlx[1], "stream_generate", _stream_with_scalars)
     bk = MLXBackend()
     res = bk.run_completion_trajectory(
-        model=Path("/m"), prompt="x",
+        model=Path("/m"),
+        prompt="x",
         kv_config_str="ctk=f16,ctv=f16",
     )
     assert res.token_ids == [7, 8]
@@ -236,7 +246,8 @@ def test_mlx_trajectory_skips_records_without_token(fake_mlx, monkeypatch):
     monkeypatch.setattr(fake_mlx[1], "stream_generate", _stream_with_none)
     bk = MLXBackend()
     res = bk.run_completion_trajectory(
-        model=Path("/m"), prompt="x",
+        model=Path("/m"),
+        prompt="x",
         kv_config_str="ctk=f16,ctv=f16",
     )
     assert res.token_ids == [99]
@@ -262,10 +273,12 @@ def test_mlx_run_kld_basic(fake_mlx, tmp_path, monkeypatch):
 
     bk = MLXBackend()
     res = bk.run_kld(
-        model=tmp_path / "m.gguf", corpus=corpus,
+        model=tmp_path / "m.gguf",
+        corpus=corpus,
         ref_kv_str="ctk=f16,ctv=f16",
         cand_kv_str="ctk=q8_0,ctv=q8_0",
-        chunks=2, ctx=64,
+        chunks=2,
+        ctx=64,
     )
     assert isinstance(res, KLDResult)
     # mean_kld is 0.0 from our fake softmax (returns logits unchanged).
@@ -276,16 +289,22 @@ def test_mlx_run_kld_basic(fake_mlx, tmp_path, monkeypatch):
 class _FakeMxLogits:
     """Stand-in for mx.array logits — supports indexing + arithmetic enough
     for the KLD math in MLXBackend.run_kld."""
+
     def __getitem__(self, idx):
         return self
+
     def __add__(self, other):
         return self
+
     def __sub__(self, other):
         return self
+
     def __mul__(self, other):
         return self
+
     def __rmul__(self, other):
         return self
+
     def item(self):
         return 0.0
 
@@ -304,10 +323,12 @@ def test_mlx_run_kld_corpus_too_short_raises(fake_mlx, tmp_path, monkeypatch):
     bk = MLXBackend()
     with pytest.raises(BackendCapabilityError, match="too short"):
         bk.run_kld(
-            model=tmp_path / "m.gguf", corpus=corpus,
+            model=tmp_path / "m.gguf",
+            corpus=corpus,
             ref_kv_str="ctk=f16,ctv=f16",
             cand_kv_str="ctk=f16,ctv=f16",
-            chunks=4, ctx=128,
+            chunks=4,
+            ctx=128,
         )
 
 
@@ -328,10 +349,12 @@ def test_mlx_run_kld_zero_chunks_raises(fake_mlx, tmp_path, monkeypatch):
     bk = MLXBackend()
     with pytest.raises(BackendCapabilityError, match="zero chunks"):
         bk.run_kld(
-            model=tmp_path / "m.gguf", corpus=corpus,
+            model=tmp_path / "m.gguf",
+            corpus=corpus,
             ref_kv_str="ctk=f16,ctv=f16",
             cand_kv_str="ctk=f16,ctv=f16",
-            chunks=0, ctx=64,
+            chunks=0,
+            ctx=64,
         )
 
 
@@ -364,6 +387,7 @@ def test_mlx_model_metadata_includes_versions(fake_mlx, monkeypatch):
     """When importlib.metadata can resolve mlx + mlx-lm versions, they're
     included in the metadata dict."""
     import importlib.metadata as md
+
     monkeypatch.setattr(md, "version", lambda name: "9.9.9")
 
     bk = MLXBackend()

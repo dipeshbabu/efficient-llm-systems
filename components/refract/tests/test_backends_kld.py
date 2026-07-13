@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 from refract.axes.kld import run_kld
-from refract.backends.base import BackendCapabilityError, KLDResult as BKLDResult
+from refract.backends.base import KLDResult as BKLDResult
 from refract.backends.llamacpp import LlamaCppBackend
 from refract.runner import KVConfig, set_active_backend
 
@@ -29,13 +28,13 @@ def test_llamacpp_run_kld_delegates_and_cleans_up(tmp_path, monkeypatch):
 
     def fake_score(**kw):
         captured["scored_kv"] = kw["kv"].label()
-        return {"mean_kld": 0.05, "ppl": 7.2,
-                "rms_dp_pct": 0.5, "same_topp_pct": 99.5}
+        return {"mean_kld": 0.05, "ppl": 7.2, "rms_dp_pct": 0.5, "same_topp_pct": 99.5}
 
     monkeypatch.setattr("refract.runner.run_perplexity_kld_base", fake_base)
     monkeypatch.setattr("refract.runner.run_perplexity_kld", fake_score)
     res = bk.run_kld(
-        model=tmp_path / "m.gguf", corpus=corpus,
+        model=tmp_path / "m.gguf",
+        corpus=corpus,
         ref_kv_str="ctk=f16,ctv=f16",
         cand_kv_str="ctk=q8_0,ctv=q8_0",
     )
@@ -54,19 +53,28 @@ def test_axes_kld_uses_active_backend_when_non_llamacpp(tmp_path):
 
     class _FakeBackend:
         name = "mlx"
+
         def run_kld(self, **kw):
             return BKLDResult(
-                mean_kld=0.0, ppl=None,
-                rms_dp_pct=None, same_topp_pct=None,
-                chunks=8, ctx=64, metadata={"base_path": "via-fake"},
+                mean_kld=0.0,
+                ppl=None,
+                rms_dp_pct=None,
+                same_topp_pct=None,
+                chunks=8,
+                ctx=64,
+                metadata={"base_path": "via-fake"},
             )
 
     set_active_backend(_FakeBackend())
     try:
         res = run_kld(
-            model=tmp_path / "m.gguf", corpus=corpus,
-            reference_kv=KVConfig(), candidate_kv=KVConfig(),
-            chunks=8, ctx=64, progress=False,
+            model=tmp_path / "m.gguf",
+            corpus=corpus,
+            reference_kv=KVConfig(),
+            candidate_kv=KVConfig(),
+            chunks=8,
+            ctx=64,
+            progress=False,
         )
         assert res.score == pytest.approx(100.0)
         assert res.mean_kld == 0.0
@@ -88,11 +96,15 @@ def test_axes_kld_user_supplied_base_validates_corpus(tmp_path, monkeypatch):
 
     # Build sidecar from corpus_a; then call run_kld with corpus_b.
     from refract.runner import write_corpus_sidecar
+
     write_corpus_sidecar(base, corpus_a)
 
     with pytest.raises(RuntimeError, match="corpus identity mismatch"):
         run_kld(
-            model=tmp_path / "m.gguf", corpus=corpus_b,
-            reference_kv=KVConfig(), candidate_kv=KVConfig(),
-            base_path=base, progress=False,
+            model=tmp_path / "m.gguf",
+            corpus=corpus_b,
+            reference_kv=KVConfig(),
+            candidate_kv=KVConfig(),
+            base_path=base,
+            progress=False,
         )

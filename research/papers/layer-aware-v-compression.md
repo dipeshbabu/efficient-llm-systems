@@ -371,7 +371,7 @@ The boundary layer sensitivity finding has been independently confirmed:
 - **@HyperionMS2040** — RTX 3090 (2026-03-30): Qwen3.5-4B asymmetric data shows clean quality ladder with no catastrophic failure when K precision is maintained, consistent with boundary layer sensitivity.
 - **@Corianas_** — Independent validation of Boundary V on NanoGPT (X collaborator, 2026-03-29).
 - **@mudler (Ettore Di Giacinto)** — [APEX](https://github.com/mudler/apex-quant) MoE weight quantization, [LocalAI](https://github.com/mudler/LocalAI) (44.7k stars) (2026-04-01): Independently discovered that "first and last 5 transformer layers are 10x more sensitive than the middle" for weight quantization on Qwen3.5-35B-A3B across 25+ experiments. Same boundary sensitivity principle as Boundary V, applied to weights instead of KV cache. APEX assigns higher precision to edge layers, lower to middle layers. Directly validates the boundary layer hypothesis from the weight quantization direction.
-- **vLLM TurboQuant PR** — [vllm-project/vllm#38479](https://github.com/vllm-project/vllm/pull/38479) (2026-04-03): PR author (@vibhavagarwal5) implementing TQ_boundary_layers in vLLM, explicitly "inspired from https://github.com/dipeshbabu/turboquant_plus". Boundary layer protection being adopted by a major production inference framework.
+- **vLLM TurboQuant PR** — [vllm-project/vllm#38479](https://github.com/vllm-project/vllm/pull/38479) (2026-04-03): PR author (@vibhavagarwal5) implementing TQ_boundary_layers in vLLM, explicitly citing the historical `turboquant_plus` implementation. Boundary layer protection being adopted by a major production inference framework.
 
 ---
 

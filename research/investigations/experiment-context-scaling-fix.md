@@ -1,7 +1,7 @@
 # Experiment: Context Scaling Fix
 
 Branch: `experiment/context-scaling-fix`
-Issue: https://github.com/dipeshbabu/turboquant_plus/issues/32
+Issue: historical `turboquant_plus#32` ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers))
 
 ## Problem
 turbo3 prefill speed degrades relative to q8_0 as context grows. ~2% gap per context doubling.

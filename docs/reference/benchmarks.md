@@ -122,7 +122,9 @@ On M2/M1 (pre-M5), the auto-detected 4-mag LUT gives an additional +38-45% decod
 
 ## Community Hardware: CUDA (RTX 3090)
 
-Tested by @jaker86 on RTX 3090. Model: Qwen3.5-9B Q4_K_M. Build from [signalnine's CUDA fork](https://github.com/signalnine/llama-cpp-turboquant-cuda) PR #24.
+Tested by @jaker86 on RTX 3090. Model: Qwen3.5-9B Q4_K_M. Build from
+signalnine's historical CUDA fork, `PR #24`
+([public endpoint unavailable](historical-forks.md#other-unavailable-citations)).
 
 | Config | K | V | PPL (wikitext-2) | vs q8_0 | Decode t/s | Prefill t/s |
 |--------|---|---|-----------------|---------|-----------|------------|
@@ -267,4 +269,3 @@ Std after rotation:  0.088388
 Expected (1/√d):     0.088388
 Ratio:               1.000 exactly
 ```
-

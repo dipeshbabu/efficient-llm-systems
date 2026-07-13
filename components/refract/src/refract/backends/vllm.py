@@ -36,14 +36,13 @@ from .base import (
     approximate_topk_kl,
 )
 
-
 # llama.cpp KV cache string → vLLM kv_cache_dtype.
 # Every config the score axes will pass must round-trip here.
 _CTK_CTV_TO_VLLM: dict[tuple[str, str], str] = {
     ("f16", "f16"): "auto",
     ("bf16", "bf16"): "auto",
     ("q8_0", "q8_0"): "fp8_e4m3",
-    # TurboQuant presets (dipeshbabu/vllm-turboquant or upstream PR #38479)
+    # TurboQuant presets (historical vLLM fork or upstream PR #38479)
     ("q8_0", "turbo4"): "turboquant_k8v4",
     ("q8_0", "turbo3"): "turboquant_k8v3",
     ("turbo4", "turbo4"): "turboquant_4bit_nc",
@@ -92,16 +91,19 @@ def _get_llm(model: Path, kv_dtype: str, max_model_len: int) -> Any:
     if _VLLM_LLM_CACHE:
         # Evict any prior LLMs to free GPU memory before loading a new one.
         import gc
+
         for k in list(_VLLM_LLM_CACHE.keys()):
             del _VLLM_LLM_CACHE[k]
         gc.collect()
         try:
             import torch
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except Exception:
             pass
-    from vllm import LLM  # type: ignore[import-not-found]
+    from vllm import LLM
+
     gpu_mem = float(os.environ.get("REFRACT_VLLM_GPU_MEMORY_UTILIZATION", "0.85"))
     max_num_seqs = int(os.environ.get("REFRACT_VLLM_MAX_NUM_SEQS", "32"))
     llm = LLM(
@@ -130,9 +132,7 @@ def _format_prompt(
         msgs.append({"role": "system", "content": system})
     msgs.append({"role": "user", "content": prompt})
     try:
-        return tok.apply_chat_template(
-            msgs, tokenize=False, add_generation_prompt=True
-        )
+        return tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
     except Exception:
         return prompt
 
@@ -156,7 +156,8 @@ class VLLMBackend(Backend):
         system: Optional[str] = None,
         reasoning: str = "off",
     ) -> CompletionResult:
-        from vllm import SamplingParams  # type: ignore[import-not-found]
+        from vllm import SamplingParams
+
         kv_dtype = _kv_str_to_vllm_dtype(kv_config_str)
         max_len = max(_max_model_len_default(), ctx + n_predict + 32)
         llm = _get_llm(model, kv_dtype, max_len)
@@ -190,7 +191,8 @@ class VLLMBackend(Backend):
         apply_chat_template: bool = True,
         system: Optional[str] = None,
     ) -> TrajectoryResult:
-        from vllm import SamplingParams  # type: ignore[import-not-found]
+        from vllm import SamplingParams
+
         kv_dtype = _kv_str_to_vllm_dtype(kv_config_str)
         max_len = max(_max_model_len_default(), ctx + n_predict + 32)
         llm = _get_llm(model, kv_dtype, max_len)
@@ -224,7 +226,8 @@ class VLLMBackend(Backend):
         Top-K next-token distribution from ``SamplingParams.prompt_logprobs``;
         K cap controls fidelity vs cost (env REFRACT_VLLM_KLD_TOPK, default 64).
         """
-        from vllm import SamplingParams  # type: ignore[import-not-found]
+        from vllm import SamplingParams
+
         ref_dtype = _kv_str_to_vllm_dtype(ref_kv_str)
         cand_dtype = _kv_str_to_vllm_dtype(cand_kv_str)
         max_len = max(_max_model_len_default(), ctx + 8)
@@ -236,8 +239,7 @@ class VLLMBackend(Backend):
         ids = tok.encode(text, add_special_tokens=False)
         chunk_len = ctx - 1
         slices = [
-            ids[i : i + chunk_len]
-            for i in range(0, len(ids) - chunk_len, chunk_len)
+            ids[i : i + chunk_len] for i in range(0, len(ids) - chunk_len, chunk_len)
         ][:chunks]
         if not slices:
             raise BackendCapabilityError(
@@ -250,9 +252,7 @@ class VLLMBackend(Backend):
         def _run(llm: Any) -> list[list[dict[int, float]]]:
             res: list[list[dict[int, float]]] = []
             for ch in slices:
-                out = llm.generate(
-                    {"prompt_token_ids": ch}, sp, use_tqdm=False
-                )[0]
+                out = llm.generate({"prompt_token_ids": ch}, sp, use_tqdm=False)[0]
                 pl = out.prompt_logprobs or []
                 pos: list[dict[int, float]] = []
                 for entry in pl:
@@ -287,18 +287,14 @@ class VLLMBackend(Backend):
                     if p > 1e-9:
                         sq_dp_sum += ((math.exp(cand_lp) - p) / p) ** 2
                         n_dp += 1
-                total_kl += approximate_topk_kl(
-                    ref_pos, cand_pos, log_floor=LOG_FLOOR
-                )
+                total_kl += approximate_topk_kl(ref_pos, cand_pos, log_floor=LOG_FLOOR)
                 ref_top = max(ref_pos.items(), key=lambda kv: kv[1])[0]
                 cand_top = max(cand_pos.items(), key=lambda kv: kv[1])[0]
                 same_topp_hits += int(ref_top == cand_top)
                 same_topp_n += 1
 
         mean_kl = total_kl / max(n_pos, 1)
-        rms_dp_pct = (
-            100.0 * math.sqrt(sq_dp_sum / max(n_dp, 1)) if n_dp else None
-        )
+        rms_dp_pct = 100.0 * math.sqrt(sq_dp_sum / max(n_dp, 1)) if n_dp else None
         same_topp_pct = (
             100.0 * same_topp_hits / max(same_topp_n, 1) if same_topp_n else None
         )
@@ -331,7 +327,8 @@ class VLLMBackend(Backend):
 
     def model_metadata(self, *, model: Path) -> dict:
         try:
-            import vllm  # type: ignore[import-not-found]
+            import vllm
+
             ver = vllm.__version__
         except Exception:
             ver = "unknown"

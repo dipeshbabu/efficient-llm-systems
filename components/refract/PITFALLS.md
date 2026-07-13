@@ -54,7 +54,9 @@ llama-cli --help | grep -A2 'cache-type-k'
 # look for 'turbo2, turbo3, turbo4' in the allowed values
 ```
 
-If absent, build from dipeshbabu/llama.cpp `feature/turboquant-kv-cache`
+If absent, use a compatible build from the historical llama.cpp
+`feature/turboquant-kv-cache` fork. Its
+[public source URL is unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks).
 or set `--candidate "ctk=q8_0,ctv=q8_0"` (standard quant) instead.
 
 ### MLX RotatingKVCache + quantization

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import pytest
 
 from refract.score import (
@@ -13,7 +11,6 @@ from refract.score import (
     harmonic_mean,
     interpret_pattern,
 )
-
 
 # --- harmonic_mean -------------------------------------------------------
 
@@ -49,16 +46,19 @@ def test_harmonic_mean_punishes_low_axis_more_than_arithmetic():
 # --- band ----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("score,expected", [
-    (100.0, "EXCELLENT"),
-    (90.0, "EXCELLENT"),     # boundary inclusive
-    (89.99, "PASS"),
-    (80.0, "PASS"),          # boundary inclusive
-    (79.99, "DEGRADED"),
-    (60.0, "DEGRADED"),      # boundary inclusive
-    (59.99, "FAIL"),
-    (0.0, "FAIL"),
-])
+@pytest.mark.parametrize(
+    "score,expected",
+    [
+        (100.0, "EXCELLENT"),
+        (90.0, "EXCELLENT"),  # boundary inclusive
+        (89.99, "PASS"),
+        (80.0, "PASS"),  # boundary inclusive
+        (79.99, "DEGRADED"),
+        (60.0, "DEGRADED"),  # boundary inclusive
+        (59.99, "FAIL"),
+        (0.0, "FAIL"),
+    ],
+)
 def test_band_thresholds_inclusive_lower(score, expected):
     assert band(score) == expected
 
@@ -116,7 +116,10 @@ def test_interpret_all_clear_two_axis():
 
 def test_interpret_catastrophic_takes_precedence():
     notes = interpret_pattern(
-        gtm_score=10, kld_score=10, rniah_score=10, plad_score=10,
+        gtm_score=10,
+        kld_score=10,
+        rniah_score=10,
+        plad_score=10,
     )
     assert len(notes) == 1
     assert "Catastrophic" in notes[0]
@@ -125,7 +128,10 @@ def test_interpret_catastrophic_takes_precedence():
 def test_interpret_distribution_break_high_level_intact():
     # Both A + B FAIL, C + D fine → the targeted distribution-break message.
     notes = interpret_pattern(
-        gtm_score=20, kld_score=20, rniah_score=95, plad_score=95,
+        gtm_score=20,
+        kld_score=20,
+        rniah_score=95,
+        plad_score=95,
     )
     assert any("distribution is broken" in n.lower() for n in notes)
 
@@ -133,14 +139,20 @@ def test_interpret_distribution_break_high_level_intact():
 def test_interpret_mild_short_drift_no_panic():
     # A or B in DEGRADED (not FAIL), no other axis broken.
     notes = interpret_pattern(
-        gtm_score=72, kld_score=95, rniah_score=95, plad_score=95,
+        gtm_score=72,
+        kld_score=95,
+        rniah_score=95,
+        plad_score=95,
     )
     assert any("Mild short-context drift" in n for n in notes)
 
 
 def test_interpret_long_context_only():
     notes = interpret_pattern(
-        gtm_score=95, kld_score=95, rniah_score=40, plad_score=95,
+        gtm_score=95,
+        kld_score=95,
+        rniah_score=40,
+        plad_score=95,
     )
     assert any("Long-context retrieval degraded" in n for n in notes)
     # Should NOT label as short-context drift
@@ -149,14 +161,20 @@ def test_interpret_long_context_only():
 
 def test_interpret_brittle_only():
     notes = interpret_pattern(
-        gtm_score=95, kld_score=95, rniah_score=95, plad_score=40,
+        gtm_score=95,
+        kld_score=95,
+        rniah_score=95,
+        plad_score=40,
     )
     assert any("Brittleness" in n for n in notes)
 
 
 def test_interpret_mixed_short_and_long():
     notes = interpret_pattern(
-        gtm_score=20, kld_score=20, rniah_score=20, plad_score=95,
+        gtm_score=20,
+        kld_score=20,
+        rniah_score=20,
+        plad_score=95,
     )
     # Multiple notes — at least one each for short + long
     msgs = " ".join(notes)
@@ -212,16 +230,22 @@ def test_composite_skip_both_returns_zero():
 def test_composite_skip_gtm_with_rniah_plad():
     """Skip-gtm + KLD + R-NIAH + PLAD = harmonic mean of 3 axes only."""
     cs = composite_score(
-        gtm_score=None, kld_score=99.0, rniah_score=100.0, plad_score=90.0,
+        gtm_score=None,
+        kld_score=99.0,
+        rniah_score=100.0,
+        plad_score=90.0,
     )
-    expected = 3 / (1/99 + 1/100 + 1/90)
+    expected = 3 / (1 / 99 + 1 / 100 + 1 / 90)
     assert abs(cs.composite - expected) < 0.01
 
 
 def test_interpret_pattern_handles_skipped_gtm():
     """interpret_pattern shouldn't blow up on None gtm/kld."""
     notes = interpret_pattern(
-        gtm_score=None, kld_score=99.0, rniah_score=100.0, plad_score=95.0,
+        gtm_score=None,
+        kld_score=99.0,
+        rniah_score=100.0,
+        plad_score=95.0,
     )
     assert isinstance(notes, list)
 
@@ -232,17 +256,27 @@ def test_text_report_skip_gtm_renders_n_a_and_one_axis_count():
     from refract.axes.gtm import GTMResult
     from refract.axes.kld import KLDResult
     from refract.report import text_report
+
     gtm_stub = GTMResult(
-        score=100.0, full_match_rate=1.0,
+        score=100.0,
+        full_match_rate=1.0,
         median_first_divergence=None,
         mean_prefix_agreement_length=0.0,
-        mean_cand_length=0.0, mean_ref_length=0.0,
-        n_prompts=0, n_tokens_each=0, per_prompt=[],
+        mean_cand_length=0.0,
+        mean_ref_length=0.0,
+        n_prompts=0,
+        n_tokens_each=0,
+        per_prompt=[],
     )
     kld_real = KLDResult(
-        score=99.47, mean_kld=0.0053, ppl=None,
-        rms_dp_pct=None, same_topp_pct=None,
-        base_path="", chunks=32, ctx=512,
+        score=99.47,
+        mean_kld=0.0053,
+        ppl=None,
+        rms_dp_pct=None,
+        same_topp_pct=None,
+        base_path="",
+        chunks=32,
+        ctx=512,
         is_self_reference=False,
     )
     cs = composite_score(gtm_score=None, kld_score=99.47)
@@ -250,9 +284,12 @@ def test_text_report_skip_gtm_renders_n_a_and_one_axis_count():
         model="m.gguf",
         reference_label="ctk=f16,ctv=f16",
         candidate_label="ctk=q8_0,ctv=q8_0",
-        composite=cs, gtm=gtm_stub, kld=kld_real,
+        composite=cs,
+        gtm=gtm_stub,
+        kld=kld_real,
     )
     import re as _re
+
     plain = _re.sub(r"\x1b\[[0-9;]*m", "", out)
     assert "n/a" in plain or "skipped" in plain.lower()
     assert "99.47" in plain

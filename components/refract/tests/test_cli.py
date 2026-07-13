@@ -6,10 +6,8 @@ Heavy I/O paths (real downloads, real subprocesses) are mocked.
 from __future__ import annotations
 
 import argparse
-import io
 import json
 from pathlib import Path
-from unittest import mock
 
 import pytest
 
@@ -24,7 +22,6 @@ from refract.cli import (
     _stub_kld,
     main,
 )
-
 
 # --- stub helpers --------------------------------------------------------
 
@@ -83,12 +80,16 @@ def test_repeatability_parser_uses_score_input_defaults(monkeypatch):
         return 0
 
     monkeypatch.setattr(cli, "_run_repeatability", fake_run_repeatability)
-    rc = main([
-        "repeatability",
-        "--model", "model.gguf",
-        "--candidate", "ctk=q8_0,ctv=q8_0",
-        "--no-auto-fetch",
-    ])
+    rc = main(
+        [
+            "repeatability",
+            "--model",
+            "model.gguf",
+            "--candidate",
+            "ctk=q8_0,ctv=q8_0",
+            "--no-auto-fetch",
+        ]
+    )
     assert rc == 0
     assert captured["prompts"] is None
     assert captured["corpus"] is None
@@ -99,12 +100,17 @@ def test_repeatability_parser_uses_score_input_defaults(monkeypatch):
 @pytest.mark.parametrize("runs", ["0", "-1"])
 def test_repeatability_parser_rejects_non_positive_runs(runs):
     with pytest.raises(SystemExit):
-        main([
-            "repeatability",
-            "--model", "model.gguf",
-            "--candidate", "ctk=q8_0,ctv=q8_0",
-            "--runs", runs,
-        ])
+        main(
+            [
+                "repeatability",
+                "--model",
+                "model.gguf",
+                "--candidate",
+                "ctk=q8_0,ctv=q8_0",
+                "--runs",
+                runs,
+            ]
+        )
 
 
 # --- _ensure_wikitext_2 (mock urlretrieve + zipfile) ---------------------
@@ -204,7 +210,9 @@ def test_resolve_default_paths_fetches_into_active_cache(tmp_path, monkeypatch):
         return target
 
     args = argparse.Namespace(
-        corpus=None, rniah_haystack=None, no_auto_fetch=False,
+        corpus=None,
+        rniah_haystack=None,
+        no_auto_fetch=False,
     )
     monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
     monkeypatch.setattr(cli, "_ensure_wikitext_2", fake_ensure)
@@ -223,11 +231,14 @@ def test_resolve_default_paths_accepts_partial_cache_for_quick_run(
     target.mkdir(parents=True)
     (target / "wiki.test.raw").write_text("test")
     args = argparse.Namespace(
-        corpus=None, rniah_haystack=None, no_auto_fetch=True,
+        corpus=None,
+        rniah_haystack=None,
+        no_auto_fetch=True,
     )
     monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
     monkeypatch.setattr(
-        cli, "_ensure_wikitext_2",
+        cli,
+        "_ensure_wikitext_2",
         lambda *a, **kw: pytest.fail("partial cache should not download"),
     )
 
@@ -244,7 +255,9 @@ def test_resolve_default_paths_offline_error_names_missing_haystack(
     target.mkdir(parents=True)
     (target / "wiki.test.raw").write_text("test")
     args = argparse.Namespace(
-        corpus=None, rniah_haystack=None, no_auto_fetch=True,
+        corpus=None,
+        rniah_haystack=None,
+        no_auto_fetch=True,
     )
     monkeypatch.setattr(cli, "_REFRACT_CACHE", cache)
 
@@ -276,7 +289,8 @@ def test_resolve_default_prompts_reports_missing_resource(monkeypatch, capsys):
     import importlib.resources
 
     monkeypatch.setattr(
-        importlib.resources, "files",
+        importlib.resources,
+        "files",
         lambda package: (_ for _ in ()).throw(FileNotFoundError("missing")),
     )
     args = argparse.Namespace(prompts=None)
@@ -300,9 +314,7 @@ def test_run_fetch_idempotent(tmp_path, capsys):
     assert "not auto-discovered" in out
 
 
-def test_run_fetch_default_cache_reports_auto_discovery(
-    tmp_path, monkeypatch, capsys
-):
+def test_run_fetch_default_cache_reports_auto_discovery(tmp_path, monkeypatch, capsys):
     target = tmp_path / "wikitext-2-raw"
     target.mkdir()
     (target / "wiki.test.raw").write_text("t")

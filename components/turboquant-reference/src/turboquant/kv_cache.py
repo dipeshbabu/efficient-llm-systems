@@ -21,8 +21,9 @@ KV cache shape: (num_layers, num_heads, seq_len, head_dim)
 Quantization is along head_dim — each (head_dim,) vector is quantized independently.
 """
 
-import numpy as np
 from dataclasses import dataclass, field
+
+import numpy as np
 
 from turboquant.turboquant import (
     PackedCompressedVector,
@@ -35,6 +36,7 @@ from turboquant.turboquant import (
 @dataclass
 class CompressedKVCache:
     """Container for a compressed KV cache."""
+
     # Per-layer, per-head compressed K vectors
     k_compressed: list[list[PackedCompressedVector]] = field(default_factory=list)
     # Per-layer, per-head physically packed V vectors.
@@ -50,12 +52,8 @@ class CompressedKVCache:
     @property
     def packed_nbytes(self) -> int:
         """Actual bytes occupied by packed payload arrays and norms."""
-        k_bytes = sum(
-            item.nbytes for layer in self.k_compressed for item in layer
-        )
-        v_bytes = sum(
-            item.nbytes for layer in self.v_compressed for item in layer
-        )
+        k_bytes = sum(item.nbytes for layer in self.k_compressed for item in layer)
+        v_bytes = sum(item.nbytes for layer in self.v_compressed for item in layer)
         return k_bytes + v_bytes
 
 
@@ -104,12 +102,18 @@ class KVCacheCompressor:
 
         # K cache uses full TurboQuant (inner product preservation)
         self.k_quantizer = TurboQuant(
-            head_dim, bit_width=k_bits, seed=seed, norm_correction=norm_correction,
+            head_dim,
+            bit_width=k_bits,
+            seed=seed,
+            norm_correction=norm_correction,
         )
 
         # V cache uses MSE-only PolarQuant (value reconstruction)
         self.v_quantizer = TurboQuantMSE(
-            head_dim, bit_width=v_bits, seed=seed + 500, norm_correction=norm_correction,
+            head_dim,
+            bit_width=v_bits,
+            seed=seed + 500,
+            norm_correction=norm_correction,
         )
 
     def compress(self, k_cache: np.ndarray, v_cache: np.ndarray) -> CompressedKVCache:
@@ -162,16 +166,22 @@ class KVCacheCompressor:
 
         return result
 
-    def decompress(self, compressed: CompressedKVCache) -> tuple[np.ndarray, np.ndarray]:
+    def decompress(
+        self, compressed: CompressedKVCache
+    ) -> tuple[np.ndarray, np.ndarray]:
         """Decompress back to full KV cache tensors.
 
         Returns:
             (k_cache, v_cache) both shape (num_layers, num_heads, seq_len, head_dim).
         """
-        k_cache = np.zeros((
-            compressed.num_layers, compressed.num_heads,
-            compressed.seq_len, compressed.head_dim
-        ))
+        k_cache = np.zeros(
+            (
+                compressed.num_layers,
+                compressed.num_heads,
+                compressed.seq_len,
+                compressed.head_dim,
+            )
+        )
         v_cache = np.zeros_like(k_cache)
 
         for layer in range(compressed.num_layers):

@@ -2,7 +2,9 @@
 
 Post-training weight compression for llama.cpp. No retraining, no calibration data. One command.
 
-**Code:** [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant/tree/feature/turboquant-kv-cache) (merged to main). [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45) has the full testing log.
+**Code:** historical llama.cpp TurboQuant fork, `feature/turboquant-kv-cache`
+([public source URL unavailable](historical-forks.md#llamacpp-experimental-forks)).
+Historical `PR #45` contained the full testing log.
 **Paper:** [weight-compression-tq4.md](../../research/papers/weight-compression-tq4.md)
 **Getting Started:** [getting-started.md](../guides/getting-started.md#weight-compression-tq4_1s--experimental)
 
@@ -317,7 +319,8 @@ Zero regressions on uncompressed models across all tested hardware.
 
 ## How to Contribute
 
-Test on your hardware and post results on [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45).
+Test on your hardware and post results in the
+[current issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
 
 ```
 Model:
@@ -352,4 +355,6 @@ Verdict (works / partial / broken):
 
 ---
 
-*This is a living document. Results will be updated as new community data comes in. Last updated: 2026-04-04. Data sourced from [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45) comments, [X/Twitter community testing](https://x.com/dipeshbabu), and direct contributor reports.*
+*This is a living document. Results will be updated as new community data
+comes in. Last updated: 2026-04-04. Data was sourced from historical `PR #45`
+comments, X/Twitter community testing, and direct contributor reports.*

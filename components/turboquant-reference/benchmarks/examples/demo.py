@@ -1,8 +1,10 @@
 """Quick demo: compress and decompress a simulated KV cache with TurboQuant."""
 
 import time
+
 import numpy as np
-from turboquant import TurboQuant, KVCacheCompressor
+
+from turboquant import KVCacheCompressor, TurboQuant
 
 
 def demo_single_vector():
@@ -40,8 +42,8 @@ def demo_single_vector():
         print(f"    MSE:              {mse:.6f}")
         print(f"    Cosine similarity: {cosine:.6f}")
         print(f"    Compression ratio: {ratio:.1f}×")
-        print(f"    Quantize time:     {t_quant*1000:.2f} ms")
-        print(f"    Dequantize time:   {t_dequant*1000:.2f} ms")
+        print(f"    Quantize time:     {t_quant * 1000:.2f} ms")
+        print(f"    Dequantize time:   {t_dequant * 1000:.2f} ms")
 
 
 def demo_kv_cache():
@@ -80,7 +82,9 @@ def demo_kv_cache():
         # Memory
         stats = compressor.memory_stats(seq_len, num_layers, num_heads)
 
-        print(f"\n  K={k_bits}-bit, V={v_bits}-bit (layers={num_layers}, heads={num_heads}, seq={seq_len}, d={head_dim}):")
+        print(
+            f"\n  K={k_bits}-bit, V={v_bits}-bit (layers={num_layers}, heads={num_heads}, seq={seq_len}, d={head_dim}):"
+        )
         print(f"    K cache MSE:       {k_mse:.6f}")
         print(f"    V cache MSE:       {v_mse:.6f}")
         print(f"    Original size:     {stats['original_mb']:.1f} MB")
@@ -115,7 +119,9 @@ def demo_inner_product():
             ip_approx = np.dot(y, x_hat)
             errors.append(abs(ip_orig - ip_approx))
 
-        print(f"\n  {bit_width}-bit TurboQuant (d={d}, 1000 random pairs, single-side):")
+        print(
+            f"\n  {bit_width}-bit TurboQuant (d={d}, 1000 random pairs, single-side):"
+        )
         print(f"    Mean |IP error|:  {np.mean(errors):.6f}")
         print(f"    Max |IP error|:   {np.max(errors):.6f}")
         print(f"    Std |IP error|:   {np.std(errors):.6f}")

@@ -76,7 +76,9 @@ DEFAULT_N_TRIALS = 1
 # R-NIAH = 100 a noise-floor reading rather than real signal. Neutral
 # "rare paint color" framing has zero credential association while keeping
 # the APRICOT-7-BLUE distinctive token for clean substring matching.
-DEFAULT_NEEDLE = "Note: APRICOT-7-BLUE is the rare paint color featured in this article."
+DEFAULT_NEEDLE = (
+    "Note: APRICOT-7-BLUE is the rare paint color featured in this article."
+)
 DEFAULT_QUESTION = "Q: What is the rare paint color featured in this article?\nA:"
 
 # Internal: how many chars to tokenize when estimating chars-per-token.
@@ -274,8 +276,7 @@ def run_rniah(
         haystack_chunk = haystack_text[:usable_chars]
 
         for pos in positions:
-            system_msg, user_msg = _build_prompt(
-                haystack_chunk, needle, question, pos)
+            system_msg, user_msg = _build_prompt(haystack_chunk, needle, question, pos)
             base_hits = 0
             cand_hits = 0
             for trial in range(n_trials):
@@ -288,16 +289,26 @@ def run_rniah(
                 # v0.3.0: haystack goes into system, question into user.
                 # llama-cli applies the model's chat template via --jinja.
                 ref_text, _ = run_completion(
-                    model=model, prompt=user_msg, kv=reference_kv,
-                    n_predict=n_predict, ctx=length + n_predict + 32,
-                    n_gpu_layers=n_gpu_layers, seed=seed + trial,
-                    apply_chat_template=True, system=system_msg,
+                    model=model,
+                    prompt=user_msg,
+                    kv=reference_kv,
+                    n_predict=n_predict,
+                    ctx=length + n_predict + 32,
+                    n_gpu_layers=n_gpu_layers,
+                    seed=seed + trial,
+                    apply_chat_template=True,
+                    system=system_msg,
                 )
                 cand_text, _ = run_completion(
-                    model=model, prompt=user_msg, kv=candidate_kv,
-                    n_predict=n_predict, ctx=length + n_predict + 32,
-                    n_gpu_layers=n_gpu_layers, seed=seed + trial,
-                    apply_chat_template=True, system=system_msg,
+                    model=model,
+                    prompt=user_msg,
+                    kv=candidate_kv,
+                    n_predict=n_predict,
+                    ctx=length + n_predict + 32,
+                    n_gpu_layers=n_gpu_layers,
+                    seed=seed + trial,
+                    apply_chat_template=True,
+                    system=system_msg,
                 )
                 base_hits += _scored(ref_text, password_keyword)
                 cand_hits += _scored(cand_text, password_keyword)
@@ -305,12 +316,18 @@ def run_rniah(
             base_acc = base_hits / n_trials
             cand_acc = cand_hits / n_trials
             degradation = max(0.0, base_acc - cand_acc)
-            cells.append(RNIAHCell(
-                length=length, position=pos, n_trials=n_trials,
-                base_acc=base_acc, cand_acc=cand_acc,
-                degradation=degradation,
-                base_hits=base_hits, cand_hits=cand_hits,
-            ))
+            cells.append(
+                RNIAHCell(
+                    length=length,
+                    position=pos,
+                    n_trials=n_trials,
+                    base_acc=base_acc,
+                    cand_acc=cand_acc,
+                    degradation=degradation,
+                    base_hits=base_hits,
+                    cand_hits=cand_hits,
+                )
+            )
 
     if not cells:
         score = 0.0

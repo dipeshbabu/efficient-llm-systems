@@ -257,7 +257,7 @@ Before discovering sparse V, we exhaustively tested 14 dequant-level optimizatio
 
 **Conclusion:** On Apple Silicon, 4 divergent constant memory reads are faster than any arithmetic computation that produces the same 4-way selection. The constant cache, even when divergent, beats 7+ ALU operations. The only path beyond the 4-mag LUT is changing *what* data is read (sparse V, format changes), not *how* it's computed.
 
-Full experiment logs, kernel variants, and per-hardware profiling are available in [Decode Speed Hardware Analysis](https://github.com/dipeshbabu/turboquant_plus/blob/main/docs/decode-speed-hardware-analysis.md).
+Full experiment logs, kernel variants, and per-hardware profiling are available in [Decode Speed Hardware Analysis](../investigations/decode-speed-hardware-analysis.md).
 
 ---
 
@@ -425,8 +425,8 @@ More broadly, these results indicate that a significant fraction of value-side a
 
 All code, benchmarks, and diagnostic tools are open source:
 
-- **Implementation:** [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant) (branch: `experimental_decode_speed_tests`)
-- **Benchmarks & diagnostics:** [dipeshbabu/turboquant_plus](https://github.com/dipeshbabu/turboquant_plus)
+- **Implementation:** [historical llama.cpp fork; public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks) (branch: `experimental_decode_speed_tests`)
+- **Benchmarks & diagnostics:** [current monorepo](../../README.md)
 - **Hardware analysis:** [decode-speed-hardware-analysis.md](../investigations/decode-speed-hardware-analysis.md)
 
 To reproduce: build with `TURBO_SPARSE_V=1` environment variable and run `llama-bench` at various context depths with `-ctk turbo3 -ctv turbo3 -fa 1`.

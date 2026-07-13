@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import math
 import random
 from pathlib import Path
 
 import pytest
 
-from refract.axes.gtm import _diff as gtm_diff, _tokenize_words, _load_prompts
+from refract.axes.gtm import _diff as gtm_diff
+from refract.axes.gtm import _load_prompts, _tokenize_words
 from refract.axes.kld import _kld_to_score
 from refract.axes.plad import (
+    _PERTURBATION_FUNCS,
     _apply_case,
     _apply_paraphrase,
     _apply_punct,
@@ -18,7 +19,6 @@ from refract.axes.plad import (
     _eligible_words,
     _levenshtein,
     _normalized_drift,
-    _PERTURBATION_FUNCS,
 )
 from refract.axes.rniah import (
     DEFAULT_NEEDLE,
@@ -28,7 +28,6 @@ from refract.axes.rniah import (
     _scored,
 )
 from refract.axes.trajectory import _diff as traj_diff
-
 
 # --- KLD axis math --------------------------------------------------------
 
@@ -103,10 +102,7 @@ def test_tokenize_words_drops_blanks():
 def test_load_prompts_skips_comments_and_blanks(tmp_path):
     p = tmp_path / "p.jsonl"
     p.write_text(
-        '{"id": "p1", "prompt": "a"}\n'
-        "\n"
-        "# comment\n"
-        '{"id": "p2", "prompt": "b"}\n'
+        '{"id": "p1", "prompt": "a"}\n\n# comment\n{"id": "p2", "prompt": "b"}\n'
     )
     prompts = _load_prompts(p)
     assert [pp["id"] for pp in prompts] == ["p1", "p2"]
@@ -220,6 +216,7 @@ def test_normalized_drift_both_empty(monkeypatch):
 def test_normalized_drift_anchor_empty(monkeypatch):
     def fake_tok(model, text):
         return [] if not text else [1, 2]
+
     monkeypatch.setattr("refract.axes.plad.tokenize_to_ids", fake_tok)
     assert _normalized_drift(Path("m"), "", "x") == 1.0
 
@@ -229,6 +226,7 @@ def test_normalized_drift_capped_at_1(monkeypatch):
         if text == "a":
             return [1]
         return [9, 9, 9, 9, 9]  # 5-token, very different
+
     monkeypatch.setattr("refract.axes.plad.tokenize_to_ids", fake_tok)
     d = _normalized_drift(Path("m"), "a", "perturbed")
     assert d == 1.0  # capped

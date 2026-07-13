@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 from urllib.parse import unquote
 
-
 LINK_RE = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
 SKIP_PREFIXES = ("#", "http://", "https://", "mailto:", "data:")
 SKIP_PARTS = {".git", ".pytest_cache", ".venv", "build", "dist"}

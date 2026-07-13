@@ -39,15 +39,15 @@ from ..runner import (
 
 @dataclass
 class KLDResult:
-    score: float                 # 0–100
-    mean_kld: float              # nats
+    score: float  # 0–100
+    mean_kld: float  # nats
     ppl: Optional[float]
     rms_dp_pct: Optional[float]
     same_topp_pct: Optional[float]
     base_path: str
     chunks: int
     ctx: int
-    is_self_reference: bool      # True when candidate == reference; should give 0
+    is_self_reference: bool  # True when candidate == reference; should give 0
     corpus: Optional[dict] = None  # v0.1.3: {path, size_bytes, sha256_head}
     metadata: dict = field(default_factory=dict)
 
@@ -80,16 +80,22 @@ def run_kld(
     """
     # v0.3.1: dispatch to active backend's native KLD when not llamacpp.
     from ..runner import get_active_backend
+
     active = get_active_backend()
     if active is not None and getattr(active, "name", None) != "llamacpp":
         if progress:
-            print(f"  [1/1] Native KLD via {active.name} backend (ref={reference_kv.label()}, cand={candidate_kv.label()})",
-                  flush=True)
+            print(
+                f"  [1/1] Native KLD via {active.name} backend (ref={reference_kv.label()}, cand={candidate_kv.label()})",
+                flush=True,
+            )
         bk_result = active.run_kld(
-            model=model, corpus=corpus,
+            model=model,
+            corpus=corpus,
             ref_kv_str=reference_kv.label(),
             cand_kv_str=candidate_kv.label(),
-            chunks=chunks, ctx=ctx, n_gpu_layers=n_gpu_layers,
+            chunks=chunks,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
         )
         return KLDResult(
             score=_kld_to_score(bk_result.mean_kld),
@@ -119,16 +125,22 @@ def run_kld(
         # No-op if no sidecar exists (treat as user knows best).
         assert_corpus_matches(base_path, corpus)
 
-    is_self_ref = (reference_kv.label() == candidate_kv.label())
+    is_self_ref = reference_kv.label() == candidate_kv.label()
     cleanup_sidecar = None
 
     try:
         if progress:
-            print(f"  [1/2] Building fp16-KV reference base: {reference_kv.label()}",
-                  flush=True)
+            print(
+                f"  [1/2] Building fp16-KV reference base: {reference_kv.label()}",
+                flush=True,
+            )
         run_perplexity_kld_base(
-            model=model, corpus=corpus, kv=reference_kv,
-            base_path=base_path, chunks=chunks, ctx=ctx,
+            model=model,
+            corpus=corpus,
+            kv=reference_kv,
+            base_path=base_path,
+            chunks=chunks,
+            ctx=ctx,
             n_gpu_layers=n_gpu_layers,
         )
         # v0.1.3: write a sidecar recording the corpus identity. A later
@@ -139,8 +151,12 @@ def run_kld(
         if progress:
             print(f"  [2/2] Scoring candidate: {candidate_kv.label()}", flush=True)
         scored = run_perplexity_kld(
-            model=model, corpus=corpus, kv=candidate_kv,
-            base_path=base_path, chunks=chunks, ctx=ctx,
+            model=model,
+            corpus=corpus,
+            kv=candidate_kv,
+            base_path=base_path,
+            chunks=chunks,
+            ctx=ctx,
             n_gpu_layers=n_gpu_layers,
         )
 

@@ -3546,7 +3546,7 @@
         "typo": 70.64992294338457,
         "case": 78.88327659567271,
         "punct": 80.55044933047421,
-        "paraphrase": NaN
+        "paraphrase": null
       },
       "per_prompt": [
         {

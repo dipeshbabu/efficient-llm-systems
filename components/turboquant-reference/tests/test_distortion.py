@@ -7,9 +7,8 @@ within the theoretical bounds from the TurboQuant paper.
 import numpy as np
 import pytest
 
-from turboquant.turboquant import TurboQuant
 from turboquant.polar_quant import PolarQuant
-
+from turboquant.turboquant import TurboQuant
 
 # Paper Table 2 — upper bounds on distortion
 # MSE distortion for unit vectors (||x||=1)
@@ -29,7 +28,7 @@ PAPER_IP_BOUNDS = {
 }
 
 # Theoretical lower bound factor: no algorithm can beat 1/4^b for MSE
-THEORETICAL_LOWER = {b: 1.0 / (4 ** b) for b in range(1, 5)}
+THEORETICAL_LOWER = {b: 1.0 / (4**b) for b in range(1, 5)}
 
 # TurboQuant is within √(3π)/2 ≈ 2.7 of optimal
 BOUND_FACTOR = np.sqrt(3 * np.pi) / 2
@@ -61,11 +60,6 @@ class TestMSEDistortionBounds:
             f"PolarQuant avg MSE {avg_mse:.5f} exceeds 3× paper bound {expected_mse} "
             f"(d={d}, b={bit_width})"
         )
-
-        # Should also be above the theoretical lower bound
-        lower = THEORETICAL_LOWER[bit_width]
-        # (not asserting this — our implementation may exceed the lower bound
-        # which is the whole point — just logging)
 
 
 class TestInnerProductDistortion:
@@ -99,7 +93,7 @@ class TestInnerProductDistortion:
         avg_sq_error = np.mean(ip_sq_errors)
         # Paper bound: √(3π²)·||y||²/d · 1/4^b
         # For unit y: √(3π²)/d · 1/4^b
-        paper_bound = np.sqrt(3 * np.pi**2) / d / (4 ** bit_width)
+        paper_bound = np.sqrt(3 * np.pi**2) / d / (4**bit_width)
 
         # Allow 5× slack for finite d and sample variance
         assert avg_sq_error < paper_bound * 5.0, (
@@ -111,7 +105,6 @@ class TestInnerProductDistortion:
     def test_ip_error_decreases_with_bits(self, bit_width):
         """Higher bit-width → lower IP error."""
         d = 256
-        rng = np.random.default_rng(456)
 
         errors_by_bits = {}
         for b in [2, 3, 4]:

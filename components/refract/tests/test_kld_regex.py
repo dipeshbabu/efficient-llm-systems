@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from refract.runner import _KLD_MEAN_RE, _PPL_RE, _RMS_DP_RE, _TOPP_RE, _first_float
 
-
 CANNED_FULL = """\
 ... loading model ...
 perplexity: calculating perplexity over 32 chunks

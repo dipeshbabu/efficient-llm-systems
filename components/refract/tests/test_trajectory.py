@@ -7,8 +7,6 @@ of ``run_trajectory`` is exercised by the integration-tier tests under
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from refract.axes import plad as plad_mod
@@ -19,7 +17,6 @@ from refract.axes.trajectory import (
     _diff,
     _load_prompts,
 )
-
 
 # ---------------------------------------------------------------------------
 # _diff: same shape as gtm._diff but operates on int token-ID lists
@@ -107,7 +104,7 @@ def test_trajectory_result_has_gtm_compatible_shape():
     from refract.axes.gtm import GTMResult
 
     gtm_fields = {f for f in GTMResult.__dataclass_fields__}
-    traj_fields = {f for f in TrajectoryResult.__dataclass_fields__}
+    traj_fields = {f for f in r.__dataclass_fields__}
     # Trajectory must include every diagnostic field GTM exposed.
     assert gtm_fields <= traj_fields, (
         f"Missing fields vs GTMResult: {gtm_fields - traj_fields}"
@@ -209,25 +206,37 @@ def test_rniah_module_constants():
 
 def test_rniah_dataclass_shapes_stable():
     cell_fields = {f for f in rniah_mod.RNIAHCell.__dataclass_fields__}
-    assert {"length", "position", "n_trials", "base_acc",
-            "cand_acc", "degradation"} <= cell_fields
+    assert {
+        "length",
+        "position",
+        "n_trials",
+        "base_acc",
+        "cand_acc",
+        "degradation",
+    } <= cell_fields
 
     res_fields = {f for f in rniah_mod.RNIAHResult.__dataclass_fields__}
-    assert {"score", "n_cells", "cells", "skipped_cells",
-            "needle", "notes", "password_keyword"} <= res_fields
+    assert {
+        "score",
+        "n_cells",
+        "cells",
+        "skipped_cells",
+        "needle",
+        "notes",
+        "password_keyword",
+    } <= res_fields
 
 
 def test_rniah_extract_password_keyword_default():
-    assert rniah_mod._extract_password_keyword(
-        "The secret password is APRICOT-7-BLUE."
-    ) == "APRICOT-7-BLUE"
+    assert (
+        rniah_mod._extract_password_keyword("The secret password is APRICOT-7-BLUE.")
+        == "APRICOT-7-BLUE"
+    )
 
 
 def test_rniah_extract_password_keyword_fallback():
     # No all-caps token → fall back to the last whitespace-token.
-    assert rniah_mod._extract_password_keyword(
-        "the password is hunter2."
-    ) == "hunter2"
+    assert rniah_mod._extract_password_keyword("the password is hunter2.") == "hunter2"
 
 
 def test_rniah_nearest_sentence_boundary_finds_period():
@@ -246,8 +255,9 @@ def test_rniah_run_skips_when_all_lengths_exceed_ctx_max(tmp_path, monkeypatch):
     haystack.write_text("Hello world. " * 200)
 
     # Stub out the costly subprocess paths that we don't reach in this case.
-    monkeypatch.setattr(rniah_mod, "tokenize_to_ids",
-                        lambda model, text: [1] * (len(text) // 4))
+    monkeypatch.setattr(
+        rniah_mod, "tokenize_to_ids", lambda model, text: [1] * (len(text) // 4)
+    )
 
     from refract.runner import KVConfig
 
@@ -272,8 +282,9 @@ def test_rniah_run_full_match(tmp_path, monkeypatch):
     haystack = tmp_path / "haystack.txt"
     haystack.write_text("Lorem ipsum dolor sit amet. " * 1000)
 
-    monkeypatch.setattr(rniah_mod, "tokenize_to_ids",
-                        lambda model, text: [1] * max(1, len(text) // 4))
+    monkeypatch.setattr(
+        rniah_mod, "tokenize_to_ids", lambda model, text: [1] * max(1, len(text) // 4)
+    )
 
     def fake_run_completion(model, prompt, kv, **_kw):
         # Both KV configs respond with the password every time.
@@ -308,8 +319,9 @@ def test_rniah_run_candidate_loses_at_long_ctx(tmp_path, monkeypatch):
     haystack = tmp_path / "haystack.txt"
     haystack.write_text("Lorem ipsum dolor sit amet. " * 4000)
 
-    monkeypatch.setattr(rniah_mod, "tokenize_to_ids",
-                        lambda model, text: [1] * max(1, len(text) // 4))
+    monkeypatch.setattr(
+        rniah_mod, "tokenize_to_ids", lambda model, text: [1] * max(1, len(text) // 4)
+    )
 
     def fake_run_completion(model, prompt, kv, **kw):
         # ctx tells us the cell's length here (we set ctx = length + n_predict + 32).
@@ -355,12 +367,24 @@ def test_plad_module_constants():
 
 def test_plad_dataclass_shapes_stable():
     pp_fields = {f for f in plad_mod.PLADPerPrompt.__dataclass_fields__}
-    assert {"prompt_id", "perturbation", "perturbed_prompt",
-            "ref_drift", "cand_drift", "excess_drift", "plad_pp"} <= pp_fields
+    assert {
+        "prompt_id",
+        "perturbation",
+        "perturbed_prompt",
+        "ref_drift",
+        "cand_drift",
+        "excess_drift",
+        "plad_pp",
+    } <= pp_fields
 
     res_fields = {f for f in plad_mod.PLADResult.__dataclass_fields__}
-    assert {"score", "per_perturbation_score", "per_prompt",
-            "n_prompts", "n_perturbations"} <= res_fields
+    assert {
+        "score",
+        "per_perturbation_score",
+        "per_prompt",
+        "n_prompts",
+        "n_perturbations",
+    } <= res_fields
 
 
 def test_plad_levenshtein_sanity():
@@ -372,6 +396,7 @@ def test_plad_levenshtein_sanity():
 
 def test_plad_apply_typo_swaps_two_chars():
     import random as _r
+
     out = plad_mod._apply_typo("Please describe Paris", _r.Random(0))
     assert out is not None
     assert out != "Please describe Paris"
@@ -381,6 +406,7 @@ def test_plad_apply_typo_swaps_two_chars():
 
 def test_plad_apply_typo_no_eligible_word():
     import random as _r
+
     # All words ≤3 chars or stopwords; should return None.
     assert plad_mod._apply_typo("a b cd ef", _r.Random(0)) is None
 
@@ -404,6 +430,7 @@ def test_plad_apply_punct_removes_question_mark():
 
 def test_plad_apply_paraphrase_uses_synonym():
     import random as _r
+
     out = plad_mod._apply_paraphrase("Make a big house", _r.Random(0))
     assert out is not None
     # 'make' → 'create' or 'big' → 'large'; either way the prompt changed.
@@ -414,14 +441,13 @@ def test_plad_apply_paraphrase_uses_synonym():
 def test_plad_run_happy_path(tmp_path, monkeypatch):
     """Realistic shape: cand drifts a lot more than ref under perturbation."""
     p = tmp_path / "prompts.jsonl"
-    p.write_text(
-        '{"id": "p1", "prompt": "Please describe Paris briefly"}\n'
-    )
+    p.write_text('{"id": "p1", "prompt": "Please describe Paris briefly"}\n')
 
     # Stub tokenize_to_ids to return character codes — gives a deterministic
     # token sequence with a clear edit-distance signal.
-    monkeypatch.setattr(plad_mod, "tokenize_to_ids",
-                        lambda model, text: [ord(c) for c in text or ""])
+    monkeypatch.setattr(
+        plad_mod, "tokenize_to_ids", lambda model, text: [ord(c) for c in text or ""]
+    )
 
     # Reference: stable answer regardless of perturbation.
     # Candidate: gets perturbed prompts wrong (different surface form).
@@ -463,6 +489,7 @@ def test_plad_run_unknown_perturbation_raises(tmp_path):
     p = tmp_path / "prompts.jsonl"
     p.write_text('{"id": "p1", "prompt": "x"}\n')
     from refract.runner import KVConfig
+
     with pytest.raises(ValueError, match="Unknown perturbations"):
         plad_mod.run_plad(
             model=tmp_path / "fake.gguf",
@@ -480,8 +507,10 @@ def test_composite_score_4_axes():
     from refract.score import composite_score
 
     c = composite_score(
-        gtm_score=80.0, kld_score=99.0,
-        rniah_score=70.0, plad_score=90.0,
+        gtm_score=80.0,
+        kld_score=99.0,
+        rniah_score=70.0,
+        plad_score=90.0,
     )
     # Harmonic mean of [80, 99, 70, 90] = 4 / (1/80 + 1/99 + 1/70 + 1/90)
     expected = 4 / (1 / 80 + 1 / 99 + 1 / 70 + 1 / 90)

@@ -56,8 +56,10 @@ class TestOptimalCentroids:
         for b in [1, 2, 3, 4]:
             centroids = optimal_centroids(b, 128)
             np.testing.assert_allclose(
-                centroids, -centroids[::-1], atol=1e-10,
-                err_msg=f"Centroids not symmetric for b={b}"
+                centroids,
+                -centroids[::-1],
+                atol=1e-10,
+                err_msg=f"Centroids not symmetric for b={b}",
             )
 
     def test_lloyd_converges_3bit(self):
@@ -92,9 +94,7 @@ class TestOptimalCentroids:
             c_large = optimal_centroids(b, 256)
             # Max centroid should be ~2× smaller for 4× larger d
             ratio = np.max(np.abs(c_small)) / np.max(np.abs(c_large))
-            assert 1.5 < ratio < 2.5, (
-                f"Scale ratio {ratio:.2f} unexpected for b={b}"
-            )
+            assert 1.5 < ratio < 2.5, f"Scale ratio {ratio:.2f} unexpected for b={b}"
 
 
 class TestGaussianConditionalExpectation:
@@ -211,8 +211,8 @@ class TestNearestCentroidIndices:
         centroids = np.array([-1.0, 0.0, 1.0])
         values = np.array([-100.0, 100.0])
         indices = nearest_centroid_indices(values, centroids)
-        assert indices[0] == 0   # far left → first centroid
-        assert indices[1] == 2   # far right → last centroid
+        assert indices[0] == 0  # far left → first centroid
+        assert indices[1] == 2  # far right → last centroid
 
     def test_batch_shape_preserved(self):
         """Output shape should match input shape."""
@@ -232,7 +232,9 @@ class TestNearestCentroidIndices:
 
         fast_indices = nearest_centroid_indices(values, centroids)
         # Brute force: for each value, find the centroid with minimum abs distance
-        brute_indices = np.argmin(np.abs(values[:, np.newaxis] - centroids[np.newaxis, :]), axis=1)
+        brute_indices = np.argmin(
+            np.abs(values[:, np.newaxis] - centroids[np.newaxis, :]), axis=1
+        )
 
         np.testing.assert_array_equal(fast_indices, brute_indices)
 

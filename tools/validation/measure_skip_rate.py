@@ -9,19 +9,24 @@ positions fall below the sparse V threshold (1e-6).
 This gives exact skip rates — not estimates from speed data.
 """
 
-import torch
 import json
 import sys
-import os
 from pathlib import Path
+from typing import Optional
+
+import torch
+
 
 def measure_skip_rates(
     model_name: str = "Qwen/Qwen3-1.7B",
-    context_lengths: list[int] = [512, 2048, 4096, 8192],
+    context_lengths: Optional[list[int]] = None,
     threshold: float = 1e-6,
     device: str = "mps",
 ):
     from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    if context_lengths is None:
+        context_lengths = [512, 2048, 4096, 8192]
 
     print(f"Loading {model_name}...")
     tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
@@ -47,7 +52,9 @@ def measure_skip_rates(
         input_ids = torch.tensor([base_ids[:ctx_len]], device=device)
         actual_len = input_ids.shape[1]
         if actual_len < ctx_len:
-            print(f"  Warning: only {actual_len} tokens available (requested {ctx_len})")
+            print(
+                f"  Warning: only {actual_len} tokens available (requested {ctx_len})"
+            )
 
         print(f"  Running forward pass ({actual_len} tokens)...")
         with torch.no_grad():
@@ -80,13 +87,15 @@ def measure_skip_rates(
             total_positions += layer_total
             total_skipped += layer_skipped
 
-            layer_stats.append({
-                "layer": layer_idx,
-                "skip_rate": skip_rate,
-                "min_head_skip": skip_per_head.min().item(),
-                "max_head_skip": skip_per_head.max().item(),
-                "median_head_skip": skip_per_head.median().item(),
-            })
+            layer_stats.append(
+                {
+                    "layer": layer_idx,
+                    "skip_rate": skip_rate,
+                    "min_head_skip": skip_per_head.min().item(),
+                    "max_head_skip": skip_per_head.max().item(),
+                    "median_head_skip": skip_per_head.median().item(),
+                }
+            )
 
         overall_skip = total_skipped / total_positions if total_positions > 0 else 0
 
@@ -101,12 +110,16 @@ def measure_skip_rates(
         }
         results.append(result)
 
-        print(f"  Overall skip rate: {overall_skip:.4f} ({overall_skip*100:.1f}%)")
-        print(f"  Positions: {total_skipped:,} / {total_positions:,} below τ={threshold}")
+        print(f"  Overall skip rate: {overall_skip:.4f} ({overall_skip * 100:.1f}%)")
+        print(
+            f"  Positions: {total_skipped:,} / {total_positions:,} below τ={threshold}"
+        )
 
         # Per-layer summary
         skip_rates = [s["skip_rate"] for s in layer_stats]
-        print(f"  Layer skip rates: min={min(skip_rates):.3f} max={max(skip_rates):.3f} median={sorted(skip_rates)[len(skip_rates)//2]:.3f}")
+        print(
+            f"  Layer skip rates: min={min(skip_rates):.3f} max={max(skip_rates):.3f} median={sorted(skip_rates)[len(skip_rates) // 2]:.3f}"
+        )
 
         # Free memory
         del outputs
@@ -120,12 +133,18 @@ def print_summary(results):
     print("SPARSE V SKIP RATE — DIRECT MEASUREMENT")
     print("=" * 70)
 
-    print(f"\n| Context | Skip Rate | Skipped/Total | Min Layer | Max Layer | Median Layer |")
-    print(f"|---------|-----------|---------------|-----------|-----------|--------------|")
+    print(
+        "\n| Context | Skip Rate | Skipped/Total | Min Layer | Max Layer | Median Layer |"
+    )
+    print(
+        "|---------|-----------|---------------|-----------|-----------|--------------|"
+    )
     for r in results:
         n_layers = r["n_layers"]
         layer_skips = [s["skip_rate"] for s in r["per_layer"]]
-        print(f"| {r['context_length']:>7} | {r['overall_skip_rate']*100:>7.1f}% | {r['total_skipped']:>10,}/{r['total_positions']:>10,} | {min(layer_skips)*100:>7.1f}% | {max(layer_skips)*100:>7.1f}% | {sorted(layer_skips)[n_layers//2]*100:>8.1f}% |")
+        print(
+            f"| {r['context_length']:>7} | {r['overall_skip_rate'] * 100:>7.1f}% | {r['total_skipped']:>10,}/{r['total_positions']:>10,} | {min(layer_skips) * 100:>7.1f}% | {max(layer_skips) * 100:>7.1f}% | {sorted(layer_skips)[n_layers // 2] * 100:>8.1f}% |"
+        )
 
     print("\nPer-layer detail (first and last 3 layers):")
     for r in results:
@@ -133,11 +152,15 @@ def print_summary(results):
         layers = r["per_layer"]
         print(f"\n  Context {ctx}:")
         for s in layers[:3]:
-            print(f"    Layer {s['layer']:>2}: {s['skip_rate']*100:.1f}% (head range: {s['min_head_skip']*100:.1f}%-{s['max_head_skip']*100:.1f}%)")
+            print(
+                f"    Layer {s['layer']:>2}: {s['skip_rate'] * 100:.1f}% (head range: {s['min_head_skip'] * 100:.1f}%-{s['max_head_skip'] * 100:.1f}%)"
+            )
         if len(layers) > 6:
-            print(f"    ...")
+            print("    ...")
         for s in layers[-3:]:
-            print(f"    Layer {s['layer']:>2}: {s['skip_rate']*100:.1f}% (head range: {s['min_head_skip']*100:.1f}%-{s['max_head_skip']*100:.1f}%)")
+            print(
+                f"    Layer {s['layer']:>2}: {s['skip_rate'] * 100:.1f}% (head range: {s['min_head_skip'] * 100:.1f}%-{s['max_head_skip'] * 100:.1f}%)"
+            )
 
 
 if __name__ == "__main__":

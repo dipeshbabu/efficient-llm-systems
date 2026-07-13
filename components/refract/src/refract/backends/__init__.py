@@ -51,15 +51,19 @@ def get_backend(name: str) -> Backend:
     name = name.lower()
     if name == "llamacpp":
         from .llamacpp import LlamaCppBackend
+
         return LlamaCppBackend()
     if name == "mlx":
         from .mlx import MLXBackend
+
         return MLXBackend()
     if name == "vllm":
         from .vllm import VLLMBackend
+
         return VLLMBackend()
     if name == "sglang":
         from .sglang import SGLangBackend
+
         return SGLangBackend()
     raise ValueError(
         f"Unknown backend {name!r}. Valid: 'llamacpp', 'mlx', 'vllm', 'sglang'."

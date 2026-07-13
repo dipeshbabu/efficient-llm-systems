@@ -86,27 +86,15 @@ pip install -e .[dev]              # editable + pytest + coverage + build toolin
 Every later command (`python3 -m refract.cli ...`) assumes you installed
 the component and are running from `components/refract/`.
 
-If you also want the patched llama.cpp binaries (the llamacpp backend
-needs them on `PATH` / `LD_LIBRARY_PATH`):
+The llamacpp backend needs compatible patched binaries on `PATH` /
+`LD_LIBRARY_PATH`, or in the directory named by `LLAMA_CPP_BIN_DIR`. The source
+used for the cited TurboQuant experiments is a
+[historical fork whose public URL is unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks).
 
-```bash
-# In a sibling directory
-git clone https://github.com/dipeshbabu/llama-cpp-turboquant.git
-cd llama-cpp-turboquant
-cmake -B build-allquants -DGGML_METAL=ON   # or -DGGML_HIP=ON, -DGGML_CUDA=ON
-cmake --build build-allquants -j --target llama-cli llama-completion llama-tokenize llama-perplexity
-# Set LLAMA_CPP_BIN_DIR to the build-allquants/bin path before running refract
-export LLAMA_CPP_BIN_DIR=$PWD/build-allquants/bin
-```
-
-For the vLLM backend on CUDA / ROCm, either install upstream `vllm`
-(`pip install vllm`) or pull the author's fork:
-
-```bash
-git clone https://github.com/dipeshbabu/vllm.git
-cd vllm
-pip install -e .   # this can take a while on ROCm; refer to vLLM's own ROCm docs
-```
+For the standard vLLM backend on CUDA / ROCm, install upstream `vllm` with
+`pip install vllm`. Fork-specific TurboQuant schemes require the
+[historical vLLM implementation](../../docs/reference/historical-forks.md#vllm-experimental-forks),
+which does not currently have a public source URL.
 
 For SGLang, the simplest path is the published Docker image (the bench
 in `../../research/papers/cross-engine-mi300x.md` uses

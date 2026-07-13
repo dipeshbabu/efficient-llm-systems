@@ -25,7 +25,10 @@ def check_wheel(path: Path) -> list[str]:
         }
         for name in sorted(required - names):
             errors.append(f"{path}: missing {name}")
-        if not any(name.startswith("refract/examples/") and name.endswith(".json") for name in names):
+        if not any(
+            name.startswith("refract/examples/") and name.endswith(".json")
+            for name in names
+        ):
             errors.append(f"{path}: missing packaged REFRACT JSON examples")
         if any(name.startswith("turboquant/") for name in names):
             errors.append(f"{path}: unexpectedly contains turboquant")

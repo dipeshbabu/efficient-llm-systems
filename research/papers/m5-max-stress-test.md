@@ -371,8 +371,8 @@ The key findings from this stress test have been independently confirmed:
 ## References
 
 - TurboQuant paper: [arXiv 2504.19874](https://arxiv.org/abs/2504.19874) (ICLR 2026)
-- TurboQuant+ implementation: [github.com/dipeshbabu/turboquant_plus](https://github.com/dipeshbabu/turboquant_plus)
-- llama.cpp fork: [github.com/dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant)
+- TurboQuant+ implementation: [current monorepo](../../README.md)
+- llama.cpp fork: [historical implementation; public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks)
 - Block size optimization: [block-size-experiment.md](block-size-experiment.md)
 - Sparse V dequant: [sparse-v-dequant.md](sparse-v-dequant.md)
 - Configuration recommendations: [turboquant-recommendations.md](../../docs/guides/turboquant-recommendations.md)

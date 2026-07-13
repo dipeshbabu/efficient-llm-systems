@@ -99,7 +99,7 @@ The stack is symmetric: the same `ChatSession` path drives both standard decodin
 
 **Code-aware retrieval (Mode A/B).** Every chat completion's prompt is parsed for absolute file paths. The first path's project root is detected via sentinel (`package.json`, `.git`, `pyproject.toml`, etc.). longctx-svc indexes the scope (Hot first → Package on demand), retrieves top-K chunks for the user's query, splices them into a system message, and forwards the request. The model sees a normal chat completion with a `## Retrieved code context` block at the top.
 
-Mode A wraps any OpenAI-compatible engine (proxy in front). Mode B uses an engine flag (`--enable-longctx`) to spawn longctx-svc as a sidecar. Both compose with dipeshbabu/vllm-swift, dipeshbabu/llama-cpp-turboquant, dipeshbabu/vllm-turboquant, and any upstream engine that speaks OpenAI HTTP.
+Mode A wraps any OpenAI-compatible engine (proxy in front). Mode B uses an engine flag (`--enable-longctx`) to spawn longctx-svc as a sidecar. Both were tested with the historical `vllm-swift`, `llama-cpp-turboquant`, and `vllm-turboquant` prototypes, and can compose with any upstream engine that speaks OpenAI HTTP. The historical prototype source URLs are [currently unavailable](../../docs/reference/historical-forks.md#swift-and-long-context-prototypes).
 
 **TriAttention rescue.** When the inference engine has our TriAttention V3 enabled (env: `VLLM_TRIATT_ENABLED=1`, `LONGCTX_ENDPOINT=http://...`), V3 fires per-token eviction during prefill. V3 here refers to our independent implementation; the underlying trigonometric scoring approach is from Mao et al., arXiv:2604.04921. The hybrid prefix-protect + per-segment-quota extensions, the Tier 2 evict-callback and Tier 3 rehydrate plumbing, and the Swift port are ours. The engine's TriAttention rescue bridge POSTs every evicted span (decoded back to text via the bound tokenizer) to `/evict/write`. On the next user turn, `ChatSession` auto-fires `rescue.rehydratePrompt(query: <user_msg>)` against `/evict/retrieve`, prepending recovered chunks as a system message before that turn's prefill.
 
@@ -116,10 +116,10 @@ Same plumbing serves both. The inference-time path adds a per-session faiss stor
 
 | Engine | Code-aware | Rescue (V3+longctx) |
 |---|:-:|:-:|
-| dipeshbabu/mlx-swift-lm (M-series Apple Silicon) | ✅ | ✅ ChatSession auto-Tier-3 |
-| dipeshbabu/vllm-swift | ✅ `--enable-longctx` | ✅ same ChatSession path |
-| dipeshbabu/llama-cpp-turboquant | ✅ via `llama-server-longctx` wrapper | – |
-| dipeshbabu/vllm-turboquant (AMD MI300X) | ✅ wired in `serve.py` | ✅ |
+| historical `mlx-swift-lm` (M-series Apple Silicon) | ✅ | ✅ ChatSession auto-Tier-3 |
+| historical `vllm-swift` | ✅ `--enable-longctx` | ✅ same ChatSession path |
+| historical `llama-cpp-turboquant` | ✅ via `llama-server-longctx` wrapper | – |
+| historical `vllm-turboquant` (AMD MI300X) | ✅ wired in `serve.py` | ✅ |
 | upstream vLLM / llama.cpp / SGLang / Ollama | ✅ Mode A proxy | – |
 
 ---
@@ -129,7 +129,7 @@ Same plumbing serves both. The inference-time path adds a per-session faiss stor
 ### 3.1 Setup
 
 - 1× AMD Instinct MI300X (192 GB HBM3, gfx942), DigitalOcean dev cloud droplet, ROCm 7.2, Ubuntu 24.04
-- Model: Qwen2.5-32B-Instruct via dipeshbabu/vllm-turboquant
+- Model: Qwen2.5-32B-Instruct via the historical `vllm-turboquant` fork
 - Benchmark: MRCR v2 8-needle (8 needles inserted at randomized positions in a synthetic haystack), per-bin scoring across 8K → 1M context
 
 ### 3.2 Recipes
@@ -172,7 +172,7 @@ The MultiQ recipe trades query latency for accuracy. The win at 1M is real but p
 
 - 1× Apple M5 Max, 128 GB unified memory, macOS 26.4
 - Model: `mlx-community/Qwen3.5-2B-4bit` (qwen3_5 hybrid Mamba+Attention, 4-bit quantized)
-- Engine: dipeshbabu/mlx-swift-lm at `feature/triattention-v3`
+- Engine: historical `mlx-swift-lm` prototype at `feature/triattention-v3`
 - Test harness: `Tests/Benchmarks/V3ChatSessionRamp.swift`
 - Eviction config: V3 default rate (10%), window=128, prefix=32, warmup=256, hybrid=2
 
@@ -314,7 +314,7 @@ export LONGCTX_ENDPOINT=http://127.0.0.1:5054
 
 Drive through `ChatSession` (mlx-swift-lm) or via vllm-swift's `--enable-longctx` flag (vllm-swift). Custom drivers must wire the rehydrate hook manually.
 
-For AMD MI300X with dipeshbabu/vllm-turboquant, longctx-svc runs on the same droplet; the engine's `--enable-longctx` flag handles sidecar spawn.
+For AMD MI300X with the historical `vllm-turboquant` fork, longctx-svc runs on the same droplet; the engine's `--enable-longctx` flag handles sidecar spawn.
 
 ---
 
@@ -340,15 +340,18 @@ Open inference engines now have a path to million-token context on a single GPU 
 
 ## Reproduction
 
+The prototype repositories used for this run no longer have public source
+URLs. The commands below therefore require existing local checkouts; see
+[Historical engine forks](../../docs/reference/historical-forks.md#swift-and-long-context-prototypes).
+
 ```bash
 # longctx-svc
-git clone https://github.com/dipeshbabu/longctx
 cd longctx && pip install -e .
 longctx-svc serve --host 127.0.0.1 --port 5054
 
 # mlx-swift-lm V3+longctx ramp (Apple Silicon)
-git clone -b feature/triattention-v3 https://github.com/dipeshbabu/mlx-swift-lm
 cd mlx-swift-lm
+git checkout feature/triattention-v3
 RUN_V3_CHAT_RAMP=1 swift test --filter "V3ChatSessionRamp"
 
 # vllm-turboquant on AMD MI300X (1M MRCR)
@@ -356,7 +359,8 @@ RUN_V3_CHAT_RAMP=1 swift test --filter "V3ChatSessionRamp"
 ```
 
 Findings doc with raw logs and per-cell receipts is available alongside the test sources.
-Test source: [Tests/Benchmarks/V3ChatSessionRamp.swift](https://github.com/dipeshbabu/mlx-swift-lm/blob/main/Tests/Benchmarks/V3ChatSessionRamp.swift).
+Test source: historical `Tests/Benchmarks/V3ChatSessionRamp.swift`
+([public endpoint unavailable](../../docs/reference/historical-forks.md#swift-and-long-context-prototypes)).
 
 ---
 

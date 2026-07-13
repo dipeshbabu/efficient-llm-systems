@@ -84,34 +84,71 @@ DEFAULT_ALPHA = 5.0
 # capital → seat) shifts the test from "brittleness" to "semantic
 # fragility" and inflates excess_drift everywhere.
 _SYNONYMS: dict[str, str] = {
-    "big":     "large",
-    "large":   "big",
-    "small":   "tiny",
-    "tiny":    "small",
-    "fast":    "quick",
-    "quick":   "fast",
-    "begin":   "start",
-    "start":   "begin",
-    "happy":   "glad",
-    "sad":     "unhappy",
-    "smart":   "clever",
-    "clever":  "smart",
-    "show":    "display",
+    "big": "large",
+    "large": "big",
+    "small": "tiny",
+    "tiny": "small",
+    "fast": "quick",
+    "quick": "fast",
+    "begin": "start",
+    "start": "begin",
+    "happy": "glad",
+    "sad": "unhappy",
+    "smart": "clever",
+    "clever": "smart",
+    "show": "display",
     "display": "show",
-    "build":   "construct",
-    "create":  "make",
-    "make":    "create",
-    "find":    "locate",
-    "locate":  "find",
+    "build": "construct",
+    "create": "make",
+    "make": "create",
+    "find": "locate",
+    "locate": "find",
 }
 
 # Stopwords skipped by the typo and paraphrase perturbations so we don't
 # insert obviously-broken function words like "a"/"the" → "ahe"/"teh".
 _STOPWORDS = {
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "in", "on", "at", "to", "of", "for", "with", "by", "as", "and", "or",
-    "but", "not", "no", "do", "does", "did", "i", "you", "he", "she", "it",
-    "we", "they", "this", "that", "these", "those", "have", "has", "had",
+    "a",
+    "an",
+    "the",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "in",
+    "on",
+    "at",
+    "to",
+    "of",
+    "for",
+    "with",
+    "by",
+    "as",
+    "and",
+    "or",
+    "but",
+    "not",
+    "no",
+    "do",
+    "does",
+    "did",
+    "i",
+    "you",
+    "he",
+    "she",
+    "it",
+    "we",
+    "they",
+    "this",
+    "that",
+    "these",
+    "those",
+    "have",
+    "has",
+    "had",
 }
 
 
@@ -163,7 +200,7 @@ def _apply_typo(prompt: str, rng: random.Random) -> Optional[str]:
     s, e, w = rng.choice(eligible)
     # Swap two adjacent characters at a random interior position
     i = rng.randrange(0, len(w) - 1)
-    swapped = w[:i] + w[i + 1] + w[i] + w[i + 2:]
+    swapped = w[:i] + w[i + 1] + w[i] + w[i + 2 :]
     if swapped == w:  # palindromic pair, e.g. "ee"; skip
         return None
     return prompt[:s] + swapped + prompt[e:]
@@ -174,7 +211,7 @@ def _apply_case(prompt: str) -> Optional[str]:
     last_end = 0
     changed = False
     for m in _WORD_RE.finditer(prompt):
-        out.append(prompt[last_end:m.start()])
+        out.append(prompt[last_end : m.start()])
         w = m.group(0)
         if w[0].isupper():
             out.append(w[0].lower() + w[1:])
@@ -191,15 +228,16 @@ def _apply_case(prompt: str) -> Optional[str]:
 def _apply_punct(prompt: str) -> Optional[str]:
     p = prompt.rstrip()
     if p.endswith("?"):
-        return p[:-1] + (prompt[len(p):])
+        return p[:-1] + (prompt[len(p) :])
     if p.endswith("."):
-        return p[:-1] + (prompt[len(p):])
-    return p + "?" + prompt[len(p):]
+        return p[:-1] + (prompt[len(p) :])
+    return p + "?" + prompt[len(p) :]
 
 
 def _apply_paraphrase(prompt: str, rng: random.Random) -> Optional[str]:
     eligible = [
-        (s, e, w) for (s, e, w) in _eligible_words(prompt)
+        (s, e, w)
+        for (s, e, w) in _eligible_words(prompt)
         if len(w) >= 3 and w.lower() in _SYNONYMS
     ]
     if not eligible:
@@ -213,9 +251,9 @@ def _apply_paraphrase(prompt: str, rng: random.Random) -> Optional[str]:
 
 
 _PERTURBATION_FUNCS = {
-    "typo":       _apply_typo,
-    "case":       lambda p, _rng: _apply_case(p),
-    "punct":      lambda p, _rng: _apply_punct(p),
+    "typo": _apply_typo,
+    "case": lambda p, _rng: _apply_case(p),
+    "punct": lambda p, _rng: _apply_punct(p),
     "paraphrase": _apply_paraphrase,
 }
 
@@ -300,8 +338,9 @@ def run_plad(
         raise ValueError(f"No prompts loaded from {prompts_path}")
     unknown = [p for p in perturbations if p not in _PERTURBATION_FUNCS]
     if unknown:
-        raise ValueError(f"Unknown perturbations: {unknown!r}; "
-                         f"valid: {tuple(_PERTURBATION_FUNCS)}")
+        raise ValueError(
+            f"Unknown perturbations: {unknown!r}; valid: {tuple(_PERTURBATION_FUNCS)}"
+        )
 
     per_prompt_records: list[PLADPerPrompt] = []
     per_pert_scores: dict[str, list[float]] = {p: [] for p in perturbations}
@@ -332,19 +371,33 @@ def run_plad(
     for idx, (prompt_idx, pert_name, prompt_text) in enumerate(cells):
         if progress:
             label = "anchor" if pert_name is None else f"pert={pert_name}"
-            print(f"  ref [{idx + 1}/{len(cells)}] p{prompt_idx} {label} ...", flush=True)
+            print(
+                f"  ref [{idx + 1}/{len(cells)}] p{prompt_idx} {label} ...", flush=True
+            )
         text, _ = run_completion(
-            model=model, prompt=prompt_text, kv=reference_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=prompt_text,
+            kv=reference_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
         ref_text[(prompt_idx, pert_name)] = text
     for idx, (prompt_idx, pert_name, prompt_text) in enumerate(cells):
         if progress:
             label = "anchor" if pert_name is None else f"pert={pert_name}"
-            print(f"  cand [{idx + 1}/{len(cells)}] p{prompt_idx} {label} ...", flush=True)
+            print(
+                f"  cand [{idx + 1}/{len(cells)}] p{prompt_idx} {label} ...", flush=True
+            )
         text, _ = run_completion(
-            model=model, prompt=prompt_text, kv=candidate_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=prompt_text,
+            kv=candidate_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
         cand_text[(prompt_idx, pert_name)] = text
 
@@ -361,17 +414,21 @@ def run_plad(
             cand_drift = _normalized_drift(model, a_cand, p_cand)
             excess = max(0.0, cand_drift - ref_drift)
             plad_pp = 100.0 * math.exp(-alpha * excess)
-            per_prompt_records.append(PLADPerPrompt(
-                prompt_id=str(p["id"]),
-                perturbation=pert,
-                perturbed_prompt=cells[next(
-                    j for j, c in enumerate(cells) if c[0] == i and c[1] == pert
-                )][2],
-                ref_drift=ref_drift,
-                cand_drift=cand_drift,
-                excess_drift=excess,
-                plad_pp=plad_pp,
-            ))
+            per_prompt_records.append(
+                PLADPerPrompt(
+                    prompt_id=str(p["id"]),
+                    perturbation=pert,
+                    perturbed_prompt=cells[
+                        next(
+                            j for j, c in enumerate(cells) if c[0] == i and c[1] == pert
+                        )
+                    ][2],
+                    ref_drift=ref_drift,
+                    cand_drift=cand_drift,
+                    excess_drift=excess,
+                    plad_pp=plad_pp,
+                )
+            )
             per_pert_scores[pert].append(plad_pp)
 
     if not per_prompt_records:

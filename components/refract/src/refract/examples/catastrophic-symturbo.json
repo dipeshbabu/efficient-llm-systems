@@ -7612,7 +7612,7 @@
         "typo": 75.13818787464908,
         "case": 70.43727962573627,
         "punct": 71.01021369343006,
-        "paraphrase": NaN
+        "paraphrase": null
       },
       "per_prompt": [
         {

@@ -8,18 +8,19 @@ Usage:
 """
 
 import time
-import numpy as np
-from turboquant import TurboQuant, TurboQuantMSE, KVCacheCompressor
 
+import numpy as np
+
+from turboquant import KVCacheCompressor
 
 # Qwen 3.5 architecture constants
 QWEN_27B = {
     "name": "Qwen 3.5 27B (dense)",
-    "num_layers": 28,      # decoder layers (actually varies, use 28 as approx)
-    "num_heads": 32,       # attention heads
-    "num_kv_heads": 8,     # GQA: 8 KV heads
-    "head_dim": 128,       # per-head dimension
-    "hidden_dim": 4096,    # total hidden
+    "num_layers": 28,  # decoder layers (actually varies, use 28 as approx)
+    "num_heads": 32,  # attention heads
+    "num_kv_heads": 8,  # GQA: 8 KV heads
+    "head_dim": 128,  # per-head dimension
+    "hidden_dim": 4096,  # total hidden
 }
 
 QWEN_MOE = {
@@ -32,7 +33,9 @@ QWEN_MOE = {
 }
 
 
-def simulate_kv_cache(config: dict, seq_len: int, seed: int = 42) -> tuple[np.ndarray, np.ndarray]:
+def simulate_kv_cache(
+    config: dict, seq_len: int, seed: int = 42
+) -> tuple[np.ndarray, np.ndarray]:
     """Generate synthetic KV cache tensors at real model dimensions.
 
     Shape: (num_layers, num_kv_heads, seq_len, head_dim)
@@ -82,11 +85,9 @@ def test_compression(config: dict, seq_len: int, k_bits: int, v_bits: int):
     avg_cosine = np.mean(cosines) if cosines else 0.0
 
     # Memory stats
-    stats = compressor.memory_stats(seq_len, config["num_layers"], config["num_kv_heads"])
-
-    # Compute effective bit rate for Prince Canuma comparison
-    # His "2.5-bit" uses outlier strategy: some channels at higher bits
-    avg_bits = (k_bits + v_bits) / 2.0
+    stats = compressor.memory_stats(
+        seq_len, config["num_layers"], config["num_kv_heads"]
+    )
 
     print(f"    K MSE:             {k_mse:.8f}")
     print(f"    V MSE:             {v_mse:.8f}")
@@ -97,7 +98,7 @@ def test_compression(config: dict, seq_len: int, k_bits: int, v_bits: int):
     print(f"    Compress time:     {t_compress:.2f}s")
     print(f"    Decompress time:   {t_decompress:.2f}s")
 
-    return stats['compression_ratio'], avg_cosine, k_mse
+    return stats["compression_ratio"], avg_cosine, k_mse
 
 
 def test_attention_preservation(config: dict, seq_len: int = 64):
@@ -157,7 +158,9 @@ def main():
     for config in [QWEN_27B, QWEN_MOE]:
         print(f"\n{'─' * 70}")
         print(f"Model: {config['name']}")
-        print(f"  Architecture: {config['num_layers']}L × {config['num_kv_heads']}KV × {config['head_dim']}d")
+        print(
+            f"  Architecture: {config['num_layers']}L × {config['num_kv_heads']}KV × {config['head_dim']}d"
+        )
         print(f"{'─' * 70}")
 
         for seq_len in [512, 2048, 8192]:
@@ -185,8 +188,10 @@ def main():
     print(f"    → Cosine sim:  {cosine:.4f}")
     print(f"    → K MSE:       {mse:.8f}")
 
-    print(f"\n✅ Integration test complete.")
-    print(f"   Next step: extract real KV tensors from llama.cpp for ground-truth validation.")
+    print("\n✅ Integration test complete.")
+    print(
+        "   Next step: extract real KV tensors from llama.cpp for ground-truth validation."
+    )
 
 
 if __name__ == "__main__":

@@ -46,8 +46,12 @@ class TestDenseRotation:
             Pi = random_rotation_dense(d, rng)
             sign, logdet = np.linalg.slogdet(Pi)
             assert sign > 0, f"det sign = {sign} for seed={seed}, expected +1"
-            np.testing.assert_allclose(logdet, 0.0, atol=1e-8,
-                err_msg=f"log|det| = {logdet} for seed={seed}, expected 0.0")
+            np.testing.assert_allclose(
+                logdet,
+                0.0,
+                atol=1e-8,
+                err_msg=f"log|det| = {logdet} for seed={seed}, expected 0.0",
+            )
 
     def test_deterministic_same_seed(self):
         """Same seed should produce identical rotation matrix."""
@@ -79,9 +83,7 @@ class TestDenseRotation:
         for _ in range(100):
             x = rng_vec.standard_normal(d)
             y = Pi @ x
-            np.testing.assert_allclose(
-                np.linalg.norm(y), np.linalg.norm(x), rtol=1e-10
-            )
+            np.testing.assert_allclose(np.linalg.norm(y), np.linalg.norm(x), rtol=1e-10)
 
     def test_preserves_inner_products(self):
         """⟨Π@x, Π@y⟩ should equal ⟨x, y⟩ for any x, y."""
@@ -195,8 +197,9 @@ class TestFastWalshHadamard:
 
     def test_hadamard_matrix_matches_scipy(self):
         """Our hadamard_matrix should match scipy's."""
-        from turboquant.rotation import hadamard_matrix
         from scipy.linalg import hadamard as scipy_hadamard
+
+        from turboquant.rotation import hadamard_matrix
 
         for n in [2, 4, 8, 16]:
             ours = hadamard_matrix(n)
@@ -209,8 +212,9 @@ class TestFastWalshHadamard:
         Codex review: use independent reference (scipy) not our own hadamard_matrix
         to avoid shared-source risk.
         """
-        from turboquant.rotation import fast_walsh_hadamard_transform
         from scipy.linalg import hadamard as scipy_hadamard
+
+        from turboquant.rotation import fast_walsh_hadamard_transform
 
         n = 16
         H = scipy_hadamard(n).astype(np.float64) / np.sqrt(n)  # normalized
@@ -257,7 +261,7 @@ class TestFastRotation:
 
     def test_preserves_norms_pow2(self):
         """Fast rotation should preserve vector norms for power-of-2 dimensions."""
-        from turboquant.rotation import random_rotation_fast, apply_fast_rotation
+        from turboquant.rotation import apply_fast_rotation, random_rotation_fast
 
         d = 64  # power of 2 — no padding needed
         rng = np.random.default_rng(42)
@@ -267,9 +271,7 @@ class TestFastRotation:
         for _ in range(50):
             x = rng_vec.standard_normal(d)
             y = apply_fast_rotation(x, signs1, signs2, padded_d)
-            np.testing.assert_allclose(
-                np.linalg.norm(y), np.linalg.norm(x), rtol=1e-8
-            )
+            np.testing.assert_allclose(np.linalg.norm(y), np.linalg.norm(x), rtol=1e-8)
 
     def test_non_pow2_returns_correct_length(self):
         """For non-power-of-2 d, output should still have length d.
@@ -277,7 +279,7 @@ class TestFastRotation:
         Codex review: pad+crop doesn't exactly preserve norms for non-pow2,
         so we only check shape, not exact norm preservation.
         """
-        from turboquant.rotation import random_rotation_fast, apply_fast_rotation
+        from turboquant.rotation import apply_fast_rotation, random_rotation_fast
 
         d = 100
         rng = np.random.default_rng(42)
@@ -291,7 +293,9 @@ class TestFastRotation:
     def test_transpose_inverts(self):
         """apply_fast_rotation_transpose(apply_fast_rotation(x)) ≈ x."""
         from turboquant.rotation import (
-            random_rotation_fast, apply_fast_rotation, apply_fast_rotation_transpose
+            apply_fast_rotation,
+            apply_fast_rotation_transpose,
+            random_rotation_fast,
         )
 
         d = 64
@@ -305,7 +309,7 @@ class TestFastRotation:
 
     def test_deterministic(self):
         """Same seed → same rotation."""
-        from turboquant.rotation import random_rotation_fast, apply_fast_rotation
+        from turboquant.rotation import apply_fast_rotation, random_rotation_fast
 
         d = 64
         x = np.random.default_rng(1).standard_normal(d)
@@ -320,7 +324,9 @@ class TestFastRotation:
     def test_batch_matches_single(self):
         """Batch rotation should match single-vector rotation."""
         from turboquant.rotation import (
-            random_rotation_fast, apply_fast_rotation, apply_fast_rotation_batch
+            apply_fast_rotation,
+            apply_fast_rotation_batch,
+            random_rotation_fast,
         )
 
         d = 64

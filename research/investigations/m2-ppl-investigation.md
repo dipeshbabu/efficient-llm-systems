@@ -1,6 +1,7 @@
 # TurboQuant PPL Investigation (2026-03-29)
 
-GitHub Issue: dipeshbabu/llama-cpp-turboquant#27
+Issue: historical `llama-cpp-turboquant#27`
+([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers))
 
 ## Final Status: RESOLVED
 

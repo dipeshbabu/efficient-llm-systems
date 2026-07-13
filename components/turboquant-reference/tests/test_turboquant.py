@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from turboquant.turboquant import TurboQuant, TurboQuantMSE, CompressedVector
+from turboquant.turboquant import TurboQuant, TurboQuantMSE
 
 
 class TestTurboQuantRoundTrip:

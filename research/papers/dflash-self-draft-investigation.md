@@ -356,4 +356,4 @@ Findings from our KV cache and weight compression work that transfer to speculat
 - z-lab pre-trained drafts: https://huggingface.co/z-lab
 - DDTree: https://liranringel.github.io/ddtree/
 - pupposandro 207 tok/s on RTX 3090: https://x.com/pupposandro/status/2046264488832213174
-- TurboQuant+: https://github.com/dipeshbabu/turboquant_plus
+- TurboQuant+: [current monorepo](../../README.md)

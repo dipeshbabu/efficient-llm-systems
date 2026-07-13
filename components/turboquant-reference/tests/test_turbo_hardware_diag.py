@@ -7,19 +7,17 @@ All platform-specific probes are mocked. Tests pass on macOS AND Linux.
 from __future__ import annotations
 
 import csv
-import io
 import json
 import os
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 import time
 import zipfile
 from pathlib import Path
 from unittest import mock
-from unittest.mock import MagicMock, PropertyMock, call, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -35,7 +33,6 @@ import turbo_hardware_diag as thd  # noqa: E402
 # The component is installed in editable mode for tests, so import the replay
 # helpers through the package instead of reaching into the source tree.
 from turboquant.hw_replay import HardwareProfile, parse_diag_output  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # Shared mock data
@@ -129,7 +126,9 @@ def _make_log(tmp_path: Path) -> thd.DiagLog:
 
 
 def _make_completed_process(stdout: str = "", stderr: str = "", rc: int = 0):
-    return subprocess.CompletedProcess(args=[], returncode=rc, stdout=stdout, stderr=stderr)
+    return subprocess.CompletedProcess(
+        args=[], returncode=rc, stdout=stdout, stderr=stderr
+    )
 
 
 # ============================================================
@@ -183,7 +182,7 @@ class TestArgParse:
     def _build_parser():
         """Rebuild the argparse parser that main() uses internally."""
         import argparse
-        import textwrap
+
         parser = argparse.ArgumentParser(
             description="TurboQuant Hardware Diagnostic v5",
             formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -291,7 +290,7 @@ class TestBackgroundMonitor:
 
     def test_csv_header_correct(self, tmp_path):
         csv_path = str(tmp_path / "monitor.csv")
-        mon = thd.BackgroundMonitor(csv_path)
+        _monitor = thd.BackgroundMonitor(csv_path)
         with open(csv_path) as f:
             reader = csv.reader(f)
             header = next(reader)
@@ -304,10 +303,14 @@ class TestBackgroundMonitor:
     @patch.object(thd.BackgroundMonitor, "_poll")
     def test_produces_samples(self, mock_poll, tmp_path):
         mock_poll.return_value = {
-            "timestamp": "2026-03-26T10:00:00Z", "load_1m": "2.5",
-            "mem_pressure_pct": "50", "swap_used_mb": "100",
-            "gpu_temp_c": "N/A", "cpu_speed_limit": "100",
-            "gpu_mem_used_mb": "N/A", "gpu_util_pct": "N/A",
+            "timestamp": "2026-03-26T10:00:00Z",
+            "load_1m": "2.5",
+            "mem_pressure_pct": "50",
+            "swap_used_mb": "100",
+            "gpu_temp_c": "N/A",
+            "cpu_speed_limit": "100",
+            "gpu_mem_used_mb": "N/A",
+            "gpu_util_pct": "N/A",
         }
         csv_path = str(tmp_path / "monitor.csv")
         # Temporarily make poll interval tiny
@@ -370,7 +373,9 @@ class TestPlatformDetection:
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
     @patch("platform.release", return_value="25.3.0")
     @patch("platform.machine", return_value="arm64")
-    def test_collect_hw_darwin(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_collect_hw_darwin(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         # _run_cmd returns different things for different invocations
         def cmd_side_effect(cmd, **kwargs):
             if isinstance(cmd, list):
@@ -413,16 +418,19 @@ class TestPlatformDetection:
     @patch("platform.release", return_value="6.1.0")
     @patch("platform.machine", return_value="x86_64")
     def test_collect_hw_linux(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
-        with patch("pathlib.Path.read_text") as mock_read, \
-             patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.is_dir", return_value=False), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("pathlib.Path.read_text") as mock_read,
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("shutil.which", return_value=None),
+        ):
             mock_read.side_effect = lambda *a, **kw: {
                 True: MOCK_PROC_CPUINFO,  # first call
             }.get(True, MOCK_PROC_MEMINFO)
 
             # More precise mocking for Path.read_text
             call_count = {"n": 0}
+
             def read_side_effect(*a, **kw):
                 call_count["n"] += 1
                 if call_count["n"] == 1:
@@ -441,7 +449,9 @@ class TestPlatformDetection:
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
     @patch("platform.release", return_value="25.3.0")
     @patch("platform.machine", return_value="arm64")
-    def test_gpu_detection_macos(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_gpu_detection_macos(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         def cmd_side_effect(cmd, **kwargs):
             if isinstance(cmd, list):
                 if cmd[0] == "system_profiler":
@@ -465,7 +475,7 @@ class TestPlatformDetection:
 
         mock_cmd.side_effect = cmd_side_effect
         log = _make_log(tmp_path)
-        hw = thd.detect_hardware(log)
+        _hardware = thd.detect_hardware(log)
         log.close()
 
         content = (tmp_path / "test.txt").read_text()
@@ -476,7 +486,9 @@ class TestPlatformDetection:
     @patch("platform.release", return_value="6.1.0")
     @patch("platform.machine", return_value="x86_64")
     @patch("shutil.which", return_value="/usr/bin/nvidia-smi")
-    def test_gpu_detection_linux_nvidia(self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_gpu_detection_linux_nvidia(
+        self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         def cmd_side_effect(cmd, **kwargs):
             if isinstance(cmd, list) and cmd[0] == "nvidia-smi":
                 return MOCK_NVIDIA_SMI_QUERY
@@ -484,15 +496,19 @@ class TestPlatformDetection:
 
         mock_cmd.side_effect = cmd_side_effect
 
-        with patch("pathlib.Path.read_text") as mock_read, \
-             patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.is_dir", return_value=False):
+        with (
+            patch("pathlib.Path.read_text") as mock_read,
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_dir", return_value=False),
+        ):
             call_count = {"n": 0}
+
             def read_side_effect(*a, **kw):
                 call_count["n"] += 1
                 if call_count["n"] <= 1:
                     return MOCK_PROC_CPUINFO
                 return MOCK_PROC_MEMINFO
+
             mock_read.side_effect = read_side_effect
 
             log = _make_log(tmp_path)
@@ -508,15 +524,19 @@ class TestPlatformDetection:
     @patch("platform.release", return_value="6.1.0")
     @patch("platform.machine", return_value="x86_64")
     @patch("shutil.which", return_value=None)
-    def test_amd_rocm_detection(self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_amd_rocm_detection(
+        self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         """When nvidia-smi missing but /sys/class/drm exists, detect AMD/other GPU."""
         mock_cmd.return_value = ""
 
-        with patch("pathlib.Path.read_text") as mock_read, \
-             patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.is_dir") as mock_isdir:
-
+        with (
+            patch("pathlib.Path.read_text") as mock_read,
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_dir") as mock_isdir,
+        ):
             call_count = {"n": 0}
+
             def read_side_effect(*a, **kw):
                 call_count["n"] += 1
                 if call_count["n"] <= 1:
@@ -530,20 +550,24 @@ class TestPlatformDetection:
             mock_read.side_effect = read_side_effect
             mock_isdir.return_value = True
 
-            with patch("pathlib.Path.glob") as mock_glob, \
-                 patch("pathlib.Path.iterdir", return_value=[]):
+            with (
+                patch("pathlib.Path.glob") as mock_glob,
+                patch("pathlib.Path.iterdir", return_value=[]),
+            ):
                 mock_glob.return_value = []  # no card dirs to iterate
                 log = _make_log(tmp_path)
-                hw = thd.detect_hardware(log)
+                _hardware = thd.detect_hardware(log)
                 log.close()
 
     @patch("turbo_hardware_diag._run_cmd", side_effect=Exception("sysctl blew up"))
     @patch("turbo_hardware_diag.detect_platform", return_value="Windows")
     @patch("platform.release", return_value="10.0")
     @patch("platform.machine", return_value="AMD64")
-    def test_graceful_failure_unsupported_platform(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_graceful_failure_unsupported_platform(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         log = _make_log(tmp_path)
-        hw = thd.detect_hardware(log)
+        _hardware = thd.detect_hardware(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[WARNING]" in content
@@ -557,10 +581,18 @@ class TestBenchRunner:
 
     def test_run_bench_emits_bench_start_end(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag._run_subprocess", return_value=(MOCK_BENCH_OUTPUT_Q8, 0)):
+        with patch(
+            "turbo_hardware_diag._run_subprocess",
+            return_value=(MOCK_BENCH_OUTPUT_Q8, 0),
+        ):
             output, wall = thd.run_bench(
-                "q8_0 decode (short)", "q8_0", "q8_0", "-p 0 -n 128",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "q8_0 decode (short)",
+                "q8_0",
+                "q8_0",
+                "-p 0 -n 128",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -569,10 +601,18 @@ class TestBenchRunner:
 
     def test_run_bench_passes_through_table_rows(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag._run_subprocess", return_value=(MOCK_BENCH_OUTPUT_TURBO3, 0)):
+        with patch(
+            "turbo_hardware_diag._run_subprocess",
+            return_value=(MOCK_BENCH_OUTPUT_TURBO3, 0),
+        ):
             output, _ = thd.run_bench(
-                "turbo3 decode", "turbo3", "turbo3", "-p 0 -n 128",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "turbo3 decode",
+                "turbo3",
+                "turbo3",
+                "-p 0 -n 128",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
             )
         assert "77.42" in output
 
@@ -581,8 +621,13 @@ class TestBenchRunner:
         with patch("turbo_hardware_diag._run_subprocess") as mock_sub:
             mock_sub.return_value = (MOCK_BENCH_OUTPUT_TURBO3, 0)
             thd.run_bench(
-                "turbo3 mode2 decode", "turbo3", "turbo3", "-p 0 -n 128",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "turbo3 mode2 decode",
+                "turbo3",
+                "turbo3",
+                "-p 0 -n 128",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
                 env_prefix="TURBO_LAYER_ADAPTIVE=2",
             )
             # Verify env_extra was passed
@@ -592,10 +637,18 @@ class TestBenchRunner:
 
     def test_run_perpl_emits_ppl_start_end(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag._run_subprocess", return_value=(MOCK_PPL_OUTPUT, 0)):
+        with patch(
+            "turbo_hardware_diag._run_subprocess", return_value=(MOCK_PPL_OUTPUT, 0)
+        ):
             output, _ = thd.run_perpl(
-                "q8_0 PPL", "q8_0", "q8_0", 8,
-                log, "/fake/llama-perplexity", "/fake/model.gguf", "/fake/wiki.raw",
+                "q8_0 PPL",
+                "q8_0",
+                "q8_0",
+                8,
+                log,
+                "/fake/llama-perplexity",
+                "/fake/model.gguf",
+                "/fake/wiki.raw",
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -607,7 +660,9 @@ class TestBenchRunner:
         with patch("subprocess.Popen") as mock_popen:
             mock_proc = MagicMock()
             mock_proc.stdout = iter([])
-            mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=600)
+            mock_proc.wait.side_effect = subprocess.TimeoutExpired(
+                cmd="test", timeout=600
+            )
             mock_proc.kill = MagicMock()
             mock_popen.return_value = mock_proc
 
@@ -621,8 +676,13 @@ class TestBenchRunner:
         log = _make_log(tmp_path)
         with patch("turbo_hardware_diag._run_subprocess", return_value=("", 1)):
             output, _ = thd.run_bench(
-                "crash test", "q8_0", "q8_0", "-p 0 -n 128",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "crash test",
+                "q8_0",
+                "q8_0",
+                "-p 0 -n 128",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -633,8 +693,13 @@ class TestBenchRunner:
         with patch("turbo_hardware_diag._run_subprocess") as mock_sub:
             mock_sub.return_value = ("", 0)
             thd.run_bench(
-                "test", "turbo3", "turbo3", "-p 0 -n 128 -d 4096",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "test",
+                "turbo3",
+                "turbo3",
+                "-p 0 -n 128 -d 4096",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
             )
             cmd = mock_sub.call_args[0][0]
             assert "-ctk" in cmd
@@ -647,10 +712,18 @@ class TestBenchRunner:
 
     def test_run_bench_wall_seconds_positive(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag._run_subprocess", return_value=(MOCK_BENCH_OUTPUT_Q8, 0)):
+        with patch(
+            "turbo_hardware_diag._run_subprocess",
+            return_value=(MOCK_BENCH_OUTPUT_Q8, 0),
+        ):
             _, wall = thd.run_bench(
-                "test", "q8_0", "q8_0", "-p 0 -n 128",
-                log, "/fake/llama-bench", "/fake/model.gguf",
+                "test",
+                "q8_0",
+                "q8_0",
+                "-p 0 -n 128",
+                log,
+                "/fake/llama-bench",
+                "/fake/model.gguf",
             )
         log.close()
         assert wall >= 0
@@ -765,7 +838,9 @@ class TestAnomalyDetector:
         det.check_ppl("turbo3", 6.115)  # +0.07%
         log.close()
         assert len(det.notables) >= 1
-        assert any("excellent" in n.lower() or "matches" in n.lower() for n in det.notables)
+        assert any(
+            "excellent" in n.lower() or "matches" in n.lower() for n in det.notables
+        )
 
     def test_prefill_much_faster_flags_investigate(self, tmp_path):
         """turbo3 prefill >10% faster than q8_0 is suspicious."""
@@ -847,18 +922,22 @@ class TestSections:
 
     def test_section_1_hardware_inventory(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.detect_hardware", return_value={"cpu_brand": "test"}):
-            hw = thd.section_1_hardware_inventory(log)
+        with patch(
+            "turbo_hardware_diag.detect_hardware", return_value={"cpu_brand": "test"}
+        ):
+            _hardware = thd.section_1_hardware_inventory(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "HARDWARE INVENTORY" in content
 
     def test_section_2_system_load(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -866,8 +945,10 @@ class TestSections:
 
     def test_section_3_model_info(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             mock_run.return_value = _make_completed_process(stdout=MOCK_CLI_OUTPUT)
             thd.section_3_model_info(log, "/fake/cli", "/fake/model.gguf")
         log.close()
@@ -877,13 +958,17 @@ class TestSections:
 
     def test_section_4_gpu_capabilities(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             mock_run.return_value = _make_completed_process(
                 stdout=MOCK_CLI_OUTPUT, stderr=""
             )
-            gpu_init = thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
+            gpu_init = thd.section_4_gpu_capabilities(
+                log, "/fake/cli", "/fake/model.gguf"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[GPU]" in content
@@ -891,8 +976,10 @@ class TestSections:
 
     def test_section_5_build_validation(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 some commit"):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_cmd", return_value="abc1234 some commit"),
+        ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 OK")
             thd.section_5_build_validation(
                 log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
@@ -904,8 +991,10 @@ class TestSections:
     def test_section_6_prefill(self, tmp_path):
         log = _make_log(tmp_path)
         display = thd.LiveDisplay(use_rich=False)
-        with patch("turbo_hardware_diag.run_bench", return_value=("", 1.0)), \
-             patch("turbo_hardware_diag.capture_load"):
+        with (
+            patch("turbo_hardware_diag.run_bench", return_value=("", 1.0)),
+            patch("turbo_hardware_diag.capture_load"),
+        ):
             thd.section_6_prefill(log, "/fake/bench", "/fake/model.gguf", display)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -918,10 +1007,28 @@ class TestSections:
         display = thd.LiveDisplay(use_rich=False)
         anomaly = thd.AnomalyDetector(log, mon)
 
-        with patch("turbo_hardware_diag.run_bench", return_value=(MOCK_BENCH_OUTPUT_Q8, 1.0)), \
-             patch("turbo_hardware_diag.parse_bench_tps", return_value=[{"mode": "decode", "tps": 85.0, "stddev": 0.1, "depth": 0, "ctk": "q8_0"}]), \
-             patch("turbo_hardware_diag.capture_load"):
-            thd.section_7_decode(log, "/fake/bench", "/fake/model.gguf", display, anomaly)
+        with (
+            patch(
+                "turbo_hardware_diag.run_bench",
+                return_value=(MOCK_BENCH_OUTPUT_Q8, 1.0),
+            ),
+            patch(
+                "turbo_hardware_diag.parse_bench_tps",
+                return_value=[
+                    {
+                        "mode": "decode",
+                        "tps": 85.0,
+                        "stddev": 0.1,
+                        "depth": 0,
+                        "ctk": "q8_0",
+                    }
+                ],
+            ),
+            patch("turbo_hardware_diag.capture_load"),
+        ):
+            thd.section_7_decode(
+                log, "/fake/bench", "/fake/model.gguf", display, anomaly
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text(encoding="utf-8")
         assert "DECODE SPEED" in content
@@ -934,8 +1041,12 @@ class TestSections:
 
         with patch("os.path.isfile", return_value=False):
             thd.section_10_perplexity(
-                log, "/fake/perpl", "/fake/model.gguf", "/fake/wiki.raw",
-                anomaly, skip_ppl=False,
+                log,
+                "/fake/perpl",
+                "/fake/model.gguf",
+                "/fake/wiki.raw",
+                anomaly,
+                skip_ppl=False,
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -947,8 +1058,12 @@ class TestSections:
         mon = thd.BackgroundMonitor(csv_path)
         anomaly = thd.AnomalyDetector(log, mon)
         thd.section_10_perplexity(
-            log, "/fake/perpl", "/fake/model.gguf", "/fake/wiki.raw",
-            anomaly, skip_ppl=True,
+            log,
+            "/fake/perpl",
+            "/fake/model.gguf",
+            "/fake/wiki.raw",
+            anomaly,
+            skip_ppl=True,
         )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -962,13 +1077,18 @@ class TestSections:
         anomaly = thd.AnomalyDetector(log, mon)
 
         call_labels = []
+
         def fake_bench(label, *args, **kwargs):
             call_labels.append(label)
             return ("", 1.0)
 
-        with patch("turbo_hardware_diag.run_bench", side_effect=fake_bench), \
-             patch("turbo_hardware_diag.capture_load"):
-            thd.section_8_stress_test(log, "/fake/bench", "/fake/model.gguf", display, anomaly)
+        with (
+            patch("turbo_hardware_diag.run_bench", side_effect=fake_bench),
+            patch("turbo_hardware_diag.capture_load"),
+        ):
+            thd.section_8_stress_test(
+                log, "/fake/bench", "/fake/model.gguf", display, anomaly
+            )
         log.close()
 
         # Should have been called for each depth in STRESS_DEPTHS x 2 (turbo3 + q8_0)
@@ -976,9 +1096,11 @@ class TestSections:
 
     def test_section_12_post_load(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=MOCK_PMSET_THERM):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("turbo_hardware_diag._run_cmd", return_value=MOCK_PMSET_THERM),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -1129,12 +1251,18 @@ class TestJSONProfile:
     """build_json_profile produces valid, complete JSON."""
 
     def test_has_all_required_keys(self):
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             profile = thd.build_json_profile(
-                {"cpu_brand": "Apple M5 Max", "ram_total_gb": 128, "apple_silicon": True},
+                {
+                    "cpu_brand": "Apple M5 Max",
+                    "ram_total_gb": 128,
+                    "apple_silicon": True,
+                },
                 "/fake/model.gguf",
                 MOCK_CLI_OUTPUT,
                 "20260326-134309",
@@ -1145,12 +1273,18 @@ class TestJSONProfile:
         assert "model_file" in profile
 
     def test_system_gpu_has_all_fields(self):
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             profile = thd.build_json_profile(
-                {"cpu_brand": "Apple M5 Max", "ram_total_gb": 128, "apple_silicon": True},
+                {
+                    "cpu_brand": "Apple M5 Max",
+                    "ram_total_gb": 128,
+                    "apple_silicon": True,
+                },
                 "/fake/model.gguf",
                 MOCK_CLI_OUTPUT,
                 "20260326",
@@ -1164,20 +1298,27 @@ class TestJSONProfile:
     def test_benchmarks_entries_complete(self):
         # build_json_profile doesn't include benchmark entries (that's in the .txt)
         # but the profile dict should still be valid JSON
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             profile = thd.build_json_profile({}, "/fake/model.gguf", "", "20260326")
         assert profile["diag_version"] == thd.DIAG_VERSION
 
     def test_valid_json(self):
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             profile = thd.build_json_profile(
-                {"cpu_brand": "test"}, "/fake/model.gguf", MOCK_CLI_OUTPUT, "20260326",
+                {"cpu_brand": "test"},
+                "/fake/model.gguf",
+                MOCK_CLI_OUTPUT,
+                "20260326",
             )
         # Must be JSON-serializable
         json_str = json.dumps(profile)
@@ -1185,12 +1326,17 @@ class TestJSONProfile:
         assert loaded["diag_version"] == thd.DIAG_VERSION
 
     def test_model_size_bytes_populated(self):
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", return_value=36_000_000_000):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", return_value=36_000_000_000),
+        ):
             profile = thd.build_json_profile(
-                {}, "/fake/model.gguf", "", "20260326",
+                {},
+                "/fake/model.gguf",
+                "",
+                "20260326",
             )
         assert profile["model_size_bytes"] == 36_000_000_000
 
@@ -1220,7 +1366,9 @@ class TestPackaging:
 
     def test_zip_created_with_all_files(self, tmp_path):
         log, mon, profile_json = self._setup_packaging(tmp_path)
-        zip_path = thd.package_results(log, mon, profile_json, "20260326", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, profile_json, "20260326", str(tmp_path)
+        )
         log.close()
         assert os.path.isfile(zip_path)
         with zipfile.ZipFile(zip_path, "r") as zf:
@@ -1231,7 +1379,9 @@ class TestPackaging:
 
     def test_zip_is_valid(self, tmp_path):
         log, mon, profile_json = self._setup_packaging(tmp_path)
-        zip_path = thd.package_results(log, mon, profile_json, "20260326", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, profile_json, "20260326", str(tmp_path)
+        )
         log.close()
         assert zipfile.is_zipfile(zip_path)
 
@@ -1244,19 +1394,25 @@ class TestPackaging:
         mon.csv_path = str(tmp_path / "nonexistent.csv")  # doesn't exist
         mon.sample_count = 0
 
-        zip_path = thd.package_results(log, mon, {"diag_version": 5}, "20260326", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, {"diag_version": 5}, "20260326", str(tmp_path)
+        )
         log.close()
         assert os.path.isfile(zip_path)
 
     def test_filenames_follow_pattern(self, tmp_path):
         log, mon, profile_json = self._setup_packaging(tmp_path)
-        zip_path = thd.package_results(log, mon, profile_json, "20260326", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, profile_json, "20260326", str(tmp_path)
+        )
         log.close()
         assert "turbo-diag-20260326.zip" in zip_path
 
     def test_hwprofile_json_inside_zip(self, tmp_path):
         log, mon, profile_json = self._setup_packaging(tmp_path)
-        zip_path = thd.package_results(log, mon, profile_json, "20260326", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, profile_json, "20260326", str(tmp_path)
+        )
         log.close()
         with zipfile.ZipFile(zip_path, "r") as zf:
             json_files = [n for n in zf.namelist() if n.endswith(".json")]
@@ -1280,7 +1436,9 @@ class TestGracefulDegradation:
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
     @patch("platform.release", return_value="25.3.0")
     @patch("platform.machine", return_value="arm64")
-    def test_missing_system_profiler_warning(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_missing_system_profiler_warning(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         """If system_profiler returns empty, we get a warning but don't crash."""
         log = _make_log(tmp_path)
         hw = thd.detect_hardware(log)
@@ -1292,9 +1450,11 @@ class TestGracefulDegradation:
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
     @patch("platform.release", return_value="25.3.0")
     @patch("platform.machine", return_value="arm64")
-    def test_sysctl_failure_warning_defaults(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_sysctl_failure_warning_defaults(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         log = _make_log(tmp_path)
-        hw = thd.detect_hardware(log)
+        _hardware = thd.detect_hardware(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[WARNING]" in content
@@ -1325,9 +1485,11 @@ class TestGracefulDegradation:
 
     def test_empty_model_error_not_traceback(self):
         """main() with empty model path gives clean error, not a traceback."""
-        with patch("sys.argv", ["prog", "/nonexistent/dir"]), \
-             patch("turbo_hardware_diag._find_model", return_value=None), \
-             patch("builtins.print") as mock_print:
+        with (
+            patch("sys.argv", ["prog", "/nonexistent/dir"]),
+            patch("turbo_hardware_diag._find_model", return_value=None),
+            patch("builtins.print") as mock_print,
+        ):
             rc = thd.main()
         assert rc == 1
         # Should have printed ERROR, not a traceback
@@ -1338,7 +1500,9 @@ class TestGracefulDegradation:
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
     @patch("platform.release", return_value="25.3.0")
     @patch("platform.machine", return_value="arm64")
-    def test_all_probes_fail_still_completes(self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_all_probes_fail_still_completes(
+        self, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         log = _make_log(tmp_path)
         hw = thd.detect_hardware(log)
         log.close()
@@ -1355,7 +1519,9 @@ class TestGracefulDegradation:
         mon.csv_path = str(tmp_path / "nonexistent.csv")
         mon.sample_count = 0
 
-        zip_path = thd.package_results(log, mon, {"diag_version": 5}, "partial", str(tmp_path))
+        zip_path = thd.package_results(
+            log, mon, {"diag_version": 5}, "partial", str(tmp_path)
+        )
         log.close()
         assert os.path.isfile(zip_path)
         with zipfile.ZipFile(zip_path, "r") as zf:
@@ -1371,17 +1537,22 @@ class TestNoPII:
     def test_no_username_in_tags(self, tmp_path):
         username = os.environ.get("USER", "testuser")
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
-            hw = thd.detect_hardware(log)
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
+            _hardware = thd.detect_hardware(log)
         log.close()
 
         content = (tmp_path / "test.txt").read_text()
         # Check that tagged lines ([HW], [GPU], etc.) don't contain username
-        tagged_lines = [l for l in content.splitlines()
-                        if l.startswith("[") and "]" in l[:20]]
+        tagged_lines = [
+            line
+            for line in content.splitlines()
+            if line.startswith("[") and "]" in line[:20]
+        ]
         for line in tagged_lines:
             if len(username) > 2:
                 assert f"/Users/{username}/" not in line, f"Username in tag: {line}"
@@ -1390,30 +1561,37 @@ class TestNoPII:
     def test_no_home_dir_in_tags(self, tmp_path):
         home = str(Path.home())
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
-            hw = thd.detect_hardware(log)
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
+            _hardware = thd.detect_hardware(log)
         log.close()
 
         content = (tmp_path / "test.txt").read_text()
-        tagged_lines = [l for l in content.splitlines()
-                        if l.startswith("[HW]")]
+        tagged_lines = [
+            line for line in content.splitlines() if line.startswith("[HW]")
+        ]
         for line in tagged_lines:
             assert home not in line, f"Home dir in HW tag: {line}"
 
     def test_no_email_addresses(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
-            hw = thd.detect_hardware(log)
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
+            _hardware = thd.detect_hardware(log)
         log.close()
 
         content = (tmp_path / "test.txt").read_text()
-        emails = re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', content)
+        emails = re.findall(
+            r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", content
+        )
         assert len(emails) == 0, f"Found email addresses: {emails}"
 
 
@@ -1469,7 +1647,9 @@ class TestParsingHelpers:
 
     def test_parse_bench_tps_no_stddev(self):
         """Row with only tps and no ± should still parse."""
-        row = "| model Q8_0 | 34 GiB | 34 B | MTL | 6 | q8_0 | q8_0 | 1 | tg128 | 85.00 |"
+        row = (
+            "| model Q8_0 | 34 GiB | 34 B | MTL | 6 | q8_0 | q8_0 | 1 | tg128 | 85.00 |"
+        )
         results = thd.parse_bench_tps(row)
         assert results[0]["tps"] == 85.0
 
@@ -1498,7 +1678,9 @@ class TestDetectStorageType:
 
     @patch("subprocess.run")
     def test_darwin_ssd_from_diskutil(self, mock_run):
-        mock_run.return_value = _make_completed_process(stdout="<dict><key>SolidState</key></dict>")
+        mock_run.return_value = _make_completed_process(
+            stdout="<dict><key>SolidState</key></dict>"
+        )
         result = thd.detect_storage_type("/fake/model.gguf", "Darwin")
         assert result == "ssd"
 
@@ -1541,10 +1723,12 @@ class TestDetectStorageType:
         assert result == "ssd"
 
     def test_linux_ssd_from_rotational(self):
-        with patch("subprocess.run") as mock_run, \
-             patch("os.path.realpath", return_value="/fake/model.gguf"), \
-             patch("os.path.exists", return_value=True), \
-             patch("builtins.open", mock.mock_open(read_data="0")):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("os.path.realpath", return_value="/fake/model.gguf"),
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock.mock_open(read_data="0")),
+        ):
             mock_run.return_value = _make_completed_process(
                 stdout="Filesystem     1K-blocks  Used Available Use% Mounted on\n/dev/sda1 500000000 200000000 300000000  40% /",
                 rc=0,
@@ -1553,10 +1737,12 @@ class TestDetectStorageType:
         assert result == "ssd"
 
     def test_linux_hdd_from_rotational(self):
-        with patch("subprocess.run") as mock_run, \
-             patch("os.path.realpath", return_value="/fake/model.gguf"), \
-             patch("os.path.exists", return_value=True), \
-             patch("builtins.open", mock.mock_open(read_data="1")):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("os.path.realpath", return_value="/fake/model.gguf"),
+            patch("os.path.exists", return_value=True),
+            patch("builtins.open", mock.mock_open(read_data="1")),
+        ):
             mock_run.return_value = _make_completed_process(
                 stdout="Filesystem     1K-blocks  Used Available Use% Mounted on\n/dev/sda1 500000000 200000000 300000000  40% /",
                 rc=0,
@@ -1686,7 +1872,10 @@ class TestDiagLogExtended:
 class TestBackgroundMonitorExtended:
     """Extended monitor coverage — static methods + _poll internals."""
 
-    @patch("subprocess.check_output", return_value="total = 2048.00M  used = 150.50M  free = 1897.50M")
+    @patch(
+        "subprocess.check_output",
+        return_value="total = 2048.00M  used = 150.50M  free = 1897.50M",
+    )
     def test_macos_swap_mb(self, mock_sub):
         result = thd.BackgroundMonitor._macos_swap_mb()
         assert result == "150.50"
@@ -1701,7 +1890,10 @@ class TestBackgroundMonitorExtended:
         result = thd.BackgroundMonitor._macos_mem_pressure()
         assert result == "0"
 
-    @patch("subprocess.check_output", return_value="Mach Virtual Memory Statistics:\nPages active: 0.\nPages wired down: 0.\nPages free: 0.")
+    @patch(
+        "subprocess.check_output",
+        return_value="Mach Virtual Memory Statistics:\nPages active: 0.\nPages wired down: 0.\nPages free: 0.",
+    )
     def test_macos_mem_pressure_zero_total(self, mock_sub):
         result = thd.BackgroundMonitor._macos_mem_pressure()
         assert result == "0"
@@ -1751,7 +1943,9 @@ class TestBackgroundMonitorExtended:
     @patch.object(thd.BackgroundMonitor, "_macos_mem_pressure", return_value="55")
     @patch.object(thd.BackgroundMonitor, "_macos_swap_mb", return_value="200")
     @patch.object(thd.BackgroundMonitor, "_macos_cpu_speed_limit", return_value="100")
-    def test_poll_darwin(self, mock_cpu, mock_swap, mock_mem, mock_load, mock_plat, tmp_path):
+    def test_poll_darwin(
+        self, mock_cpu, mock_swap, mock_mem, mock_load, mock_plat, tmp_path
+    ):
         csv_path = str(tmp_path / "mon.csv")
         mon = thd.BackgroundMonitor(csv_path)
         sample = mon._poll()
@@ -1765,7 +1959,9 @@ class TestBackgroundMonitorExtended:
     @patch.object(thd.BackgroundMonitor, "_linux_mem_pct", return_value="30")
     @patch.object(thd.BackgroundMonitor, "_linux_swap_mb", return_value="100")
     @patch.object(thd.BackgroundMonitor, "_nvidia_query", return_value="65")
-    def test_poll_linux(self, mock_nvidia, mock_swap, mock_mem, mock_load, mock_plat, tmp_path):
+    def test_poll_linux(
+        self, mock_nvidia, mock_swap, mock_mem, mock_load, mock_plat, tmp_path
+    ):
         csv_path = str(tmp_path / "mon.csv")
         mon = thd.BackgroundMonitor(csv_path)
         sample = mon._poll()
@@ -1777,7 +1973,9 @@ class TestBackgroundMonitorExtended:
     @patch.object(thd.BackgroundMonitor, "_macos_mem_pressure", return_value="0")
     @patch.object(thd.BackgroundMonitor, "_macos_swap_mb", return_value="0")
     @patch.object(thd.BackgroundMonitor, "_macos_cpu_speed_limit", return_value="100")
-    def test_poll_loadavg_failure(self, mock_cpu, mock_swap, mock_mem, mock_load, mock_plat, tmp_path):
+    def test_poll_loadavg_failure(
+        self, mock_cpu, mock_swap, mock_mem, mock_load, mock_plat, tmp_path
+    ):
         csv_path = str(tmp_path / "mon.csv")
         mon = thd.BackgroundMonitor(csv_path)
         sample = mon._poll()
@@ -1917,7 +2115,10 @@ class TestAnomalyDetectorExtended:
         det.check_q8_baseline(3.0, "apple_silicon")
         log.close()
         assert len(det.anomalies) == 1
-        assert "under load" in det.anomalies[0].lower() or "q8_0" in det.anomalies[0].lower()
+        assert (
+            "under load" in det.anomalies[0].lower()
+            or "q8_0" in det.anomalies[0].lower()
+        )
 
     def test_check_q8_baseline_ok(self, tmp_path):
         det, log, mon = self._make_detector(tmp_path)
@@ -1992,7 +2193,9 @@ class TestCaptureLoad:
     @patch("turbo_hardware_diag._capture_load_macos")
     @patch("turbo_hardware_diag._run_cmd", return_value="{ 1.5 2.0 1.8 }")
     @patch("pathlib.Path.exists", return_value=False)
-    def test_capture_load_darwin(self, mock_exists, mock_cmd, mock_mac, mock_plat, tmp_path):
+    def test_capture_load_darwin(
+        self, mock_exists, mock_cmd, mock_mac, mock_plat, tmp_path
+    ):
         log = _make_log(tmp_path)
         thd.capture_load("test_label", log)
         log.close()
@@ -2004,8 +2207,10 @@ class TestCaptureLoad:
     @patch("turbo_hardware_diag._run_cmd", return_value="50\n  50 processes")
     def test_capture_load_linux(self, mock_cmd, mock_linux, mock_plat, tmp_path):
         log = _make_log(tmp_path)
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.read_text", return_value="1.50 2.00 1.80 1/300 12345"):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.read_text", return_value="1.50 2.00 1.80 1/300 12345"),
+        ):
             thd.capture_load("linux_label", log)
         log.close()
         with open(str(tmp_path / "test.txt")) as f:
@@ -2062,8 +2267,10 @@ class TestCaptureLoad:
     @patch("shutil.which", return_value=None)
     def test_capture_load_linux_full(self, mock_which, mock_cmd, tmp_path):
         log = _make_log(tmp_path)
-        with patch("pathlib.Path.read_text", return_value=MOCK_PROC_MEMINFO), \
-             patch("pathlib.Path.exists", return_value=False):
+        with (
+            patch("pathlib.Path.read_text", return_value=MOCK_PROC_MEMINFO),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
             thd._capture_load_linux(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2074,17 +2281,21 @@ class TestCaptureLoad:
     def test_capture_load_linux_with_nvidia(self, mock_which, mock_cmd, tmp_path):
         mock_cmd.return_value = "50 %, 5000 MiB, 24000 MiB, 65"
         log = _make_log(tmp_path)
-        with patch("pathlib.Path.read_text", return_value=MOCK_PROC_MEMINFO), \
-             patch("pathlib.Path.exists") as mock_exists:
+        with (
+            patch("pathlib.Path.read_text", return_value=MOCK_PROC_MEMINFO),
+            patch("pathlib.Path.exists") as mock_exists,
+        ):
             mock_exists.return_value = True
             with patch("pathlib.Path.read_text") as mock_read:
                 # First call for /proc/meminfo, second for thermal
                 call_n = {"n": 0}
+
                 def read_side(*a, **kw):
                     call_n["n"] += 1
                     if call_n["n"] == 1:
                         return MOCK_PROC_MEMINFO
                     return "85000"  # thermal zone temp
+
                 mock_read.side_effect = read_side
                 thd._capture_load_linux(log)
         log.close()
@@ -2100,11 +2311,13 @@ class TestSectionsExtended:
 
     def test_section_3_model_info_exception(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run", side_effect=Exception("cli failed")), \
-             patch("os.path.getsize", side_effect=OSError("no file")), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag.detect_storage_type", return_value="unknown"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("subprocess.run", side_effect=Exception("cli failed")),
+            patch("os.path.getsize", side_effect=OSError("no file")),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("turbo_hardware_diag.detect_storage_type", return_value="unknown"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             thd.section_3_model_info(log, "/fake/cli", "/fake/model.gguf")
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2112,11 +2325,13 @@ class TestSectionsExtended:
 
     def test_section_3_model_info_ssd_detection(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("os.path.getsize", return_value=36_000_000_000), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag.detect_storage_type", return_value="hdd"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=MOCK_VM_STAT):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("os.path.getsize", return_value=36_000_000_000),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("turbo_hardware_diag.detect_storage_type", return_value="hdd"),
+            patch("turbo_hardware_diag._run_cmd", return_value=MOCK_VM_STAT),
+        ):
             mock_run.return_value = _make_completed_process(stdout=MOCK_CLI_OUTPUT)
             thd.section_3_model_info(log, "/fake/cli", "/fake/model.gguf")
         log.close()
@@ -2126,21 +2341,32 @@ class TestSectionsExtended:
 
     def test_section_4_gpu_linux(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which", return_value="/usr/bin/nvidia-smi"), \
-             patch("turbo_hardware_diag._run_cmd", return_value="NVIDIA RTX 4090, 8.9, 24564 MiB, 2100 MHz"):
-            mock_run.return_value = _make_completed_process(stdout="build: 123\nCUDA device info")
-            gpu_init = thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which", return_value="/usr/bin/nvidia-smi"),
+            patch(
+                "turbo_hardware_diag._run_cmd",
+                return_value="NVIDIA RTX 4090, 8.9, 24564 MiB, 2100 MHz",
+            ),
+        ):
+            mock_run.return_value = _make_completed_process(
+                stdout="build: 123\nCUDA device info"
+            )
+            _gpu_init = thd.section_4_gpu_capabilities(
+                log, "/fake/cli", "/fake/model.gguf"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "CUDA" in content
 
     def test_section_4_gpu_linux_no_nvidia(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which", return_value=None),
+        ):
             mock_run.return_value = _make_completed_process(stdout="build: 123")
             thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
         log.close()
@@ -2150,10 +2376,14 @@ class TestSectionsExtended:
     def test_section_4_darwin_no_tensor(self, tmp_path):
         log = _make_log(tmp_path)
         gpu_output = "build: 123\nhas tensor            = false"
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
-            mock_run.return_value = _make_completed_process(stdout=gpu_output, stderr="")
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
+            mock_run.return_value = _make_completed_process(
+                stdout=gpu_output, stderr=""
+            )
             thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2161,9 +2391,11 @@ class TestSectionsExtended:
 
     def test_section_4_exception(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run", side_effect=Exception("gpu init failed")), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("subprocess.run", side_effect=Exception("gpu init failed")),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2171,10 +2403,14 @@ class TestSectionsExtended:
 
     def test_section_5_turbo3_failure(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             mock_run.return_value = _make_completed_process(stdout="", rc=1)
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "FAILED" in content
@@ -2182,25 +2418,34 @@ class TestSectionsExtended:
     def test_section_5_metal_lib_exception(self, tmp_path):
         log = _make_log(tmp_path)
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return _make_completed_process(stdout="turbo3 OK", rc=0)
             raise Exception("metal lib failed")
 
-        with patch("subprocess.run", side_effect=side_effect), \
-             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"):
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+        with (
+            patch("subprocess.run", side_effect=side_effect),
+            patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"),
+        ):
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "Metal library validation failed" in content
 
     def test_section_5_no_git_repo(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 OK")
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "not a git repo" in content
@@ -2219,12 +2464,20 @@ class TestSectionsExtended:
         mon = thd.BackgroundMonitor(csv_path)
         anomaly = thd.AnomalyDetector(log, mon)
 
-        with patch("os.path.isfile", return_value=True), \
-             patch("turbo_hardware_diag.run_perpl", return_value=(MOCK_PPL_OUTPUT, 60.0)), \
-             patch("turbo_hardware_diag.parse_ppl_final", return_value=(6.2109, 0.33)):
+        with (
+            patch("os.path.isfile", return_value=True),
+            patch(
+                "turbo_hardware_diag.run_perpl", return_value=(MOCK_PPL_OUTPUT, 60.0)
+            ),
+            patch("turbo_hardware_diag.parse_ppl_final", return_value=(6.2109, 0.33)),
+        ):
             thd.section_10_perplexity(
-                log, "/fake/perpl", "/fake/model.gguf", "/fake/wiki.raw",
-                anomaly, skip_ppl=False,
+                log,
+                "/fake/perpl",
+                "/fake/model.gguf",
+                "/fake/wiki.raw",
+                anomaly,
+                skip_ppl=False,
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2251,11 +2504,13 @@ class TestSectionsExtended:
 
     def test_section_12_post_load_linux(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.read_text", return_value="95000"):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.read_text", return_value="95000"),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2263,9 +2518,11 @@ class TestSectionsExtended:
 
     def test_section_12_post_load_darwin_throttled(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag._run_cmd", return_value="CPU_Speed_Limit  85"):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("turbo_hardware_diag._run_cmd", return_value="CPU_Speed_Limit  85"),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2290,14 +2547,18 @@ class TestSectionsExtended:
 
     def test_section_2_linux_gpu_procs(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd") as mock_cmd, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which") as mock_which:
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd") as mock_cmd,
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which") as mock_which,
+        ):
+
             def which_side(cmd):
                 if cmd == "nvidia-smi":
                     return "/usr/bin/nvidia-smi"
                 return None
+
             mock_which.side_effect = which_side
             mock_cmd.return_value = "12345, python3, 4000 MiB"
             thd.section_2_system_load_pre(log)
@@ -2307,10 +2568,15 @@ class TestSectionsExtended:
 
     def test_section_2_gpu_procs_darwin_found(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", return_value="10.0 /System/Library/Frameworks/WindowServer"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch(
+                "turbo_hardware_diag._run_cmd",
+                return_value="10.0 /System/Library/Frameworks/WindowServer",
+            ),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2324,10 +2590,12 @@ class TestBuildJsonProfileExtended:
     """Additional build_json_profile branches."""
 
     def test_model_size_exception(self):
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("platform.release", return_value="25.3.0"), \
-             patch("platform.machine", return_value="arm64"), \
-             patch("os.path.getsize", side_effect=OSError("no file")):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("platform.release", return_value="25.3.0"),
+            patch("platform.machine", return_value="arm64"),
+            patch("os.path.getsize", side_effect=OSError("no file")),
+        ):
             profile = thd.build_json_profile({}, "/fake/model.gguf", "", "20260326")
         assert profile["model_size_bytes"] == 0
 
@@ -2345,9 +2613,12 @@ class TestPackageResultsExtended:
         mon.csv_path = str(tmp_path / "nonexistent.csv")
 
         # Make JSON write fail
-        with patch("builtins.open", side_effect=[
-            mock.mock_open(read_data="")(),  # zip creation
-        ]) as mock_open_:
+        with patch(
+            "builtins.open",
+            side_effect=[
+                mock.mock_open(read_data="")(),  # zip creation
+            ],
+        ) as _mock_open:
             # Actually, just pass a bad profile that's not JSON-serializable
             # Simpler: use a read-only dir
             pass
@@ -2387,9 +2658,14 @@ def _setup_llama_dir(tmp_path):
 
 
 _MOCK_POLL_SAMPLE = {
-    "timestamp": "T", "load_1m": "1", "mem_pressure_pct": "50",
-    "swap_used_mb": "0", "gpu_temp_c": "N/A", "cpu_speed_limit": "100",
-    "gpu_mem_used_mb": "N/A", "gpu_util_pct": "N/A",
+    "timestamp": "T",
+    "load_1m": "1",
+    "mem_pressure_pct": "50",
+    "swap_used_mb": "0",
+    "gpu_temp_c": "N/A",
+    "cpu_speed_limit": "100",
+    "gpu_mem_used_mb": "N/A",
+    "gpu_util_pct": "N/A",
 }
 
 
@@ -2427,13 +2703,17 @@ def _run_main_with_patches(argv, extra_patches=None):
             stack.enter_context(patch(target, **kwargs))
         stack.enter_context(patch.object(thd.BackgroundMonitor, "start"))
         stack.enter_context(patch.object(thd.BackgroundMonitor, "stop"))
-        stack.enter_context(patch.object(
-            thd.BackgroundMonitor, "_poll", return_value=_MOCK_POLL_SAMPLE
-        ))
-        stack.enter_context(patch.object(
-            thd.BackgroundMonitor, "sample_count",
-            new_callable=PropertyMock, return_value=0,
-        ))
+        stack.enter_context(
+            patch.object(thd.BackgroundMonitor, "_poll", return_value=_MOCK_POLL_SAMPLE)
+        )
+        stack.enter_context(
+            patch.object(
+                thd.BackgroundMonitor,
+                "sample_count",
+                new_callable=PropertyMock,
+                return_value=0,
+            )
+        )
         stack.enter_context(patch.object(thd.LiveDisplay, "start"))
         stack.enter_context(patch.object(thd.LiveDisplay, "stop"))
         return thd.main()
@@ -2462,8 +2742,15 @@ class TestMainFunction:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake model data")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
         rc = _run_main_with_patches(argv)
         assert rc == 0
 
@@ -2471,13 +2758,23 @@ class TestMainFunction:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "turbo_hardware_diag.section_1_hardware_inventory": {
-                "side_effect": RuntimeError("boom"),
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "turbo_hardware_diag.section_1_hardware_inventory": {
+                    "side_effect": RuntimeError("boom"),
+                },
             },
-        })
+        )
         assert rc == 1  # Non-zero on unhandled exception
 
     def test_main_auto_find_model(self, tmp_path):
@@ -2485,8 +2782,14 @@ class TestMainFunction:
         models_dir = llama_dir / "models"
         models_dir.mkdir()
         (models_dir / "auto.gguf").write_text("fake")
-        argv = ["prog", str(llama_dir),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
+        argv = [
+            "prog",
+            str(llama_dir),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
         rc = _run_main_with_patches(argv)
         assert rc == 0
 
@@ -2494,44 +2797,84 @@ class TestMainFunction:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "os.path.getsize": {"return_value": 36 * 1024**3},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "os.path.getsize": {"return_value": 36 * 1024**3},
+            },
+        )
         assert rc == 0
 
     def test_main_model_size_mb(self, tmp_path):
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "os.path.getsize": {"return_value": 500 * 1024**2},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "os.path.getsize": {"return_value": 500 * 1024**2},
+            },
+        )
         assert rc == 0
 
     def test_main_model_size_small(self, tmp_path):
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "os.path.getsize": {"return_value": 500},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "os.path.getsize": {"return_value": 500},
+            },
+        )
         assert rc == 0
 
     def test_main_model_size_exception(self, tmp_path):
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "os.path.getsize": {"side_effect": OSError("no file")},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "os.path.getsize": {"side_effect": OSError("no file")},
+            },
+        )
         assert rc == 0
 
 
@@ -2585,7 +2928,9 @@ class TestSubprocessRunner:
         """rc=-1 means timeout already handled, don't print FAILED again."""
         log = _make_log(tmp_path)
         with patch("turbo_hardware_diag._run_subprocess", return_value=("", -1)):
-            thd.run_bench("test", "q8_0", "q8_0", "", log, "/fake/bench", "/fake/model.gguf")
+            thd.run_bench(
+                "test", "q8_0", "q8_0", "", log, "/fake/bench", "/fake/model.gguf"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "FAILED" not in content
@@ -2594,7 +2939,16 @@ class TestSubprocessRunner:
         """run_perpl with non-zero rc should print FAILED."""
         log = _make_log(tmp_path)
         with patch("turbo_hardware_diag._run_subprocess", return_value=("", 2)):
-            thd.run_perpl("test", "q8_0", "q8_0", 8, log, "/fake/perpl", "/fake/model.gguf", "/fake/wiki")
+            thd.run_perpl(
+                "test",
+                "q8_0",
+                "q8_0",
+                8,
+                log,
+                "/fake/perpl",
+                "/fake/model.gguf",
+                "/fake/wiki",
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "FAILED" in content
@@ -2611,16 +2965,20 @@ class TestLinuxHardwareDetection:
     @patch("platform.release", return_value="6.1.0")
     @patch("platform.machine", return_value="x86_64")
     @patch("shutil.which", return_value=None)
-    def test_linux_cache_hierarchy(self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_linux_cache_hierarchy(
+        self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         log = _make_log(tmp_path)
 
-        with patch("pathlib.Path.read_text") as mock_read, \
-             patch("pathlib.Path.exists") as mock_exists, \
-             patch("pathlib.Path.is_dir") as mock_isdir, \
-             patch("pathlib.Path.glob", return_value=[]), \
-             patch("pathlib.Path.iterdir", return_value=[]):
-
+        with (
+            patch("pathlib.Path.read_text") as mock_read,
+            patch("pathlib.Path.exists") as mock_exists,
+            patch("pathlib.Path.is_dir") as mock_isdir,
+            patch("pathlib.Path.glob", return_value=[]),
+            patch("pathlib.Path.iterdir", return_value=[]),
+        ):
             call_n = {"n": 0}
+
             def read_side(*a, **kw):
                 call_n["n"] += 1
                 if call_n["n"] == 1:
@@ -2635,7 +2993,7 @@ class TestLinuxHardwareDetection:
             mock_exists.return_value = True
             mock_isdir.return_value = False
 
-            hw = thd.detect_hardware(log)
+            _hardware = thd.detect_hardware(log)
         log.close()
 
     @patch("turbo_hardware_diag._run_cmd", return_value="")
@@ -2643,15 +3001,19 @@ class TestLinuxHardwareDetection:
     @patch("platform.release", return_value="6.1.0")
     @patch("platform.machine", return_value="x86_64")
     @patch("shutil.which", return_value=None)
-    def test_linux_thermal_and_power(self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path):
+    def test_linux_thermal_and_power(
+        self, mock_which, mock_mach, mock_rel, mock_plat, mock_cmd, tmp_path
+    ):
         """Cover thermal zone and power supply reading on Linux."""
         log = _make_log(tmp_path)
 
-        with patch("pathlib.Path.read_text") as mock_read, \
-             patch("pathlib.Path.exists", return_value=True), \
-             patch("pathlib.Path.is_dir") as mock_isdir:
-
+        with (
+            patch("pathlib.Path.read_text") as mock_read,
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.is_dir") as mock_isdir,
+        ):
             call_n = {"n": 0}
+
             def read_side(*a, **kw):
                 call_n["n"] += 1
                 if call_n["n"] == 1:
@@ -2678,10 +3040,12 @@ class TestLinuxHardwareDetection:
             status_f.read_text.return_value = "Charging"
             ps_dir.__truediv__ = lambda self, key: type_f if key == "type" else status_f
 
-            with patch("pathlib.Path.glob") as mock_glob, \
-                 patch("pathlib.Path.iterdir", return_value=[ps_dir]):
+            with (
+                patch("pathlib.Path.glob") as mock_glob,
+                patch("pathlib.Path.iterdir", return_value=[ps_dir]),
+            ):
                 mock_glob.return_value = [thermal_temp]
-                hw = thd.detect_hardware(log)
+                _hardware = thd.detect_hardware(log)
         log.close()
 
 
@@ -2711,11 +3075,13 @@ class TestExceptPaths:
         """Cover all except branches in _detect_linux_hw."""
         log = _make_log(tmp_path)
         hw = {}
-        with patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("pathlib.Path.read_text", side_effect=Exception("disk error")), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.is_dir", return_value=False), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("pathlib.Path.read_text", side_effect=Exception("disk error")),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("shutil.which", return_value=None),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2725,10 +3091,12 @@ class TestExceptPaths:
     def test_capture_load_exception_paths(self, tmp_path):
         """capture_load with all probes failing."""
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=Exception("cmd fail")), \
-             patch("turbo_hardware_diag._capture_load_macos"):
+        with (
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("turbo_hardware_diag._run_cmd", side_effect=Exception("cmd fail")),
+            patch("turbo_hardware_diag._capture_load_macos"),
+        ):
             thd.capture_load("test", log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2750,10 +3118,12 @@ class TestExceptPaths:
 
     def test_capture_load_linux_all_exceptions(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("pathlib.Path.read_text", side_effect=Exception("boom")), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("pathlib.Path.read_text", side_effect=Exception("boom")),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             thd._capture_load_linux(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2775,11 +3145,15 @@ class TestExceptPaths:
     def test_section_3_storage_detection_exception(self, tmp_path):
         """Cover the except in section_3 storage detection."""
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("os.path.getsize", return_value=1000), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag.detect_storage_type", side_effect=Exception("nope")), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("os.path.getsize", return_value=1000),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch(
+                "turbo_hardware_diag.detect_storage_type", side_effect=Exception("nope")
+            ),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             mock_run.return_value = _make_completed_process(stdout="")
             thd.section_3_model_info(log, "/fake/cli", "/fake/model.gguf")
         log.close()
@@ -2789,9 +3163,13 @@ class TestExceptPaths:
     def test_section_5_turbo3_exception(self, tmp_path):
         """Cover section 5 turbo3 validation exception path."""
         log = _make_log(tmp_path)
-        with patch("subprocess.run", side_effect=Exception("turbo validation failed")), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+        with (
+            patch("subprocess.run", side_effect=Exception("turbo validation failed")),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "turbo3 validation error" in content
@@ -2799,10 +3177,12 @@ class TestExceptPaths:
     def test_section_2_disk_io_with_iostat(self, tmp_path):
         """Cover section 2 disk I/O with iostat available."""
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", return_value="some output\nline2"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value="/usr/sbin/iostat"):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", return_value="some output\nline2"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value="/usr/sbin/iostat"),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2812,16 +3192,19 @@ class TestExceptPaths:
         """Cover section 2 exception path for ps command."""
         log = _make_log(tmp_path)
         call_n = {"n": 0}
+
         def cmd_side(cmd, **kwargs):
             call_n["n"] += 1
             if isinstance(cmd, list) and cmd[0] == "ps":
                 raise Exception("ps failed")
             return ""
 
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=cmd_side), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", side_effect=cmd_side),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2832,11 +3215,21 @@ class TestExceptPaths:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "os.path.getsize": {"return_value": 1024},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "os.path.getsize": {"return_value": 1024},
+            },
+        )
         # This runs main() with _poll mocked to return valid data,
         # so initial_swap won't fail. To actually trigger the exception,
         # we'd need _poll to raise. But that's covered by the
@@ -2848,11 +3241,20 @@ class TestExceptPaths:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "-o", str(tmp_path / "output")]
-        rc = _run_main_with_patches(argv, extra_patches={
-            "turbo_hardware_diag.section_8_stress_test": {},
-        })
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "turbo_hardware_diag.section_8_stress_test": {},
+            },
+        )
         assert rc == 0
 
     def test_main_verbose(self, tmp_path):
@@ -2860,9 +3262,16 @@ class TestExceptPaths:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "--verbose",
-                "-o", str(tmp_path / "output")]
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "--verbose",
+            "-o",
+            str(tmp_path / "output"),
+        ]
         rc = _run_main_with_patches(argv)
         assert rc == 0
 
@@ -2878,15 +3287,20 @@ class TestExceptPaths:
             "loaded in 0.005 sec\n"
         )
         call_n = {"n": 0}
+
         def run_side(*args, **kwargs):
             call_n["n"] += 1
             if call_n["n"] == 1:
                 return _make_completed_process(stdout="turbo3 OK", rc=0)
             return _make_completed_process(stdout=metal_output, rc=0)
 
-        with patch("subprocess.run", side_effect=run_side), \
-             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"):
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+        with (
+            patch("subprocess.run", side_effect=run_side),
+            patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"),
+        ):
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "metal_library" in content or "embed" in content
@@ -2900,9 +3314,13 @@ class TestExceptPaths:
         anomaly = thd.AnomalyDetector(log, mon)
 
         bench_out = "| model Q8_0 | 34 GiB | 34 B | MTL | 6 | turbo3 | turbo3 | 1 | tg64 @ d2048 | 70.00 ± 1.00 |"
-        with patch("turbo_hardware_diag.run_bench", return_value=(bench_out, 1.0)), \
-             patch("turbo_hardware_diag.capture_load"):
-            thd.section_8_stress_test(log, "/fake/bench", "/fake/model.gguf", display, anomaly)
+        with (
+            patch("turbo_hardware_diag.run_bench", return_value=(bench_out, 1.0)),
+            patch("turbo_hardware_diag.capture_load"),
+        ):
+            thd.section_8_stress_test(
+                log, "/fake/bench", "/fake/model.gguf", display, anomaly
+            )
         log.close()
 
     def test_package_results_zip_creation_error(self, tmp_path):
@@ -2913,7 +3331,9 @@ class TestExceptPaths:
         mon.csv_path = str(tmp_path / "nonexistent.csv")
 
         with patch("zipfile.ZipFile", side_effect=OSError("disk full")):
-            zip_path = thd.package_results(log, mon, {"v": 5}, "20260326", str(tmp_path))
+            _zip_path = thd.package_results(
+                log, mon, {"v": 5}, "20260326", str(tmp_path)
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[WARNING]" in content
@@ -2929,25 +3349,31 @@ class TestExceptPaths:
         mon.csv_path = csv_path
 
         with patch("os.remove", side_effect=OSError("permission denied")):
-            zip_path = thd.package_results(log, mon, {"v": 5}, "20260326", str(tmp_path))
+            zip_path = thd.package_results(
+                log, mon, {"v": 5}, "20260326", str(tmp_path)
+            )
         log.close()
         assert os.path.isfile(zip_path)
 
     def test_section_12_linux_no_thermal(self, tmp_path):
         """Cover section 12 Linux path when thermal zone doesn't exist."""
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("pathlib.Path.exists", return_value=False):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
             thd.section_12_post_load(log)
         log.close()
 
     def test_section_12_darwin_no_throttle(self, tmp_path):
         """Cover section 12 Darwin path with 100% CPU speed."""
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag._run_cmd", return_value="CPU_Speed_Limit  100"):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("turbo_hardware_diag._run_cmd", return_value="CPU_Speed_Limit  100"),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -2987,12 +3413,17 @@ class TestCoverageGapClosers:
         """Cover except when platform.release() raises in _detect_linux_hw."""
         log = _make_log(tmp_path)
         hw = {}
-        with patch("platform.release", side_effect=Exception("kernel read failed")), \
-             patch("pathlib.Path.read_text", return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.is_dir", return_value=False), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("platform.release", side_effect=Exception("kernel read failed")),
+            patch(
+                "pathlib.Path.read_text",
+                return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n",
+            ),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3003,9 +3434,6 @@ class TestCoverageGapClosers:
         """Cover except when GPU detection raises in _detect_linux_hw."""
         log = _make_log(tmp_path)
         hw = {}
-
-        call_count = {"n": 0}
-        original_read_text = Path.read_text
 
         def patched_read_text(self, *a, **kw):
             # Let /proc/cpuinfo work, but raise for GPU vendor files
@@ -3027,12 +3455,14 @@ class TestCoverageGapClosers:
                 raise Exception("lspci failed")
             return ""
 
-        with patch("pathlib.Path.read_text", patched_read_text), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.is_dir", return_value=False), \
-             patch("shutil.which", side_effect=patched_which), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd), \
-             patch("platform.release", return_value="6.1.0"):
+        with (
+            patch("pathlib.Path.read_text", patched_read_text),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("shutil.which", side_effect=patched_which),
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+            patch("platform.release", return_value="6.1.0"),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3044,20 +3474,23 @@ class TestCoverageGapClosers:
         log = _make_log(tmp_path)
         hw = {}
 
-        exists_calls = {"n": 0}
-
         def patched_exists(self):
             s = self.as_posix()
             if "cache/index" in s:
                 raise Exception("cache read failed")
             return False
 
-        with patch("pathlib.Path.read_text", return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n"), \
-             patch("pathlib.Path.exists", patched_exists), \
-             patch("pathlib.Path.is_dir", return_value=False), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("platform.release", return_value="6.1.0"):
+        with (
+            patch(
+                "pathlib.Path.read_text",
+                return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n",
+            ),
+            patch("pathlib.Path.exists", patched_exists),
+            patch("pathlib.Path.is_dir", return_value=False),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("platform.release", return_value="6.1.0"),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3074,12 +3507,17 @@ class TestCoverageGapClosers:
                 raise Exception("thermal read failed")
             return False
 
-        with patch("pathlib.Path.read_text", return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.is_dir", patched_is_dir), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("platform.release", return_value="6.1.0"):
+        with (
+            patch(
+                "pathlib.Path.read_text",
+                return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n",
+            ),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.is_dir", patched_is_dir),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("platform.release", return_value="6.1.0"),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3098,12 +3536,17 @@ class TestCoverageGapClosers:
                 return False
             return False
 
-        with patch("pathlib.Path.read_text", return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("pathlib.Path.is_dir", patched_is_dir), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""), \
-             patch("platform.release", return_value="6.1.0"):
+        with (
+            patch(
+                "pathlib.Path.read_text",
+                return_value="model name : AMD EPYC\ncore id : 0\nprocessor : 0\n",
+            ),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("pathlib.Path.is_dir", patched_is_dir),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+            patch("platform.release", return_value="6.1.0"),
+        ):
             thd._detect_linux_hw(log, hw)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3119,10 +3562,15 @@ class TestCoverageGapClosers:
                 raise Exception("nvidia-smi failed")
             return ""
 
-        with patch("pathlib.Path.read_text", return_value="MemFree: 1000 kB\nMemAvailable: 2000 kB\nSwapTotal: 500 kB\nSwapFree: 500 kB\n"), \
-             patch("pathlib.Path.exists", return_value=False), \
-             patch("shutil.which", return_value="/usr/bin/nvidia-smi"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd):
+        with (
+            patch(
+                "pathlib.Path.read_text",
+                return_value="MemFree: 1000 kB\nMemAvailable: 2000 kB\nSwapTotal: 500 kB\nSwapFree: 500 kB\n",
+            ),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("shutil.which", return_value="/usr/bin/nvidia-smi"),
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+        ):
             thd._capture_load_linux(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3145,10 +3593,12 @@ class TestCoverageGapClosers:
                 return "MemFree: 1000 kB\nMemAvailable: 2000 kB\nSwapTotal: 500 kB\nSwapFree: 500 kB\n"
             return ""
 
-        with patch("pathlib.Path.read_text", patched_read_text), \
-             patch("pathlib.Path.exists", patched_exists), \
-             patch("shutil.which", return_value=None), \
-             patch("turbo_hardware_diag._run_cmd", return_value=""):
+        with (
+            patch("pathlib.Path.read_text", patched_read_text),
+            patch("pathlib.Path.exists", patched_exists),
+            patch("shutil.which", return_value=None),
+            patch("turbo_hardware_diag._run_cmd", return_value=""),
+        ):
             thd._capture_load_linux(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3167,10 +3617,12 @@ class TestCoverageGapClosers:
         """Cover the [LOAD_TOP] write path in section_2."""
         log = _make_log(tmp_path)
         ps_output = "%CPU COMM\n25.0 /usr/bin/python3\n10.0 /usr/sbin/syslogd\n"
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", return_value=ps_output), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value=None):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", return_value=ps_output),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value=None),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3186,10 +3638,12 @@ class TestCoverageGapClosers:
                 raise Exception("iostat failed")
             return ""
 
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("shutil.which", return_value="/usr/sbin/iostat"):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch("shutil.which", return_value="/usr/sbin/iostat"),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3200,7 +3654,6 @@ class TestCoverageGapClosers:
         """Cover except when nvidia-smi process query raises."""
         log = _make_log(tmp_path)
 
-        call_n = {"n": 0}
         def patched_run_cmd(cmd, **kwargs):
             if isinstance(cmd, list) and "query-compute-apps" in str(cmd):
                 raise Exception("nvidia-smi query failed")
@@ -3211,10 +3664,12 @@ class TestCoverageGapClosers:
                 return "/usr/bin/nvidia-smi"
             return None
 
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which", side_effect=patched_which):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which", side_effect=patched_which),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3224,7 +3679,6 @@ class TestCoverageGapClosers:
         """Cover the 'none detected' path when nvidia-smi returns empty."""
         log = _make_log(tmp_path)
 
-        call_n = {"n": 0}
         def patched_run_cmd(cmd, **kwargs):
             if isinstance(cmd, list) and "query-compute-apps" in str(cmd):
                 return ""  # empty = no GPU processes
@@ -3235,10 +3689,12 @@ class TestCoverageGapClosers:
                 return "/usr/bin/nvidia-smi"
             return None
 
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which", side_effect=patched_which):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which", side_effect=patched_which),
+        ):
             thd.section_2_system_load_pre(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3248,10 +3704,15 @@ class TestCoverageGapClosers:
     def test_section_4_cuda_nvidia_smi_exception(self, tmp_path):
         """Cover except when nvidia-smi CUDA query raises in section_4."""
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("shutil.which", return_value="/usr/bin/nvidia-smi"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=Exception("nvidia-smi cuda failed")):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("shutil.which", return_value="/usr/bin/nvidia-smi"),
+            patch(
+                "turbo_hardware_diag._run_cmd",
+                side_effect=Exception("nvidia-smi cuda failed"),
+            ),
+        ):
             mock_run.return_value = _make_completed_process(
                 stdout="build: 1234\n", stderr=""
             )
@@ -3270,10 +3731,14 @@ class TestCoverageGapClosers:
                 raise Exception("git failed")
             return ""
 
-        with patch("subprocess.run") as mock_run, \
-             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd):
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
+        ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 test passed")
-            thd.section_5_build_validation(log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama")
+            thd.section_5_build_validation(
+                log, "/fake/bench", "/fake/cli", "/fake/model.gguf", "/fake/llama"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[BUILD] not a git repo (error:" in content
@@ -3282,9 +3747,13 @@ class TestCoverageGapClosers:
     def test_section_12_darwin_thermal_exception(self, tmp_path):
         """Cover except when macOS thermal check raises in section_12."""
         log = _make_log(tmp_path)
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"), \
-             patch("turbo_hardware_diag._run_cmd", side_effect=Exception("pmset failed")):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
+            patch(
+                "turbo_hardware_diag._run_cmd", side_effect=Exception("pmset failed")
+            ),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3300,9 +3769,11 @@ class TestCoverageGapClosers:
                 raise Exception("thermal read failed")
             return False
 
-        with patch("turbo_hardware_diag.capture_load"), \
-             patch("turbo_hardware_diag.detect_platform", return_value="Linux"), \
-             patch("pathlib.Path.exists", patched_exists):
+        with (
+            patch("turbo_hardware_diag.capture_load"),
+            patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
+            patch("pathlib.Path.exists", patched_exists),
+        ):
             thd.section_12_post_load(log)
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3313,10 +3784,14 @@ class TestCoverageGapClosers:
         """Cover the model-not-found early return in main()."""
         llama_dir = _setup_llama_dir(tmp_path)
         # Model file doesn't exist
-        argv = ["prog", str(llama_dir), "/nonexistent/model.gguf",
-                "-o", str(tmp_path / "output")]
-        with patch("sys.argv", argv), \
-             patch("builtins.print"):
+        argv = [
+            "prog",
+            str(llama_dir),
+            "/nonexistent/model.gguf",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+        with patch("sys.argv", argv), patch("builtins.print"):
             rc = thd.main()
         assert rc == 1
 
@@ -3326,8 +3801,15 @@ class TestCoverageGapClosers:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
 
         from contextlib import ExitStack
 
@@ -3356,14 +3838,21 @@ class TestCoverageGapClosers:
             stack.enter_context(patch.object(thd.BackgroundMonitor, "start"))
             stack.enter_context(patch.object(thd.BackgroundMonitor, "stop"))
             # _poll raises so initial_swap except is triggered
-            stack.enter_context(patch.object(
-                thd.BackgroundMonitor, "_poll",
-                side_effect=Exception("poll failed"),
-            ))
-            stack.enter_context(patch.object(
-                thd.BackgroundMonitor, "sample_count",
-                new_callable=PropertyMock, return_value=0,
-            ))
+            stack.enter_context(
+                patch.object(
+                    thd.BackgroundMonitor,
+                    "_poll",
+                    side_effect=Exception("poll failed"),
+                )
+            )
+            stack.enter_context(
+                patch.object(
+                    thd.BackgroundMonitor,
+                    "sample_count",
+                    new_callable=PropertyMock,
+                    return_value=0,
+                )
+            )
             stack.enter_context(patch.object(thd.LiveDisplay, "start"))
             stack.enter_context(patch.object(thd.LiveDisplay, "stop"))
             rc = thd.main()
@@ -3375,8 +3864,15 @@ class TestCoverageGapClosers:
         llama_dir = _setup_llama_dir(tmp_path)
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        argv = ["prog", str(llama_dir), str(model),
-                "--skip-ppl", "--skip-stress", "-o", str(tmp_path / "output")]
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
 
         from contextlib import ExitStack
 
@@ -3404,14 +3900,20 @@ class TestCoverageGapClosers:
                 stack.enter_context(patch(target, **kwargs))
             stack.enter_context(patch.object(thd.BackgroundMonitor, "start"))
             stack.enter_context(patch.object(thd.BackgroundMonitor, "stop"))
-            stack.enter_context(patch.object(
-                thd.BackgroundMonitor, "_poll", return_value=_MOCK_POLL_SAMPLE
-            ))
+            stack.enter_context(
+                patch.object(
+                    thd.BackgroundMonitor, "_poll", return_value=_MOCK_POLL_SAMPLE
+                )
+            )
             # sample_count property raises to trigger the monitor summary except
-            stack.enter_context(patch.object(
-                thd.BackgroundMonitor, "sample_count",
-                new_callable=PropertyMock, side_effect=Exception("sample_count failed"),
-            ))
+            stack.enter_context(
+                patch.object(
+                    thd.BackgroundMonitor,
+                    "sample_count",
+                    new_callable=PropertyMock,
+                    side_effect=Exception("sample_count failed"),
+                )
+            )
             stack.enter_context(patch.object(thd.LiveDisplay, "start"))
             stack.enter_context(patch.object(thd.LiveDisplay, "stop"))
             rc = thd.main()

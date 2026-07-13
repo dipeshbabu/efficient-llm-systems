@@ -23,8 +23,9 @@ Two-stage process:
 Total: b bits per coordinate with near-optimal inner product distortion.
 """
 
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 
 from turboquant.polar_quant import PolarQuant
 from turboquant.qjl import QJL
@@ -34,11 +35,14 @@ from turboquant.utils import pack_bits, pack_indices, unpack_bits, unpack_indice
 @dataclass
 class CompressedVector:
     """Container for a TurboQuant-compressed vector."""
-    mse_indices: np.ndarray   # (d,) or (batch, d) — PolarQuant indices, (b-1)-bit integers
+
+    mse_indices: (
+        np.ndarray
+    )  # (d,) or (batch, d) — PolarQuant indices, (b-1)-bit integers
     vector_norms: np.ndarray  # scalar or (batch,) — original ||x||_2 for rescaling
-    qjl_signs: np.ndarray     # (d,) or (batch, d) — QJL sign bits, int8 {+1, -1}
-    residual_norms: np.ndarray # scalar or (batch,) — ||residual||_2
-    bit_width: int             # total bits per coordinate
+    qjl_signs: np.ndarray  # (d,) or (batch, d) — QJL sign bits, int8 {+1, -1}
+    residual_norms: np.ndarray  # scalar or (batch,) — ||residual||_2
+    bit_width: int  # total bits per coordinate
 
 
 @dataclass
@@ -97,7 +101,9 @@ class TurboQuant:
                            tq.dequantize(tq.quantize(y)))
     """
 
-    def __init__(self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True):
+    def __init__(
+        self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True
+    ):
         """
         Args:
             d: Vector dimension.
@@ -105,15 +111,20 @@ class TurboQuant:
             seed: Random seed for both rotation and projection matrices.
         """
         if bit_width < 2:
-            raise ValueError("TurboQuant requires bit_width >= 2 (1 bit PolarQuant + 1 bit QJL). "
-                             "For 1-bit, use QJL directly.")
+            raise ValueError(
+                "TurboQuant requires bit_width >= 2 (1 bit PolarQuant + 1 bit QJL). "
+                "For 1-bit, use QJL directly."
+            )
 
         self.d = d
         self.bit_width = bit_width
 
         # Stage 1: PolarQuant at (b-1) bits
         self.polar_quant = PolarQuant(
-            d, bit_width=bit_width - 1, seed=seed, norm_correction=norm_correction,
+            d,
+            bit_width=bit_width - 1,
+            seed=seed,
+            norm_correction=norm_correction,
         )
 
         # Stage 2: QJL for residual (uses different seed)
@@ -142,7 +153,9 @@ class TurboQuant:
             bit_width=self.bit_width,
         )
 
-    def dequantize(self, compressed: CompressedVector, shrinkage: float = 1.0) -> np.ndarray:
+    def dequantize(
+        self, compressed: CompressedVector, shrinkage: float = 1.0
+    ) -> np.ndarray:
         """Dequantize back to approximate vector.
 
         Args:
@@ -157,7 +170,9 @@ class TurboQuant:
             Reconstructed vector(s), same shape as original.
         """
         # Stage 1: PolarQuant reconstruction (with norm rescaling)
-        x_mse = self.polar_quant.dequantize(compressed.mse_indices, compressed.vector_norms)
+        x_mse = self.polar_quant.dequantize(
+            compressed.mse_indices, compressed.vector_norms
+        )
 
         # Stage 2: QJL residual reconstruction
         x_qjl = self.qjl.dequantize(
@@ -171,9 +186,7 @@ class TurboQuant:
         x = np.asarray(x)
         compressed = self.quantize(x)
         return PackedCompressedVector(
-            mse_indices=pack_indices(
-                compressed.mse_indices, self.bit_width - 1
-            ),
+            mse_indices=pack_indices(compressed.mse_indices, self.bit_width - 1),
             vector_norms=np.asarray(compressed.vector_norms, dtype=np.float32),
             qjl_signs=pack_bits(compressed.qjl_signs),
             residual_norms=np.asarray(compressed.residual_norms, dtype=np.float32),
@@ -239,11 +252,16 @@ class TurboQuantMSE:
     Simpler, slightly less storage overhead (no QJL signs needed).
     """
 
-    def __init__(self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True):
+    def __init__(
+        self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True
+    ):
         self.d = d
         self.bit_width = bit_width
         self.polar_quant = PolarQuant(
-            d, bit_width=bit_width, seed=seed, norm_correction=norm_correction,
+            d,
+            bit_width=bit_width,
+            seed=seed,
+            norm_correction=norm_correction,
         )
 
     def quantize(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:

@@ -4,8 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -13,11 +11,11 @@ from unittest import mock
 import pytest
 
 from refract.runner import (
+    _PPL_RE,
     CORPUS_HASH_BYTES,
     KVConfig,
     _bin,
     _first_float,
-    _PPL_RE,
     assert_corpus_matches,
     corpus_identity,
     get_active_backend,
@@ -30,7 +28,6 @@ from refract.runner import (
     tokenize_to_ids,
     write_corpus_sidecar,
 )
-
 
 # --- KVConfig ------------------------------------------------------------
 
@@ -71,8 +68,12 @@ def test_kvconfig_label_includes_all_fields():
     )
     label = cfg.label()
     for fragment in (
-        "ctk=q8_0", "ctv=turbo4", "attn_rot_k=1", "attn_rot_v=0",
-        "attn_rot_disable=0", "extra=42",
+        "ctk=q8_0",
+        "ctv=turbo4",
+        "attn_rot_k=1",
+        "attn_rot_v=0",
+        "attn_rot_disable=0",
+        "extra=42",
     ):
         assert fragment in label
 
@@ -188,6 +189,7 @@ def test_active_backend_setter_getter():
 
     class _Stub:
         name = "test"
+
     stub = _Stub()
     set_active_backend(stub)
     assert get_active_backend() is stub
@@ -200,17 +202,24 @@ def test_run_completion_dispatches_to_active_backend(tmp_path):
 
     class _FakeBackend:
         name = "mlx"
+
         def run_completion(self, **kw):
             captured.update(kw)
             from refract.backends.base import CompletionResult
-            return CompletionResult(text="dispatched", n_tokens=0,
-                                    metadata={"via": "fake"})
+
+            return CompletionResult(
+                text="dispatched", n_tokens=0, metadata={"via": "fake"}
+            )
 
     set_active_backend(_FakeBackend())
     try:
         text, meta = run_completion(
-            model=tmp_path / "m.gguf", prompt="hi",
-            kv=KVConfig(), n_predict=4, ctx=128, n_gpu_layers=99,
+            model=tmp_path / "m.gguf",
+            prompt="hi",
+            kv=KVConfig(),
+            n_predict=4,
+            ctx=128,
+            n_gpu_layers=99,
         )
         assert text == "dispatched"
         assert meta["via"] == "fake"
@@ -223,15 +232,19 @@ def test_run_completion_trajectory_dispatches_to_active_backend(tmp_path):
 
     class _FakeBackend:
         name = "mlx"
+
         def run_completion_trajectory(self, **kw):
             captured.update(kw)
             from refract.backends.base import TrajectoryResult
+
             return TrajectoryResult(token_ids=[7, 8, 9], metadata={})
 
     set_active_backend(_FakeBackend())
     try:
         token_ids, meta = run_completion_trajectory(
-            model=tmp_path / "m.gguf", prompt="hi", kv=KVConfig(),
+            model=tmp_path / "m.gguf",
+            prompt="hi",
+            kv=KVConfig(),
         )
         assert token_ids == [7, 8, 9]
     finally:
@@ -259,12 +272,16 @@ def test_run_completion_strips_noise_and_returns_text(tmp_path, monkeypatch):
         "subprocess.run",
         lambda *a, **kw: _stub_proc(
             stdout="\u2580\u2581\u2582\nLoading model... \n| The capital of France is Paris.\n",
-            stderr="", returncode=0,
+            stderr="",
+            returncode=0,
         ),
     )
     text, meta = run_completion(
-        model=tmp_path / "m.gguf", prompt="x",
-        kv=KVConfig(), n_predict=8, ctx=64,
+        model=tmp_path / "m.gguf",
+        prompt="x",
+        kv=KVConfig(),
+        n_predict=8,
+        ctx=64,
     )
     assert "Paris" in text
     assert "Loading model" not in text
@@ -283,7 +300,9 @@ def test_run_completion_nonzero_returncode_raises(tmp_path, monkeypatch):
     )
     with pytest.raises(RuntimeError, match="exited 2"):
         run_completion(
-            model=tmp_path / "m.gguf", prompt="x", kv=KVConfig(),
+            model=tmp_path / "m.gguf",
+            prompt="x",
+            kv=KVConfig(),
         )
 
 
@@ -300,12 +319,14 @@ def test_run_completion_trajectory_reads_jsonl_file(tmp_path, monkeypatch):
         with open(traj_path, "w") as f:
             f.write('{"step":0,"token_id":11}\n')
             f.write('{"step":1,"token_id":22}\n')
-            f.write('\n')  # blank line — should be skipped
+            f.write("\n")  # blank line — should be skipped
         return _stub_proc(stdout="", stderr="", returncode=0)
 
     monkeypatch.setattr("subprocess.run", fake_run)
     token_ids, meta = run_completion_trajectory(
-        model=tmp_path / "m.gguf", prompt="x", kv=KVConfig(),
+        model=tmp_path / "m.gguf",
+        prompt="x",
+        kv=KVConfig(),
     )
     assert token_ids == [11, 22]
     assert meta["n_tokens"] == 2
@@ -317,10 +338,11 @@ def test_run_completion_trajectory_missing_file_returns_empty(tmp_path, monkeypa
     bin_dir.mkdir()
     (bin_dir / "llama-completion").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(returncode=0))
+    monkeypatch.setattr("subprocess.run", lambda *a, **kw: _stub_proc(returncode=0))
     token_ids, meta = run_completion_trajectory(
-        model=tmp_path / "m.gguf", prompt="x", kv=KVConfig(),
+        model=tmp_path / "m.gguf",
+        prompt="x",
+        kv=KVConfig(),
     )
     assert token_ids == []
 
@@ -336,9 +358,10 @@ def test_tokenize_to_ids_parses_bracketed_output(tmp_path, monkeypatch):
     bin_dir.mkdir()
     (bin_dir / "llama-tokenize").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(stdout="[1, 2, 3]\n",
-                                                    stderr="", returncode=0))
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **kw: _stub_proc(stdout="[1, 2, 3]\n", stderr="", returncode=0),
+    )
     assert tokenize_to_ids(tmp_path / "m.gguf", "hello") == [1, 2, 3]
 
 
@@ -348,8 +371,9 @@ def test_tokenize_to_ids_returncode_nonzero_raises(tmp_path, monkeypatch):
     bin_dir.mkdir()
     (bin_dir / "llama-tokenize").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(stderr="x", returncode=1))
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **kw: _stub_proc(stderr="x", returncode=1)
+    )
     with pytest.raises(RuntimeError, match="exited 1"):
         tokenize_to_ids(tmp_path / "m.gguf", "x")
 
@@ -360,8 +384,9 @@ def test_tokenize_to_ids_empty_brackets_returns_empty(tmp_path, monkeypatch):
     bin_dir.mkdir()
     (bin_dir / "llama-tokenize").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(stdout="[]\n", returncode=0))
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **kw: _stub_proc(stdout="[]\n", returncode=0)
+    )
     assert tokenize_to_ids(tmp_path / "m.gguf", "x") == []
 
 
@@ -371,8 +396,9 @@ def test_tokenize_to_ids_unparseable_output_returns_empty(tmp_path, monkeypatch)
     bin_dir.mkdir()
     (bin_dir / "llama-tokenize").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(stdout="garbage", returncode=0))
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **kw: _stub_proc(stdout="garbage", returncode=0)
+    )
     # No leading '[' → returns []
     assert tokenize_to_ids(tmp_path / "m.gguf", "x") == []
 
@@ -382,12 +408,15 @@ def test_run_perplexity_kld_base_nonzero_raises(tmp_path, monkeypatch):
     bin_dir.mkdir()
     (bin_dir / "llama-perplexity").write_text("")
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
-    monkeypatch.setattr("subprocess.run",
-                        lambda *a, **kw: _stub_proc(returncode=3, stderr="bad"))
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **kw: _stub_proc(returncode=3, stderr="bad")
+    )
     with pytest.raises(RuntimeError, match="exited 3"):
         run_perplexity_kld_base(
-            model=tmp_path / "m.gguf", corpus=tmp_path / "c.txt",
-            kv=KVConfig(), base_path=tmp_path / "base.bin",
+            model=tmp_path / "m.gguf",
+            corpus=tmp_path / "c.txt",
+            kv=KVConfig(),
+            base_path=tmp_path / "base.bin",
         )
 
 
@@ -399,15 +428,16 @@ def test_run_perplexity_kld_parses_metrics(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "subprocess.run",
         lambda *a, **kw: _stub_proc(
-            stdout=("Final estimate: PPL = 7.42\n"
-                    "Mean KLD: 0.012345\n"),
+            stdout=("Final estimate: PPL = 7.42\nMean KLD: 0.012345\n"),
             stderr="RMS \u0394p: 1.23 %\nSame top-p: 99.0 %\n",
             returncode=0,
         ),
     )
     out = run_perplexity_kld(
-        model=tmp_path / "m.gguf", corpus=tmp_path / "c.txt",
-        kv=KVConfig(), base_path=tmp_path / "base.bin",
+        model=tmp_path / "m.gguf",
+        corpus=tmp_path / "c.txt",
+        kv=KVConfig(),
+        base_path=tmp_path / "base.bin",
     )
     assert out["ppl"] == 7.42
     assert out["mean_kld"] == 0.012345
@@ -422,11 +452,14 @@ def test_run_perplexity_kld_no_kld_in_output_raises(tmp_path, monkeypatch):
     monkeypatch.setattr("refract.runner.DEFAULT_BIN_DIR", bin_dir)
     monkeypatch.setattr(
         "subprocess.run",
-        lambda *a, **kw: _stub_proc(stdout="just some output\n",
-                                     stderr="", returncode=0),
+        lambda *a, **kw: _stub_proc(
+            stdout="just some output\n", stderr="", returncode=0
+        ),
     )
     with pytest.raises(RuntimeError, match="Could not parse Mean KLD"):
         run_perplexity_kld(
-            model=tmp_path / "m.gguf", corpus=tmp_path / "c.txt",
-            kv=KVConfig(), base_path=tmp_path / "base.bin",
+            model=tmp_path / "m.gguf",
+            corpus=tmp_path / "c.txt",
+            kv=KVConfig(),
+            base_path=tmp_path / "base.bin",
         )

@@ -21,29 +21,83 @@ the relevant guide separately and link it to the supporting evidence.
 
 ## Development setup
 
+Install `uv`, then create the shared workspace environment from the repository
+root:
+
 ```bash
-python -m venv .venv
-python -m pip install -e "components/turboquant-reference[dev]"
-python -m pip install -e "components/refract[dev]"
-python -m pytest
+uv sync --all-packages
+uv run pre-commit install
+uv run pytest
 ```
 
-Backend-specific REFRACT dependencies remain optional. Install the matching
-extra from `components/refract/` only when testing that backend.
+`uv` creates `.venv`, installs both workspace packages, and uses the shared
+lockfile. The install command registers the repository's fast checks as a Git
+pre-commit hook. Backend-specific REFRACT dependencies remain optional. Add
+only the extra needed for the backend under test; for example:
+
+```bash
+uv sync --all-packages --extra refract-mlx
+uv sync --all-packages --extra refract-vllm
+uv sync --all-packages --extra refract-sglang
+```
+
+Do not use `--all-extras` for routine development because the backend stacks
+have different platform and hardware requirements.
+
+## Python style
+
+Python code follows PEP 8. Ruff is the repository's formatter, linter, and
+import sorter. The root configuration targets Python 3.9 and uses an 88
+character line length. `E501` is intentionally left to the formatter instead
+of being reported as a separate lint error. Mypy checks the two package source
+trees and repository tools using Python 3.9 language assumptions. It is pinned
+to 1.19.1 so the checker itself remains runnable for Python 3.9 contributors;
+individual optional tools may require a newer interpreter.
+
+Check Python quality without changing files:
+
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy
+```
+
+Apply safe lint fixes and formatting locally:
+
+```bash
+uv run ruff check --fix .
+uv run ruff format .
+```
+
+The pre-commit hook runs Ruff and mypy plus lightweight strict JSON, YAML,
+TOML, whitespace, merge-conflict, and private-key checks on relevant staged
+files. The local Markdown-link check runs on every commit so deleting or
+renaming a linked target cannot skip it.
+
+Run the complete hook set manually with:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+Mutating whitespace and formatter hooks skip `artifacts/` and `research/` so
+retained evidence and historical records are not rewritten mechanically.
+The full test suite and distribution builds remain separate because they are
+too slow for every commit.
 
 ## Required checks
 
 Before submitting a change:
 
 ```bash
-python -m pytest
-python -m build components/refract
-python -m build components/turboquant-reference
+uv run pre-commit run --all-files
+uv run pytest
+uv run python -m build components/refract
+uv run python -m build components/turboquant-reference
 ```
 
-Changes that move Markdown files must also preserve local links. Changes to
-packaging must verify that REFRACT prompts, examples, `LICENSE`, and `NOTICE`
-are present in the built artifacts.
+Changes to packaging must verify that REFRACT prompts, examples, `LICENSE`,
+and `NOTICE` are present in the built artifacts.
 
 ## Research and artifact policy
 

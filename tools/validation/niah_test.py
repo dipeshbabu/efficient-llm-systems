@@ -468,11 +468,13 @@ DISTRACTOR_KEYS = [
 # Data classes
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class Needle:
     """A single needle embedded in the haystack."""
-    key: str          # e.g., "The special magic number is"
-    value: str        # e.g., "7281937"
+
+    key: str  # e.g., "The special magic number is"
+    value: str  # e.g., "7281937"
     depth_pct: float  # 0.0-1.0, where in the haystack it's inserted
 
     @property
@@ -483,6 +485,7 @@ class Needle:
 @dataclass
 class TrialResult:
     """Result of one test query."""
+
     expected: str
     response: str
     found: bool
@@ -493,11 +496,12 @@ class TrialResult:
 @dataclass
 class ConfigResult:
     """Result for one test configuration."""
+
     mode: str
     context_length: int
     cache_type: str
     needle_depth_pct: float = 0.5  # primary depth for single mode
-    needle_count: int = 1          # for multi-value mode
+    needle_count: int = 1  # for multi-value mode
     trials: list[TrialResult] = field(default_factory=list)
 
     @property
@@ -514,6 +518,7 @@ class ConfigResult:
 # ---------------------------------------------------------------------------
 # Haystack generation
 # ---------------------------------------------------------------------------
+
 
 def _make_magic_number(rng: random.Random) -> str:
     """Generate a 7-digit random number as a string."""
@@ -681,14 +686,22 @@ def start_server(
 
     cmd = [
         str(server_bin),
-        "-m", str(model_path),
-        "--cache-type-k", cache_type,
-        "--cache-type-v", cache_type,
-        "-c", str(context_size),
-        "-ngl", "99",
-        "-fa", "on",
-        "--port", str(port),
-        "-np", "1",
+        "-m",
+        str(model_path),
+        "--cache-type-k",
+        cache_type,
+        "--cache-type-v",
+        cache_type,
+        "-c",
+        str(context_size),
+        "-ngl",
+        "99",
+        "-fa",
+        "on",
+        "--port",
+        str(port),
+        "-np",
+        "1",
         "--jinja",
     ]
 
@@ -750,7 +763,7 @@ def _read_server_stderr(max_bytes: int = 4096) -> str:
     if _server_stderr_file is None:
         return "(stderr not captured -- run with --verbose to see server output)"
     try:
-        with open(_server_stderr_file, "r") as f:
+        with open(_server_stderr_file) as f:
             content = f.read()
         # Return the last max_bytes chars (tail) which are most useful
         if len(content) > max_bytes:
@@ -783,6 +796,7 @@ def stop_server(proc: subprocess.Popen) -> None:
 # Query logic
 # ---------------------------------------------------------------------------
 
+
 def _query_server(
     port: int,
     user_content: str,
@@ -796,57 +810,66 @@ def _query_server(
     """
     url = f"http://127.0.0.1:{port}/v1/chat/completions"
 
-    payload = json.dumps({
-        "model": "model",
-        "messages": [
-            {"role": "user", "content": user_content},
-        ],
-        "temperature": 0,
-        "seed": SEED,
-        # Qwen3.5 uses thinking mode — needs enough tokens to finish thinking + answer.
-        "max_tokens": 2048,
-    }).encode()
+    payload = json.dumps(
+        {
+            "model": "model",
+            "messages": [
+                {"role": "user", "content": user_content},
+            ],
+            "temperature": 0,
+            "seed": SEED,
+            # Qwen3.5 uses thinking mode — needs enough tokens to finish thinking + answer.
+            "max_tokens": 2048,
+        }
+    ).encode()
 
     headers = {"Content-Type": "application/json"}
 
     for attempt in range(max_retries):
         try:
-            req = urllib.request.Request(url, data=payload, headers=headers, method="POST")
+            req = urllib.request.Request(
+                url, data=payload, headers=headers, method="POST"
+            )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode())
                 msg = data["choices"][0]["message"]
                 content = (msg.get("content") or "").strip()
                 if content:
                     # Strip any remaining thinking tags
-                    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+                    content = re.sub(
+                        r"<think>.*?</think>", "", content, flags=re.DOTALL
+                    ).strip()
                     return content
                 return ""
         except (urllib.error.URLError, ConnectionError, OSError) as e:
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)
+                time.sleep(2**attempt)
                 continue
-            raise RuntimeError(f"Failed to query server after {max_retries} attempts: {e}")
+            raise RuntimeError(
+                f"Failed to query server after {max_retries} attempts: {e}"
+            ) from e
         except (KeyError, IndexError, json.JSONDecodeError) as e:
-            raise RuntimeError(f"Unexpected response format: {e}")
+            raise RuntimeError(f"Unexpected response format: {e}") from e
 
     return ""  # unreachable, but keeps mypy happy
 
 
 def _score_single(response: str, expected: str) -> bool:
     """Binary scoring: extract first 7-digit number from response, exact match."""
-    match = re.search(r'\b(\d{7})\b', response)
+    match = re.search(r"\b(\d{7})\b", response)
     return match is not None and match.group(1) == expected
 
 
 def _score_multi_value(response: str, expected_values: list[str]) -> list[bool]:
     """Score multi-value: check which expected values appear in the response."""
-    found_numbers = re.findall(r'\b(\d{7})\b', response)
+    found_numbers = re.findall(r"\b(\d{7})\b", response)
     return [val in found_numbers for val in expected_values]
 
 
 # ---------------------------------------------------------------------------
 # Test runners by mode
 # ---------------------------------------------------------------------------
+
 
 def _run_single_trial(
     port: int,
@@ -905,8 +928,13 @@ def run_single_mode(
             actual_port = _find_free_port(port)
             print(f"\n  Starting server: cache={cache_type}, ctx={server_ctx}")
             proc = start_server(
-                llama_dir, model_path, cache_type, server_ctx, actual_port,
-                args.verbose, server_timeout=args.server_timeout,
+                llama_dir,
+                model_path,
+                cache_type,
+                server_ctx,
+                actual_port,
+                args.verbose,
+                server_timeout=args.server_timeout,
                 server_bin_override=server_bin,
             )
 
@@ -924,12 +952,22 @@ def run_single_mode(
                     target_chars = int(ctx_len * args.chars_per_token)
                     haystack = generate_haystack_single(needle, target_chars, rng)
 
-                    ctx_label = f"{ctx_len // 1024}K" if ctx_len >= 1024 else str(ctx_len)
-                    print(f"    [{config_num}/{total}] cache={cache_type} "
-                          f"ctx={ctx_label} depth={depth_pct}%", end=" ", flush=True)
+                    ctx_label = (
+                        f"{ctx_len // 1024}K" if ctx_len >= 1024 else str(ctx_len)
+                    )
+                    print(
+                        f"    [{config_num}/{total}] cache={cache_type} "
+                        f"ctx={ctx_label} depth={depth_pct}%",
+                        end=" ",
+                        flush=True,
+                    )
 
                     trial = _run_single_trial(
-                        actual_port, haystack, needle, args.query_timeout, args.verbose,
+                        actual_port,
+                        haystack,
+                        needle,
+                        args.query_timeout,
+                        args.verbose,
                     )
                     trial.context_length = ctx_len
 
@@ -964,7 +1002,9 @@ def run_multi_key_mode(
     server_bin = Path(args.server_bin) if args.server_bin else None
 
     total = len(context_lengths) * len(cache_types)
-    print(f"\nMulti-key mode: {total} configurations, {num_distractors} distractors each")
+    print(
+        f"\nMulti-key mode: {total} configurations, {num_distractors} distractors each"
+    )
     print(f"  Context lengths: {context_lengths}")
     print(f"  Cache types: {cache_types}")
 
@@ -988,23 +1028,36 @@ def run_multi_key_mode(
             for i in range(num_distractors):
                 d_key = DISTRACTOR_KEYS[i % len(DISTRACTOR_KEYS)]
                 d_pos = (i + 1) / (num_distractors + 2)  # spread across 0-1
-                distractors.append(Needle(
-                    key=d_key,
-                    value=_make_magic_number(rng),
-                    depth_pct=d_pos,
-                ))
+                distractors.append(
+                    Needle(
+                        key=d_key,
+                        value=_make_magic_number(rng),
+                        depth_pct=d_pos,
+                    )
+                )
 
             target_chars = int(ctx_len * args.chars_per_token)
-            haystack = generate_haystack_multi_key(real_needle, distractors, target_chars, rng)
+            haystack = generate_haystack_multi_key(
+                real_needle, distractors, target_chars, rng
+            )
 
             server_ctx = ctx_len + 4096
             actual_port = _find_free_port(port)
             ctx_label = f"{ctx_len // 1024}K" if ctx_len >= 1024 else str(ctx_len)
-            print(f"\n  [{config_num}/{total}] cache={cache_type} ctx={ctx_label}", end=" ", flush=True)
+            print(
+                f"\n  [{config_num}/{total}] cache={cache_type} ctx={ctx_label}",
+                end=" ",
+                flush=True,
+            )
 
             proc = start_server(
-                llama_dir, model_path, cache_type, server_ctx, actual_port,
-                args.verbose, server_timeout=args.server_timeout,
+                llama_dir,
+                model_path,
+                cache_type,
+                server_ctx,
+                actual_port,
+                args.verbose,
+                server_timeout=args.server_timeout,
                 server_bin_override=server_bin,
             )
 
@@ -1014,7 +1067,9 @@ def run_multi_key_mode(
                     "What is the special magic number mentioned in the above text? "
                     "Reply with ONLY the number, nothing else."
                 )
-                response = _query_server(actual_port, user_content, timeout=args.query_timeout)
+                response = _query_server(
+                    actual_port, user_content, timeout=args.query_timeout
+                )
                 found = _score_single(response, real_needle.value)
 
                 trial = TrialResult(
@@ -1072,8 +1127,13 @@ def run_multi_value_mode(
             actual_port = _find_free_port(port)
             print(f"\n  Starting server: cache={cache_type}, ctx={server_ctx}")
             proc = start_server(
-                llama_dir, model_path, cache_type, server_ctx, actual_port,
-                args.verbose, server_timeout=args.server_timeout,
+                llama_dir,
+                model_path,
+                cache_type,
+                server_ctx,
+                actual_port,
+                args.verbose,
+                server_timeout=args.server_timeout,
                 server_bin_override=server_bin,
             )
 
@@ -1086,25 +1146,35 @@ def run_multi_value_mode(
                     needles: list[Needle] = []
                     for i in range(vc):
                         pos = (i + 1) / (vc + 1)  # spread evenly
-                        needles.append(Needle(
-                            key="The special magic number is",
-                            value=_make_magic_number(rng),
-                            depth_pct=pos,
-                        ))
+                        needles.append(
+                            Needle(
+                                key="The special magic number is",
+                                value=_make_magic_number(rng),
+                                depth_pct=pos,
+                            )
+                        )
 
                     target_chars = int(ctx_len * args.chars_per_token)
                     haystack = generate_haystack_multi_value(needles, target_chars, rng)
 
-                    ctx_label = f"{ctx_len // 1024}K" if ctx_len >= 1024 else str(ctx_len)
-                    print(f"    [{config_num}/{total}] cache={cache_type} "
-                          f"ctx={ctx_label} values={vc}", end=" ", flush=True)
+                    ctx_label = (
+                        f"{ctx_len // 1024}K" if ctx_len >= 1024 else str(ctx_len)
+                    )
+                    print(
+                        f"    [{config_num}/{total}] cache={cache_type} "
+                        f"ctx={ctx_label} values={vc}",
+                        end=" ",
+                        flush=True,
+                    )
 
                     user_content = (
                         f"{haystack}\n\n"
                         "What are ALL the special magic numbers mentioned in the above text? "
                         "Reply with ONLY the numbers separated by commas, nothing else."
                     )
-                    response = _query_server(actual_port, user_content, timeout=args.query_timeout)
+                    response = _query_server(
+                        actual_port, user_content, timeout=args.query_timeout
+                    )
                     expected_values = [n.value for n in needles]
                     hits = _score_multi_value(response, expected_values)
 
@@ -1116,13 +1186,15 @@ def run_multi_value_mode(
                     )
 
                     for needle, hit in zip(needles, hits):
-                        result.trials.append(TrialResult(
-                            expected=needle.value,
-                            response=response,
-                            found=hit,
-                            needle_depth_pct=needle.depth_pct,
-                            context_length=ctx_len,
-                        ))
+                        result.trials.append(
+                            TrialResult(
+                                expected=needle.value,
+                                response=response,
+                                found=hit,
+                                needle_depth_pct=needle.depth_pct,
+                                context_length=ctx_len,
+                            )
+                        )
                     results.append(result)
 
                     hit_count = sum(hits)
@@ -1139,6 +1211,7 @@ def run_multi_value_mode(
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
+
 
 def _build_heatmap_table(
     results: list[ConfigResult],
@@ -1162,14 +1235,18 @@ def _build_heatmap_table(
 
     # Header
     len_labels = []
-    for l in lengths:
-        len_labels.append(f"{l // 1024}K" if l >= 1024 else str(l))
+    for context_length in lengths:
+        len_labels.append(
+            f"{context_length // 1024}K"
+            if context_length >= 1024
+            else str(context_length)
+        )
 
     header = "| Depth  |"
     sep = "|--------|"
     for label in len_labels:
         header += f" {label:<5}|"
-        sep += f"------|"
+        sep += "------|"
 
     lines = [
         f"## Single Needle Retrieval: {cache_type}",
@@ -1180,8 +1257,8 @@ def _build_heatmap_table(
 
     for d in depths:
         row = f"| {d:<4}%  |"
-        for l in lengths:
-            val = lookup.get((d, l))
+        for context_length in lengths:
+            val = lookup.get((d, context_length))
             if val is None:
                 cell = " ERR "
             elif val:
@@ -1202,11 +1279,13 @@ def _build_delta_table(
     """Build a delta table showing where compare differs from baseline."""
     base_results = {
         (int(r.needle_depth_pct * 100), r.context_length): r.passed
-        for r in results if r.cache_type == baseline
+        for r in results
+        if r.cache_type == baseline
     }
     comp_results = {
         (int(r.needle_depth_pct * 100), r.context_length): r.passed
-        for r in results if r.cache_type == compare
+        for r in results
+        if r.cache_type == compare
     }
 
     if not base_results or not comp_results:
@@ -1215,13 +1294,16 @@ def _build_delta_table(
     depths = sorted(set(k[0] for k in base_results))
     lengths = sorted(set(k[1] for k in base_results))
 
-    len_labels = [f"{l // 1024}K" if l >= 1024 else str(l) for l in lengths]
+    len_labels = [
+        f"{context_length // 1024}K" if context_length >= 1024 else str(context_length)
+        for context_length in lengths
+    ]
 
     header = "| Depth  |"
     sep = "|--------|"
     for label in len_labels:
         header += f" {label:<5}|"
-        sep += f"------|"
+        sep += "------|"
 
     lines = [
         f"## Delta: {compare} vs {baseline}",
@@ -1233,9 +1315,9 @@ def _build_delta_table(
     has_diff = False
     for d in depths:
         row = f"| {d:<4}%  |"
-        for l in lengths:
-            b = base_results.get((d, l))
-            c = comp_results.get((d, l))
+        for context_length in lengths:
+            b = base_results.get((d, context_length))
+            c = comp_results.get((d, context_length))
             if b is None or c is None:
                 cell = " N/A "
             elif b == c:
@@ -1264,16 +1346,19 @@ def _build_multi_key_table(
     cache_types = sorted(set(r.cache_type for r in results))
     lengths = sorted(set(r.context_length for r in results))
 
-    len_labels = [f"{l // 1024}K" if l >= 1024 else str(l) for l in lengths]
+    len_labels = [
+        f"{context_length // 1024}K" if context_length >= 1024 else str(context_length)
+        for context_length in lengths
+    ]
 
     header = "| Cache Type |"
     sep = "|------------|"
     for label in len_labels:
         header += f" {label:<5}|"
-        sep += f"------|"
+        sep += "------|"
 
     lines = [
-        f"## Multi-Key Retrieval (MK-NIAH)",
+        "## Multi-Key Retrieval (MK-NIAH)",
         "",
         header,
         sep,
@@ -1285,8 +1370,8 @@ def _build_multi_key_table(
 
     for ct in cache_types:
         row = f"| {ct:<10} |"
-        for l in lengths:
-            val = lookup.get((ct, l))
+        for context_length in lengths:
+            val = lookup.get((ct, context_length))
             if val is None:
                 cell = " ERR "
             elif val:
@@ -1308,16 +1393,21 @@ def _build_multi_value_table(
     lengths = sorted(set(r.context_length for r in results))
     value_counts = sorted(set(r.needle_count for r in results))
 
-    lines = [f"## Multi-Value Retrieval (MV-NIAH)", ""]
+    lines = ["## Multi-Value Retrieval (MV-NIAH)", ""]
 
     for ct in cache_types:
-        len_labels = [f"{l // 1024}K" if l >= 1024 else str(l) for l in lengths]
+        len_labels = [
+            f"{context_length // 1024}K"
+            if context_length >= 1024
+            else str(context_length)
+            for context_length in lengths
+        ]
 
         header = "| Values |"
         sep = "|--------|"
         for label in len_labels:
             header += f" {label:<7}|"
-            sep += f"--------|"
+            sep += "--------|"
 
         lines.extend([f"### {ct}", "", header, sep])
 
@@ -1328,8 +1418,8 @@ def _build_multi_value_table(
 
         for vc in value_counts:
             row = f"| {vc:<6} |"
-            for l in lengths:
-                pct = lookup.get((vc, l))
+            for context_length in lengths:
+                pct = lookup.get((vc, context_length))
                 if pct is None:
                     cell = " ERR    "
                 elif pct == 100.0:
@@ -1432,6 +1522,7 @@ def save_results(
 # CLI
 # ---------------------------------------------------------------------------
 
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="TurboQuant NIAH Benchmark v2 — Kamradt + RULER methodology.",
@@ -1498,12 +1589,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Base port for llama-server (default: %(default)s)",
     )
     parser.add_argument(
-        "--output-dir", "-o",
+        "--output-dir",
+        "-o",
         default=None,
         help="Directory for result files (default: artifacts/niah/)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Show server output and detailed info",
     )
@@ -1518,13 +1611,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=300,
         help="Timeout in seconds for each query request (default: %(default)s). "
-             "32K prefill on M1 can take 130s+, so the default is generous.",
+        "32K prefill on M1 can take 130s+, so the default is generous.",
     )
     parser.add_argument(
         "--server-bin",
         default=None,
         help="Path to a specific llama-server binary. "
-             "Overrides the default <llama_dir>/build/bin/llama-server.",
+        "Overrides the default <llama_dir>/build/bin/llama-server.",
     )
     parser.add_argument(
         "--chars-per-token",
@@ -1579,7 +1672,7 @@ def main(argv: list[str] | None = None) -> None:
     model_name = model_path.stem
 
     print(f"{'=' * 60}")
-    print(f"  TurboQuant NIAH Benchmark v2")
+    print("  TurboQuant NIAH Benchmark v2")
     print(f"  Mode: {args.mode}")
     print(f"  Model: {model_name}")
     print(f"  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
@@ -1602,7 +1695,7 @@ def main(argv: list[str] | None = None) -> None:
 
     # Save results
     json_path, md_path = save_results(results, model_name, args.mode, output_dir)
-    print(f"\nResults saved to:")
+    print("\nResults saved to:")
     print(f"  JSON: {json_path}")
     print(f"  Table: {md_path}")
 

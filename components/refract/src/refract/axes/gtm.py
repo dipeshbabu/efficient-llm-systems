@@ -37,7 +37,7 @@ import json
 import statistics
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Optional
 
 from ..runner import KVConfig, run_completion, tokenize_to_ids
 
@@ -46,12 +46,12 @@ from ..runner import KVConfig, run_completion, tokenize_to_ids
 class GTMResult:
     """Output of run_gtm()."""
 
-    score: float                              # 0–100
-    full_match_rate: float                    # 0–1
-    median_first_divergence: Optional[int]    # token position; None if all match
+    score: float  # 0–100
+    full_match_rate: float  # 0–1
+    median_first_divergence: Optional[float]  # median token position; None if all match
     mean_prefix_agreement_length: float
-    mean_cand_length: float                   # v0.1.3: retokenized cand length
-    mean_ref_length: float                    # v0.1.3: retokenized ref length
+    mean_cand_length: float  # v0.1.3: retokenized cand length
+    mean_ref_length: float  # v0.1.3: retokenized ref length
     n_prompts: int
     n_tokens_each: int
     per_prompt: list[dict]
@@ -126,16 +126,28 @@ def run_gtm(
 
     for i, p in enumerate(prompts):
         if progress:
-            print(f"  [{i+1}/{len(prompts)}] {p['id']:<10} ({p.get('category','?')}) ...",
-                  flush=True)
+            print(
+                f"  [{i + 1}/{len(prompts)}] {p['id']:<10} ({p.get('category', '?')}) ...",
+                flush=True,
+            )
 
         ref_text, _ = run_completion(
-            model=model, prompt=p["prompt"], kv=reference_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=p["prompt"],
+            kv=reference_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
         cand_text, _ = run_completion(
-            model=model, prompt=p["prompt"], kv=candidate_kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers, seed=seed,
+            model=model,
+            prompt=p["prompt"],
+            kv=candidate_kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
         )
 
         # v0.1.2: tokenize via the model's own vocab (llama-tokenize) instead
@@ -158,7 +170,7 @@ def run_gtm(
         first_div, prefix_len = _diff(ref_toks, cand_toks)
         is_match = first_div is None
 
-        if is_match:
+        if first_div is None:
             matches += 1
         else:
             first_divs.append(first_div)
@@ -166,18 +178,20 @@ def run_gtm(
         cand_lens.append(len(cand_toks))
         ref_lens.append(len(ref_toks))
 
-        per_prompt.append({
-            "id": p["id"],
-            "category": p.get("category"),
-            "prompt": p["prompt"],
-            "ref": ref_text,
-            "cand": cand_text,
-            "first_divergence": first_div,
-            "prefix_agreement_length": prefix_len,
-            "cand_length": len(cand_toks),
-            "ref_length": len(ref_toks),
-            "matched": is_match,
-        })
+        per_prompt.append(
+            {
+                "id": p["id"],
+                "category": p.get("category"),
+                "prompt": p["prompt"],
+                "ref": ref_text,
+                "cand": cand_text,
+                "first_divergence": first_div,
+                "prefix_agreement_length": prefix_len,
+                "cand_length": len(cand_toks),
+                "ref_length": len(ref_toks),
+                "matched": is_match,
+            }
+        )
 
     n = len(prompts)
     full_match_rate = matches / n
@@ -191,8 +205,7 @@ def run_gtm(
     # early stops symmetric and prevents opposite-direction mismatches from
     # cancelling across prompts.
     comparison_tokens = sum(
-        max(ref_len, cand_len)
-        for ref_len, cand_len in zip(ref_lens, cand_lens)
+        max(ref_len, cand_len) for ref_len, cand_len in zip(ref_lens, cand_lens)
     )
     if comparison_tokens > 0:
         score = 100.0 * (sum(prefix_lens) / comparison_tokens)
@@ -213,8 +226,7 @@ def run_gtm(
             f"the longer reference/candidate sequence per prompt."
         )
     length_mismatches = sum(
-        1 for ref_len, cand_len in zip(ref_lens, cand_lens)
-        if ref_len != cand_len
+        1 for ref_len, cand_len in zip(ref_lens, cand_lens) if ref_len != cand_len
     )
     if length_mismatches > 0:
         notes.append(

@@ -67,15 +67,14 @@ That's it. The launcher automatically:
 
 | Hardware | Fork | Branch |
 |----------|------|--------|
-| **Apple Silicon (M1-M5)** | [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant) | `feature/turboquant-kv-cache` |
+| **Apple Silicon (M1-M5)** | [Historical llama.cpp TurboQuant fork](../docs/reference/historical-forks.md#llamacpp-experimental-forks) | `feature/turboquant-kv-cache` (public URL unavailable) |
 | **NVIDIA (CUDA)** | [spiritbuun/llama-cpp-turboquant-cuda](https://github.com/spiritbuun/llama-cpp-turboquant-cuda) | `feature/turboquant-kv-cache` |
 | **AMD (ROCm)** | spiritbuun's fork (has RDNA `v_dot2` path) | `feature/turboquant-kv-cache` |
 
 > **AMD users:** ROCm support is untested and experimental. Flash attention is reportedly broken on RDNA 2 (6800 XT) with ROCm > 7.0.1, and turbo3 requires flash attention. RDNA 3/4 may work but nobody has confirmed yet. Expect rough edges and please report what you find.
 
 ```bash
-# Apple Silicon
-git clone https://github.com/dipeshbabu/llama-cpp-turboquant.git
+# Apple Silicon (requires an existing checkout of the historical fork)
 cd llama-cpp-turboquant && git checkout feature/turboquant-kv-cache
 cmake -B build -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
@@ -549,9 +548,10 @@ After the diagnostic completes, you'll see:
   Send this zip file to the TurboQuant team.
 ```
 
-**How to share:**
-1. **GitHub issue** (preferred): Open an issue at [Efficient LLM Systems](https://github.com/dipeshbabu/efficient-llm-systems/issues) with title "Diagnostic: [your hardware]" and attach the zip. GitHub supports attachments up to 25MB — the zip is typically under 100KB.
-2. **DM on X/Twitter**: Send the zip file directly to [@dipeshbabu](https://x.com/dipeshbabu)
+**How to share:** Open a GitHub issue at
+[Efficient LLM Systems](https://github.com/dipeshbabu/efficient-llm-systems/issues)
+with the title "Diagnostic: [your hardware]" and attach the zip. GitHub
+supports attachments up to 25MB — the zip is typically under 100KB.
 
 The zip is self-contained — everything we need is inside. No need to copy-paste logs or screenshot terminal output. The `.txt` log is human-readable if you want to look at it yourself first.
 

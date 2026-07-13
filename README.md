@@ -50,23 +50,34 @@ contracts remain unchanged:
 
 ## Development setup
 
+Install `uv`, then synchronize the workspace from the repository root:
+
 ```bash
 git clone https://github.com/dipeshbabu/efficient-llm-systems.git
 cd efficient-llm-systems
 
-python -m venv .venv
-python -m pip install -e "components/turboquant-reference[dev]"
-python -m pip install -e "components/refract[dev]"
-python -m pytest
+uv sync --all-packages
+uv run pre-commit install
+uv run pytest
 ```
 
-Backend-specific REFRACT dependencies are optional:
+Backend-specific REFRACT dependencies are optional. Add only the extra needed
+for the backend under test:
 
 ```bash
-python -m pip install -e "components/refract[refract-mlx]"
-python -m pip install -e "components/refract[refract-vllm]"
-python -m pip install -e "components/refract[refract-sglang]"
+uv sync --all-packages --extra refract-mlx
+uv sync --all-packages --extra refract-vllm
+uv sync --all-packages --extra refract-sglang
 ```
+
+Avoid `--all-extras`: the backend stacks have different platform and hardware
+requirements.
+
+Python code follows PEP 8. Ruff enforces linting and import order and formats
+the codebase using the repository's Python 3.9 target and 88 character line
+length. Line-length rule `E501` is delegated to the formatter. Pre-commit runs
+Ruff, mypy, and the repository's lightweight file checks before each commit.
+See the [contribution guide](CONTRIBUTING.md) for check and fix commands.
 
 ## Current findings
 
@@ -96,9 +107,9 @@ monorepo:
 |---|---|
 | [vLLM](https://github.com/vllm-project/vllm) | Upstream TurboQuant attention backend |
 | [llama.cpp](https://github.com/ggml-org/llama.cpp) | Upstream Hadamard KV rotation and platform kernels |
-| [llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant) | Full TurboQuant KV and weight formats across Metal, CUDA, HIP, and CPU |
+| [Historical llama.cpp TurboQuant fork](docs/reference/historical-forks.md#llamacpp-experimental-forks) | Full TurboQuant KV and weight formats across Metal, CUDA, HIP, and CPU; public fork URL currently unavailable |
 | [mlx-swift-lm](https://github.com/ekryski/mlx-swift-lm) | Apple Silicon inference and TurboQuant collaboration |
-| [vllm-swift](https://github.com/dipeshbabu/vllm-swift) | Swift serving on Apple Silicon |
+| [Historical vllm-swift prototype](docs/reference/historical-forks.md#swift-and-long-context-prototypes) | Swift serving on Apple Silicon; public prototype URL currently unavailable |
 
 Use the component and engine documentation for supported formats and current
 runtime flags.
@@ -139,15 +150,15 @@ workflows belong in `tools/` or the component that owns them.
 Run the complete Python gate:
 
 ```bash
-python -m pytest
-python tools/maintenance/check_markdown_links.py
+uv run pre-commit run --all-files
+uv run pytest
 ```
 
 Build components independently:
 
 ```bash
-python -m build components/refract
-python -m build components/turboquant-reference
+uv run python -m build components/refract
+uv run python -m build components/turboquant-reference
 ```
 
 The root is deliberately not a publishable Python distribution. Each

@@ -46,16 +46,19 @@ from refract.axes.kld import run_kld
 from refract.runner import KVConfig
 from refract.score import composite_score
 
-
 # Default paths; override via env if your model lives elsewhere.
-GEMMA_MODEL = Path(os.environ.get(
-    "REFRACT_GEMMA_MODEL",
-    os.path.expanduser("~/local_llms/models/gemma-4-26B-A4B-Q8_0.gguf"),
-))
-WIKITEXT = Path(os.environ.get(
-    "REFRACT_CORPUS",
-    os.path.expanduser("~/local_llms/llama.cpp/wikitext-2-raw/wiki.test.raw"),
-))
+GEMMA_MODEL = Path(
+    os.environ.get(
+        "REFRACT_GEMMA_MODEL",
+        os.path.expanduser("~/local_llms/models/gemma-4-26B-A4B-Q8_0.gguf"),
+    )
+)
+WIKITEXT = Path(
+    os.environ.get(
+        "REFRACT_CORPUS",
+        os.path.expanduser("~/local_llms/llama.cpp/wikitext-2-raw/wiki.test.raw"),
+    )
+)
 PROMPTS = Path(str(resources.files("refract").joinpath("prompts/v0.1.jsonl")))
 
 
@@ -63,12 +66,11 @@ PROMPTS = Path(str(resources.files("refract").joinpath("prompts/v0.1.jsonl")))
 @pytest.mark.skipif(
     not GEMMA_MODEL.exists(),
     reason=f"gemma-4 26B-A4B model not found at {GEMMA_MODEL}; "
-           "set REFRACT_GEMMA_MODEL to override.",
+    "set REFRACT_GEMMA_MODEL to override.",
 )
 @pytest.mark.skipif(
     not WIKITEXT.exists(),
-    reason=f"wikitext-2 raw not found at {WIKITEXT}; "
-           "set REFRACT_CORPUS to override.",
+    reason=f"wikitext-2 raw not found at {WIKITEXT}; set REFRACT_CORPUS to override.",
 )
 def test_gemma_q8_turbo4_off_is_degraded():
     """Reproduce the paper §4.3 + §4.8 gemma-4 26B-A4B cell.

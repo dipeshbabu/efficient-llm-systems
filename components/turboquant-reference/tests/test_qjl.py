@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from turboquant.qjl import QJL, QJL_CONST
+from turboquant.qjl import QJL
 
 
 class TestQJLProjection:

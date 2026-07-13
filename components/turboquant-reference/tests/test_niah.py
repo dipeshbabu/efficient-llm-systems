@@ -8,16 +8,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 import random
 import socket
-import subprocess
 import sys
 import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
-from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,12 +25,7 @@ import pytest
 
 spec = importlib.util.spec_from_file_location(
     "niah",
-    str(
-        Path(__file__).resolve().parents[3]
-        / "tools"
-        / "validation"
-        / "niah_test.py"
-    ),
+    str(Path(__file__).resolve().parents[3] / "tools" / "validation" / "niah_test.py"),
 )
 niah = importlib.util.module_from_spec(spec)
 # Register in sys.modules so dataclasses can resolve the module's __dict__
@@ -104,7 +96,9 @@ class TestMakeMagicNumber:
             assert 1000000 <= int(num) <= 9999999
 
     def test_deterministic(self):
-        assert niah._make_magic_number(random.Random(42)) == niah._make_magic_number(random.Random(42))
+        assert niah._make_magic_number(random.Random(42)) == niah._make_magic_number(
+            random.Random(42)
+        )
 
 
 # ===================================================================
@@ -116,7 +110,9 @@ class TestNeedle:
     """Tests for the Needle dataclass."""
 
     def test_sentence_format(self):
-        n = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.5)
+        n = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.5
+        )
         assert n.sentence == "The special magic number is: 1234567."
 
     def test_custom_key(self):
@@ -177,11 +173,13 @@ class TestDistractors:
         distractors = []
         for i in range(num_distractors):
             d_key = niah.DISTRACTOR_KEYS[i % len(niah.DISTRACTOR_KEYS)]
-            distractors.append(niah.Needle(
-                key=d_key,
-                value=niah._make_magic_number(rng),
-                depth_pct=(i + 1) / (num_distractors + 2),
-            ))
+            distractors.append(
+                niah.Needle(
+                    key=d_key,
+                    value=niah._make_magic_number(rng),
+                    depth_pct=(i + 1) / (num_distractors + 2),
+                )
+            )
         assert len(distractors) == 3
         assert distractors[0].key == "The secret password is"
         assert distractors[1].key == "The hidden code is"
@@ -189,7 +187,7 @@ class TestDistractors:
 
     def test_distractor_values_are_7_digit(self):
         rng = random.Random(42)
-        for i in range(5):
+        for _i in range(5):
             val = niah._make_magic_number(rng)
             assert len(val) == 7
             assert val.isdigit()
@@ -252,11 +250,15 @@ class TestScoreMultiValue:
     """Tests for _score_multi_value()."""
 
     def test_all_found(self):
-        result = niah._score_multi_value("1234567, 7654321, 1111111", ["1234567", "7654321", "1111111"])
+        result = niah._score_multi_value(
+            "1234567, 7654321, 1111111", ["1234567", "7654321", "1111111"]
+        )
         assert result == [True, True, True]
 
     def test_partial_found(self):
-        result = niah._score_multi_value("1234567 and something", ["1234567", "7654321"])
+        result = niah._score_multi_value(
+            "1234567 and something", ["1234567", "7654321"]
+        )
         assert result == [True, False]
 
     def test_none_found(self):
@@ -279,20 +281,26 @@ class TestGenerateHaystackSingle:
 
     def test_needle_text_present(self):
         rng = random.Random(42)
-        needle = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.5)
+        needle = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.5
+        )
         haystack = niah.generate_haystack_single(needle, 4000, rng)
         assert needle.sentence in haystack
 
     def test_reaches_target_size(self):
         rng = random.Random(42)
-        needle = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.5)
+        needle = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.5
+        )
         haystack = niah.generate_haystack_single(needle, 4000, rng)
         assert len(haystack) >= 4000
 
     def test_needle_at_start(self):
         """Depth 0% should place needle near the beginning."""
         rng = random.Random(42)
-        needle = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.0)
+        needle = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.0
+        )
         haystack = niah.generate_haystack_single(needle, 4000, rng)
         assert needle.sentence in haystack
         # Should appear in the first quarter
@@ -302,7 +310,9 @@ class TestGenerateHaystackSingle:
     def test_needle_at_end(self):
         """Depth 100% should place needle near the end."""
         rng = random.Random(42)
-        needle = niah.Needle(key="The special magic number is", value="1234567", depth_pct=1.0)
+        needle = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=1.0
+        )
         haystack = niah.generate_haystack_single(needle, 4000, rng)
         assert needle.sentence in haystack
         pos = haystack.index(needle.sentence)
@@ -319,7 +329,9 @@ class TestGenerateHaystackMultiKey:
 
     def test_real_and_distractors_present(self):
         rng = random.Random(42)
-        real = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.5)
+        real = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.5
+        )
         distractors = [
             niah.Needle(key="The secret password is", value="7654321", depth_pct=0.25),
             niah.Needle(key="The hidden code is", value="1111111", depth_pct=0.75),
@@ -341,9 +353,15 @@ class TestGenerateHaystackMultiValue:
     def test_all_needles_present(self):
         rng = random.Random(42)
         needles = [
-            niah.Needle(key="The special magic number is", value="1111111", depth_pct=0.25),
-            niah.Needle(key="The special magic number is", value="2222222", depth_pct=0.5),
-            niah.Needle(key="The special magic number is", value="3333333", depth_pct=0.75),
+            niah.Needle(
+                key="The special magic number is", value="1111111", depth_pct=0.25
+            ),
+            niah.Needle(
+                key="The special magic number is", value="2222222", depth_pct=0.5
+            ),
+            niah.Needle(
+                key="The special magic number is", value="3333333", depth_pct=0.75
+            ),
         ]
         haystack = niah.generate_haystack_multi_value(needles, 4000, rng)
         for n in needles:
@@ -373,7 +391,18 @@ class TestInsertNeedlesIntoParas:
         assert parts[-1] == needle.sentence
 
     def test_multiple_needles_at_different_depths(self):
-        paragraphs = ["aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh", "iii", "jjj"]
+        paragraphs = [
+            "aaa",
+            "bbb",
+            "ccc",
+            "ddd",
+            "eee",
+            "fff",
+            "ggg",
+            "hhh",
+            "iii",
+            "jjj",
+        ]
         n1 = niah.Needle(key="K1", value="1111111", depth_pct=0.0)
         n2 = niah.Needle(key="K2", value="2222222", depth_pct=1.0)
         result = niah._insert_needles_into_paragraphs(paragraphs, [n1, n2])
@@ -443,9 +472,16 @@ class TestHeatmapTable:
 
     def test_basic_heatmap(self):
         results = [
-            niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5),
+            niah.ConfigResult(
+                mode="single",
+                context_length=4096,
+                cache_type="q8_0",
+                needle_depth_pct=0.5,
+            ),
         ]
-        results[0].trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        results[0].trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
         table = niah._build_heatmap_table(results, "q8_0", "test-model")
         assert "q8_0" in table
         assert "50" in table  # depth 50%
@@ -456,7 +492,12 @@ class TestHeatmapTable:
 
     def test_err_for_no_trials(self):
         results = [
-            niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5),
+            niah.ConfigResult(
+                mode="single",
+                context_length=4096,
+                cache_type="q8_0",
+                needle_depth_pct=0.5,
+            ),
         ]
         # No trials — passed is vacuously True, but we still get a row
         table = niah._build_heatmap_table(results, "q8_0", "test-model")
@@ -473,10 +514,21 @@ class TestDeltaTable:
     """Tests for _build_delta_table()."""
 
     def test_delta_with_difference(self):
-        r1 = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r1.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
-        r2 = niah.ConfigResult(mode="single", context_length=4096, cache_type="turbo3", needle_depth_pct=0.5)
-        r2.trials = [niah.TrialResult(expected="1234567", response="wrong", found=False)]
+        r1 = niah.ConfigResult(
+            mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5
+        )
+        r1.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
+        r2 = niah.ConfigResult(
+            mode="single",
+            context_length=4096,
+            cache_type="turbo3",
+            needle_depth_pct=0.5,
+        )
+        r2.trials = [
+            niah.TrialResult(expected="1234567", response="wrong", found=False)
+        ]
         table = niah._build_delta_table([r1, r2], "q8_0", "turbo3")
         assert "Delta" in table
 
@@ -494,8 +546,15 @@ class TestMultiKeyTable:
     """Tests for _build_multi_key_table()."""
 
     def test_basic_multi_key_table(self):
-        r = niah.ConfigResult(mode="multi-key", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r = niah.ConfigResult(
+            mode="multi-key",
+            context_length=4096,
+            cache_type="q8_0",
+            needle_depth_pct=0.5,
+        )
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
         table = niah._build_multi_key_table([r], "test-model")
         assert "Multi-Key" in table
         assert "q8_0" in table
@@ -510,10 +569,16 @@ class TestMultiValueTable:
     """Tests for _build_multi_value_table()."""
 
     def test_basic_multi_value_table(self):
-        r = niah.ConfigResult(mode="multi-value", context_length=4096, cache_type="q8_0", needle_count=2)
+        r = niah.ConfigResult(
+            mode="multi-value", context_length=4096, cache_type="q8_0", needle_count=2
+        )
         r.trials = [
-            niah.TrialResult(expected="1111111", response="1111111, 2222222", found=True),
-            niah.TrialResult(expected="2222222", response="1111111, 2222222", found=True),
+            niah.TrialResult(
+                expected="1111111", response="1111111, 2222222", found=True
+            ),
+            niah.TrialResult(
+                expected="2222222", response="1111111, 2222222", found=True
+            ),
         ]
         table = niah._build_multi_value_table([r], "test-model")
         assert "Multi-Value" in table
@@ -528,33 +593,56 @@ class TestBuildOutput:
     """Tests for build_output()."""
 
     def test_single_mode(self):
-        r = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r = niah.ConfigResult(
+            mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5
+        )
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
         output = niah.build_output([r], "test-model", "single")
         assert "test-model" in output
         assert "single" in output.lower()
 
     def test_multi_key_mode(self):
         r = niah.ConfigResult(mode="multi-key", context_length=4096, cache_type="q8_0")
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
         output = niah.build_output([r], "test-model", "multi-key")
         assert "Multi-Key" in output
 
     def test_multi_value_mode(self):
-        r = niah.ConfigResult(mode="multi-value", context_length=4096, cache_type="q8_0", needle_count=2)
+        r = niah.ConfigResult(
+            mode="multi-value", context_length=4096, cache_type="q8_0", needle_count=2
+        )
         r.trials = [
-            niah.TrialResult(expected="1111111", response="1111111, 2222222", found=True),
-            niah.TrialResult(expected="2222222", response="1111111, 2222222", found=True),
+            niah.TrialResult(
+                expected="1111111", response="1111111, 2222222", found=True
+            ),
+            niah.TrialResult(
+                expected="2222222", response="1111111, 2222222", found=True
+            ),
         ]
         output = niah.build_output([r], "test-model", "multi-value")
         assert "Multi-Value" in output
 
     def test_single_mode_with_delta(self):
         """Two cache types in single mode should produce a delta table."""
-        r1 = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r1.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
-        r2 = niah.ConfigResult(mode="single", context_length=4096, cache_type="turbo3", needle_depth_pct=0.5)
-        r2.trials = [niah.TrialResult(expected="1234567", response="wrong", found=False)]
+        r1 = niah.ConfigResult(
+            mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5
+        )
+        r1.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
+        r2 = niah.ConfigResult(
+            mode="single",
+            context_length=4096,
+            cache_type="turbo3",
+            needle_depth_pct=0.5,
+        )
+        r2.trials = [
+            niah.TrialResult(expected="1234567", response="wrong", found=False)
+        ]
         output = niah.build_output([r1, r2], "test-model", "single")
         assert "Delta" in output
 
@@ -628,7 +716,9 @@ class TestStartServer:
             server_bin.touch()
             server_bin.chmod(0o755)
 
-            result = niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090)
+            result = niah.start_server(
+                Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090
+            )
             assert result is proc
 
     @patch("time.sleep")
@@ -637,7 +727,9 @@ class TestStartServer:
     def test_server_binary_not_found(self, mock_popen, mock_urlopen, mock_sleep):
         with tempfile.TemporaryDirectory() as td:
             with pytest.raises(FileNotFoundError, match="llama-server not found"):
-                niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090)
+                niah.start_server(
+                    Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090
+                )
 
     @patch("time.sleep")
     @patch("urllib.request.urlopen")
@@ -652,13 +744,17 @@ class TestStartServer:
             server_bin.touch()
 
             with pytest.raises(RuntimeError, match="exited prematurely"):
-                niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090)
+                niah.start_server(
+                    Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090
+                )
 
     @patch("time.monotonic")
     @patch("time.sleep")
     @patch("urllib.request.urlopen")
     @patch("subprocess.Popen")
-    def test_server_health_timeout(self, mock_popen, mock_urlopen, mock_sleep, mock_monotonic):
+    def test_server_health_timeout(
+        self, mock_popen, mock_urlopen, mock_sleep, mock_monotonic
+    ):
         proc = self._make_proc()
         mock_popen.return_value = proc
         mock_monotonic.side_effect = [0, 0, 121]
@@ -670,12 +766,16 @@ class TestStartServer:
             server_bin.touch()
 
             with pytest.raises(TimeoutError, match="did not become healthy"):
-                niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090)
+                niah.start_server(
+                    Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090
+                )
 
     @patch("time.sleep")
     @patch("urllib.request.urlopen")
     @patch("subprocess.Popen")
-    def test_health_check_retries_on_url_error(self, mock_popen, mock_urlopen, mock_sleep):
+    def test_health_check_retries_on_url_error(
+        self, mock_popen, mock_urlopen, mock_sleep
+    ):
         proc = self._make_proc()
         mock_popen.return_value = proc
         mock_urlopen.side_effect = [
@@ -689,7 +789,9 @@ class TestStartServer:
             server_bin.parent.mkdir(parents=True)
             server_bin.touch()
 
-            result = niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090)
+            result = niah.start_server(
+                Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090
+            )
             assert result is proc
 
 
@@ -741,9 +843,7 @@ class TestQueryServer:
     """Tests for _query_server()."""
 
     def _make_chat_response(self, content: str):
-        body = json.dumps({
-            "choices": [{"message": {"content": content}}]
-        }).encode()
+        body = json.dumps({"choices": [{"message": {"content": content}}]}).encode()
         resp = MagicMock()
         resp.read.return_value = body
         resp.__enter__ = MagicMock(return_value=resp)
@@ -812,11 +912,17 @@ class TestSaveResults:
     """Tests for save_results()."""
 
     def test_creates_json_and_md(self):
-        r = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r = niah.ConfigResult(
+            mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5
+        )
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
 
         with tempfile.TemporaryDirectory() as td:
-            json_path, md_path = niah.save_results([r], "test-model", "single", Path(td))
+            json_path, md_path = niah.save_results(
+                [r], "test-model", "single", Path(td)
+            )
             assert json_path.exists()
             assert md_path.exists()
             assert json_path.suffix == ".json"
@@ -841,10 +947,14 @@ class TestSaveResults:
     def test_no_home_dir_in_output(self):
         """Output paths should not contain /Users/dipesh/."""
         r = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0")
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
 
         with tempfile.TemporaryDirectory() as td:
-            json_path, md_path = niah.save_results([r], "test-model", "single", Path(td))
+            json_path, md_path = niah.save_results(
+                [r], "test-model", "single", Path(td)
+            )
             with open(md_path) as f:
                 content = f.read()
             assert "/Users/dipesh/" not in content
@@ -912,22 +1022,37 @@ class TestParseArgs:
         assert args.verbose is True
 
     def test_all_options(self):
-        args = niah.parse_args([
-            "/llama", "/model.gguf",
-            "--mode", "multi-key",
-            "--depths", "1024",
-            "--depths-sweep", "0,50,100",
-            "--cache-types", "f16",
-            "--num-distractors", "7",
-            "--value-counts", "1,2",
-            "--port", "9090",
-            "--output-dir", "/tmp/out",
-            "--verbose",
-            "--server-timeout", "60",
-            "--query-timeout", "120",
-            "--server-bin", "/path/to/server",
-            "--chars-per-token", "3.5",
-        ])
+        args = niah.parse_args(
+            [
+                "/llama",
+                "/model.gguf",
+                "--mode",
+                "multi-key",
+                "--depths",
+                "1024",
+                "--depths-sweep",
+                "0,50,100",
+                "--cache-types",
+                "f16",
+                "--num-distractors",
+                "7",
+                "--value-counts",
+                "1,2",
+                "--port",
+                "9090",
+                "--output-dir",
+                "/tmp/out",
+                "--verbose",
+                "--server-timeout",
+                "60",
+                "--query-timeout",
+                "120",
+                "--server-bin",
+                "/path/to/server",
+                "--chars-per-token",
+                "3.5",
+            ]
+        )
         assert args.mode == "multi-key"
         assert args.depths == "1024"
         assert args.depths_sweep == "0,50,100"
@@ -971,7 +1096,11 @@ class TestSignalHandler:
 class TestMain:
     """Tests for main()."""
 
-    @patch.object(niah, "save_results", return_value=(Path("/fake/results.json"), Path("/fake/results.md")))
+    @patch.object(
+        niah,
+        "save_results",
+        return_value=(Path("/fake/results.json"), Path("/fake/results.md")),
+    )
     @patch.object(niah, "build_output", return_value="output text")
     @patch.object(niah, "run_single_mode", return_value=[])
     def test_main_single_mode(self, mock_run, mock_output, mock_save):
@@ -986,7 +1115,11 @@ class TestMain:
             niah.main([str(llama_dir), str(model_path), "--mode", "single"])
             mock_run.assert_called_once()
 
-    @patch.object(niah, "save_results", return_value=(Path("/fake/results.json"), Path("/fake/results.md")))
+    @patch.object(
+        niah,
+        "save_results",
+        return_value=(Path("/fake/results.json"), Path("/fake/results.md")),
+    )
     @patch.object(niah, "build_output", return_value="output text")
     @patch.object(niah, "run_multi_key_mode", return_value=[])
     def test_main_multi_key_mode(self, mock_run, mock_output, mock_save):
@@ -1001,7 +1134,11 @@ class TestMain:
             niah.main([str(llama_dir), str(model_path), "--mode", "multi-key"])
             mock_run.assert_called_once()
 
-    @patch.object(niah, "save_results", return_value=(Path("/fake/results.json"), Path("/fake/results.md")))
+    @patch.object(
+        niah,
+        "save_results",
+        return_value=(Path("/fake/results.json"), Path("/fake/results.md")),
+    )
     @patch.object(niah, "build_output", return_value="output text")
     @patch.object(niah, "run_multi_value_mode", return_value=[])
     def test_main_multi_value_mode(self, mock_run, mock_output, mock_save):
@@ -1027,7 +1164,11 @@ class TestMain:
             with pytest.raises(SystemExit):
                 niah.main([str(llama_dir)])
 
-    @patch.object(niah, "save_results", return_value=(Path("/fake/results.json"), Path("/fake/results.md")))
+    @patch.object(
+        niah,
+        "save_results",
+        return_value=(Path("/fake/results.json"), Path("/fake/results.md")),
+    )
     @patch.object(niah, "build_output", return_value="output text")
     @patch.object(niah, "run_single_mode", return_value=[])
     def test_main_default_output_dir(self, mock_run, mock_output, mock_save):
@@ -1045,7 +1186,11 @@ class TestMain:
             expected = Path(niah.__file__).resolve().parents[2] / "artifacts" / "niah"
             assert Path(call_args[0][3]) == expected
 
-    @patch.object(niah, "save_results", return_value=(Path("/fake/results.json"), Path("/fake/results.md")))
+    @patch.object(
+        niah,
+        "save_results",
+        return_value=(Path("/fake/results.json"), Path("/fake/results.md")),
+    )
     @patch.object(niah, "build_output", return_value="output text")
     @patch.object(niah, "run_single_mode", return_value=[])
     def test_main_custom_output_dir(self, mock_run, mock_output, mock_save):
@@ -1057,7 +1202,9 @@ class TestMain:
             server_bin.parent.mkdir(parents=True)
             server_bin.touch()
 
-            niah.main([str(llama_dir), str(model_path), "--output-dir", "/tmp/custom_out"])
+            niah.main(
+                [str(llama_dir), str(model_path), "--output-dir", "/tmp/custom_out"]
+            )
             call_args = mock_save.call_args
             assert call_args[0][3] == Path("/tmp/custom_out")
 
@@ -1092,7 +1239,9 @@ class TestStartServerVerbose:
             server_bin.parent.mkdir(parents=True)
             server_bin.touch()
 
-            niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090, verbose=True)
+            niah.start_server(
+                Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090, verbose=True
+            )
 
         captured = capsys.readouterr()
         assert "[CMD]" in captured.out
@@ -1111,7 +1260,9 @@ class TestStartServerVerbose:
             server_bin.parent.mkdir(parents=True)
             server_bin.touch()
 
-            niah.start_server(Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090, verbose=True)
+            niah.start_server(
+                Path(td), Path("/fake/model.gguf"), "q8_0", 4096, 8090, verbose=True
+            )
 
         call_kwargs = mock_popen.call_args[1]
         assert call_kwargs["stdout"] is None
@@ -1133,11 +1284,17 @@ class TestNoHomeDir:
             assert "/Users/dipesh/" not in p
 
     def test_needle_sentence_no_home_dir(self):
-        n = niah.Needle(key="The special magic number is", value="1234567", depth_pct=0.5)
+        n = niah.Needle(
+            key="The special magic number is", value="1234567", depth_pct=0.5
+        )
         assert "/Users/dipesh/" not in n.sentence
 
     def test_heatmap_no_home_dir(self):
-        r = niah.ConfigResult(mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5)
-        r.trials = [niah.TrialResult(expected="1234567", response="1234567", found=True)]
+        r = niah.ConfigResult(
+            mode="single", context_length=4096, cache_type="q8_0", needle_depth_pct=0.5
+        )
+        r.trials = [
+            niah.TrialResult(expected="1234567", response="1234567", found=True)
+        ]
         table = niah._build_heatmap_table([r], "q8_0", "test-model")
         assert "/Users/dipesh/" not in table

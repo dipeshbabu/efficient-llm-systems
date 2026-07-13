@@ -72,7 +72,9 @@ def hadamard_matrix(n: int) -> np.ndarray:
     return H
 
 
-def random_rotation_fast(d: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray, int]:
+def random_rotation_fast(
+    d: int, rng: np.random.Generator
+) -> tuple[np.ndarray, np.ndarray, int]:
     """Generate a fast structured random rotation: D @ H @ D' (random signs + Hadamard).
 
     For large d, this is O(d log d) to apply instead of O(d²).
@@ -121,7 +123,9 @@ def fast_walsh_hadamard_transform(x: np.ndarray) -> np.ndarray:
     return x / np.sqrt(n)
 
 
-def apply_fast_rotation(x: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int) -> np.ndarray:
+def apply_fast_rotation(
+    x: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int
+) -> np.ndarray:
     """Apply the structured random rotation to a vector.
 
     Args:
@@ -145,7 +149,9 @@ def apply_fast_rotation(x: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, p
     return padded[:d]
 
 
-def apply_fast_rotation_transpose(y: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int) -> np.ndarray:
+def apply_fast_rotation_transpose(
+    y: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int
+) -> np.ndarray:
     """Apply the transpose of the structured random rotation.
 
     Since D and H are their own transposes (symmetric), the transpose is D1 @ H @ D2.
@@ -160,7 +166,9 @@ def apply_fast_rotation_transpose(y: np.ndarray, signs1: np.ndarray, signs2: np.
     return padded[:d]
 
 
-def apply_fast_rotation_batch(X: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int) -> np.ndarray:
+def apply_fast_rotation_batch(
+    X: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int
+) -> np.ndarray:
     """Apply structured rotation to a batch of vectors. Shape: (batch, d)."""
     batch, d = X.shape
     padded = np.zeros((batch, padded_d))

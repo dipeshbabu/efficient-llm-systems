@@ -8,7 +8,7 @@ GitHub: [@dipeshbabu](https://github.com/dipeshbabu)
 
 ## Abstract
 
-Master llama.cpp PR [#21038](https://github.com/ggml-org/llama.cpp/pull/21038) adds a Walsh–Hadamard rotation inside the attention kernel for any quantized KV cache. Our fork ships TurboQuant's own kernel-level WHT rotation, so the master rotation looked redundant, then looked harmful: an external user ([@erazortt](https://github.com/erazortt), dipeshbabu/turboquant_plus#88) reported that turning master's rotation off rescued KLD on gemma-4 26B-A4B Q6_K_XL with symmetric turbo*. The original fork shipped with rotation defaulted OFF (binary `LLAMA_ATTN_ROT_DISABLE` env). We set out to find a *better* default than that.
+Master llama.cpp PR [#21038](https://github.com/ggml-org/llama.cpp/pull/21038) adds a Walsh–Hadamard rotation inside the attention kernel for any quantized KV cache. Our fork ships TurboQuant's own kernel-level WHT rotation, so the master rotation looked redundant, then looked harmful: an external user ([@erazortt](https://github.com/erazortt), historical `turboquant_plus#88`) reported that turning master's rotation off rescued KLD on gemma-4 26B-A4B Q6_K_XL with symmetric turbo*. The original fork shipped with rotation defaulted OFF (binary `LLAMA_ATTN_ROT_DISABLE` env). We set out to find a *better* default than that.
 
 We did not. Three iterations of "smart" defaults all failed differently: v2 enabled rotation broadly and broke symmetric turbo; v3 added a per-side gate that skipped turbo types and turned out to be the *worst* asymmetric config on gemma-4 (+6.8% PPL on q8/turbo4); a v4 candidate that allowed V-rotation regardless of V type would have crashed phi-4. Across 7 model families on `-ctk q8_0 -ctv turbo4`, the optimal rotation policy splits four ways. Inside the gemma-4 family alone, three sizes want three different optima. We landed on rotation OFF on both sides plus two new env knobs, `LLAMA_ATTN_ROT_K_OVERRIDE=1` and `LLAMA_ATTN_ROT_V_OVERRIDE=1`, that let users opt each side in independently. The effective default is identical to the original fork; the contribution is per-side control and the matrix that documents which models want which knob.
 
@@ -39,7 +39,7 @@ What this paper adds on top of those: a controlled per-side rotation matrix acro
 
 ### 1.3 The trigger: erazortt #88, and the original fork default
 
-@erazortt reported on dipeshbabu/turboquant_plus#88 that gemma-4 26B-A4B Q6_K_XL with `-ctk turbo4 -ctv turbo4` lost noticeable quality after we picked up master's PR #21038, and that disabling master's rotation via `LLAMA_ATTN_ROT_DISABLE=1` rescued it. The fork already shipped with rotation defaulted OFF for exactly this case. The relevant code, prior to this investigation, was:
+@erazortt reported on historical `turboquant_plus#88` that gemma-4 26B-A4B Q6_K_XL with `-ctk turbo4 -ctv turbo4` lost noticeable quality after we picked up master's PR #21038, and that disabling master's rotation via `LLAMA_ATTN_ROT_DISABLE=1` rescued it. The fork already shipped with rotation defaulted OFF for exactly this case. The relevant code, prior to this investigation, was:
 
 ```cpp
 const char * LLAMA_ATTN_ROT_DISABLE = getenv("LLAMA_ATTN_ROT_DISABLE");
@@ -483,14 +483,15 @@ The deeper question — why the gemma-4 instruct fine-tunes specifically produce
 
 ### Build and weights
 
-- **llama.cpp fork:** [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant), branch `fix/enable-attn-rot-by-default`, commit `817e913ec` (the prior `db3595a755a9` shipped with `attn_rot_disable` defaulting to `true` for legacy compatibility, which silently blocked the new per-side override env knobs via the `&& !attn_rot_disable` guard inside both override branches; `817e913ec` flips that default to `false`. Tests in this paper that use `LLAMA_ATTN_ROT_K_OVERRIDE` / `LLAMA_ATTN_ROT_V_OVERRIDE` require the post-fix build). Per-side env knobs are in `src/llama-kv-cache.cpp` around the `attn_rot_k`/`attn_rot_v` initialization.
+- **llama.cpp fork:** [historical implementation; public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks), branch `fix/enable-attn-rot-by-default`, commit `817e913ec` (the prior `db3595a755a9` shipped with `attn_rot_disable` defaulting to `true` for legacy compatibility, which silently blocked the new per-side override env knobs via the `&& !attn_rot_disable` guard inside both override branches; `817e913ec` flips that default to `false`. Tests in this paper that use `LLAMA_ATTN_ROT_K_OVERRIDE` / `LLAMA_ATTN_ROT_V_OVERRIDE` require the post-fix build). Per-side env knobs are in `src/llama-kv-cache.cpp` around the `attn_rot_k`/`attn_rot_v` initialization.
 - **Build target:** `build-test/bin/llama-perplexity` (Metal-only fast iteration build, `EMBED=OFF`).
 - **GGUF SHA-256s:**
   - `gemma-4-26B-A4B-it-Q8_0.gguf` — `1157ef475f418871da843a25ce2de867eb00d75732440015d9141362ecd0145b`
   - `gemma-4-31B-it-Q8_0.gguf` — `66ed05a73a36901fafe2e7f965917cc8df750dcdcc43f1b578cc37c63830b335`
   - `google_gemma-4-E2B-it-Q4_K_L.gguf` — `2c64c8ab879d9463abb5dc7ec4ed169c65350361ca8366b39600d183cfd5b270`
 - **Corpus:** `wikitext-2-raw/wiki.test.raw`, the standard llama.cpp distribution copy.
-- **Issue thread:** [dipeshbabu/turboquant_plus#88](https://github.com/dipeshbabu/turboquant_plus/issues/88) — original report from @erazortt that triggered the investigation.
+- **Issue thread:** historical `turboquant_plus#88`
+  ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers)) — original report from @erazortt that triggered the investigation.
 - **Master PR being investigated:** [ggml-org/llama.cpp#21038](https://github.com/ggml-org/llama.cpp/pull/21038).
 - **Independent prior reports:** [#21394](https://github.com/ggml-org/llama.cpp/issues/21394), [#22407](https://github.com/ggml-org/llama.cpp/issues/22407).
 
@@ -535,7 +536,7 @@ To reproduce the KLD evidence in §4.3:
 
 ## Acknowledgments
 
-- **@erazortt** — original gemma-4 26B-A4B Q6_K_XL regression report on dipeshbabu/turboquant_plus#88. Without that report we would have shipped the v2 broad-enable default and broken his configuration silently.
+- **@erazortt** — original gemma-4 26B-A4B Q6_K_XL regression report on historical `turboquant_plus#88`. Without that report we would have shipped the v2 broad-enable default and broken his configuration silently.
 - **@ggerganov** — author of master PR #21038 and of the "track KLD rather than PPL" recommendation that we re-derived independently and now confirm with controlled per-side measurements.
 - **@vektorprime, @stduhpf, AesSedai** — independent reporters of the same PPL/KLD ranking-flip pattern in [#21394](https://github.com/ggml-org/llama.cpp/issues/21394) and the PR #21038 thread, on the same model class. Their data is what made this an "independently observed pattern" rather than a one-author observation.
 - The **localbench** maintainers for the cross-family KLD methodology that confirmed gemma-4 is an order of magnitude noisier under KV quantization than peer families.

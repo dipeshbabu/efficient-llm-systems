@@ -29,62 +29,64 @@ import re as _re
 import shlex
 import subprocess
 import sys
-from dataclasses import asdict
 from pathlib import Path
 from typing import Optional
 
+from . import __report_schema__
 from .axes.gtm import GTMResult
 from .axes.kld import KLDResult
 from .axes.plad import PLADResult
 from .axes.rniah import RNIAHResult
 from .axes.trajectory import TrajectoryResult
-from .report import _sanitize_home_arg
-from . import __report_schema__
-from .score import CompositeScore, MIN_FLOOR, band, interpret_pattern
-
+from .report import _sanitize_home_arg, to_json_string
+from .score import CompositeScore, band, interpret_pattern
 
 # Pretty band names shown to users (Excellent vs EXCELLENT).
 _BAND_PRETTY = {
     "EXCELLENT": "Excellent",
-    "PASS":      "Pass",
-    "DEGRADED":  "Degraded",
-    "FAIL":      "Fail",
+    "PASS": "Pass",
+    "DEGRADED": "Degraded",
+    "FAIL": "Fail",
 }
 
 # CSS class mapping used in the badge / fill colour.
 _BAND_CLASS = {
     "EXCELLENT": "green",
-    "PASS":      "green",
-    "DEGRADED":  "amber",
-    "FAIL":      "red",
+    "PASS": "green",
+    "DEGRADED": "amber",
+    "FAIL": "red",
 }
 
 _BAND_PROSE = {
     "EXCELLENT": "No material drift detected on the measured surfaces.",
-    "PASS":      "Minor measured drift; validate on the target workload.",
-    "DEGRADED":  "Visible drift. Audit on your workload before deploying.",
-    "FAIL":      "Material quality loss. Treat as broken.",
+    "PASS": "Minor measured drift; validate on the target workload.",
+    "DEGRADED": "Visible drift. Audit on your workload before deploying.",
+    "FAIL": "Material quality loss. Treat as broken.",
 }
 
 _AXIS_PROSE = {
-    "gtm":        "Token-level agreement with the fp16 reference (greedy decode).",
+    "gtm": "Token-level agreement with the fp16 reference (greedy decode).",
     "trajectory": "Token-level agreement with the fp16 reference (decode-time IDs).",
-    "kld":        "Distribution-level divergence from the fp16 reference (corpus KLD).",
-    "rniah":      "Long-context retrieval quality vs the reference (NIAH at multiple lengths).",
-    "plad":       "Robustness to small prompt changes vs the reference (typo / case / punct / paraphrase).",
+    "kld": "Distribution-level divergence from the fp16 reference (corpus KLD).",
+    "rniah": "Long-context retrieval quality vs the reference (NIAH at multiple lengths).",
+    "plad": "Robustness to small prompt changes vs the reference (typo / case / punct / paraphrase).",
 }
 
 # Full-name → letter (axis A/B/C/D) and short label.
-_AXIS_LETTER = {"gtm": "A", "trajectory": "A", "kld": "B",
-                "rniah": "C", "plad": "D"}
-_AXIS_SHORT = {"gtm": "GTM", "trajectory": "Trajectory", "kld": "KLD@D",
-               "rniah": "R-NIAH", "plad": "PLAD"}
+_AXIS_LETTER = {"gtm": "A", "trajectory": "A", "kld": "B", "rniah": "C", "plad": "D"}
+_AXIS_SHORT = {
+    "gtm": "GTM",
+    "trajectory": "Trajectory",
+    "kld": "KLD@D",
+    "rniah": "R-NIAH",
+    "plad": "PLAD",
+}
 _AXIS_FULL = {
-    "gtm":        "Greedy Trajectory Match",
+    "gtm": "Greedy Trajectory Match",
     "trajectory": "Greedy Trajectory Match (decode-time IDs)",
-    "kld":        "KL Divergence at the Decoder",
-    "rniah":      "Retrieval Needle-In-A-Haystack",
-    "plad":       "Perturbation-Locality Aware Drift",
+    "kld": "KL Divergence at the Decoder",
+    "rniah": "Retrieval Needle-In-A-Haystack",
+    "plad": "Perturbation-Locality Aware Drift",
 }
 
 
@@ -104,7 +106,9 @@ def _hardware_metadata() -> dict:
         try:
             chip = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True, text=True, timeout=2,
+                capture_output=True,
+                text=True,
+                timeout=2,
             ).stdout.strip()
             if chip:
                 info["chip"] = chip
@@ -113,7 +117,9 @@ def _hardware_metadata() -> dict:
         try:
             memsize = subprocess.run(
                 ["sysctl", "-n", "hw.memsize"],
-                capture_output=True, text=True, timeout=2,
+                capture_output=True,
+                text=True,
+                timeout=2,
             ).stdout.strip()
             if memsize:
                 # Binary GiB (Apple's marketing convention) — 137438953472
@@ -149,16 +155,21 @@ def _hardware_metadata() -> dict:
             pass
     try:
         out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=3,
+            [
+                "nvidia-smi",
+                "--query-gpu=name,memory.total",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=3,
         ).stdout.strip()
         if out:
             info["nvidia_gpus"] = [
-                {"name": parts[0].strip(),
-                 "memory_mb": int(parts[1].strip())}
+                {"name": parts[0].strip(), "memory_mb": int(parts[1].strip())}
                 for line in out.splitlines()
-                for parts in [line.split(",")] if len(parts) >= 2
+                for parts in [line.split(",")]
+                if len(parts) >= 2
             ]
     except Exception:
         pass
@@ -184,10 +195,15 @@ def _model_metadata(model_path: Path) -> dict:
             try:
                 cfg = _json.loads(config_path.read_text(encoding="utf-8"))
                 for k in (
-                    "model_type", "architectures", "hidden_size",
-                    "num_hidden_layers", "num_attention_heads",
-                    "num_key_value_heads", "max_position_embeddings",
-                    "vocab_size", "head_dim",
+                    "model_type",
+                    "architectures",
+                    "hidden_size",
+                    "num_hidden_layers",
+                    "num_attention_heads",
+                    "num_key_value_heads",
+                    "max_position_embeddings",
+                    "vocab_size",
+                    "head_dim",
                 ):
                     if k in cfg:
                         info[k] = cfg[k]
@@ -196,9 +212,14 @@ def _model_metadata(model_path: Path) -> dict:
     return info
 
 
-def _repro_command(raw_json: dict | None, model: str,
-                   reference_label: str, candidate_label: str,
-                   has_rniah: bool, has_plad: bool) -> str:
+def _repro_command(
+    raw_json: dict | None,
+    model: str,
+    reference_label: str,
+    candidate_label: str,
+    has_rniah: bool,
+    has_plad: bool,
+) -> str:
     """Return the shell-escaped command that produced this report.
 
     Priority: JSON's repro_command (v0.3.2+) > sanitized sys.argv (when
@@ -208,24 +229,32 @@ def _repro_command(raw_json: dict | None, model: str,
         return raw_json["repro_command"]
     home = os.path.expanduser("~")
     if any("refract" in a for a in sys.argv):
-        return " ".join(
-            shlex.quote(_sanitize_home_arg(str(a), home)) for a in sys.argv
-        )
+        return " ".join(shlex.quote(_sanitize_home_arg(str(a), home)) for a in sys.argv)
     model_short = Path(model).name
     cmd = [
-        "python3", "-m", "refract.cli", "score",
-        "--model", shlex.quote(model_short),
-        "--reference", shlex.quote(reference_label),
-        "--candidate", shlex.quote(candidate_label),
+        "python3",
+        "-m",
+        "refract.cli",
+        "score",
+        "--model",
+        shlex.quote(model_short),
+        "--reference",
+        shlex.quote(reference_label),
+        "--candidate",
+        shlex.quote(candidate_label),
     ]
     if has_rniah or has_plad:
         cmd.append("--full")
     if has_rniah:
         cmd.extend(["--rniah-up-to", "16384"])
-    cmd.extend([
-        "--json-out", "report.json",
-        "--html-out", "report.html",
-    ])
+    cmd.extend(
+        [
+            "--json-out",
+            "report.json",
+            "--html-out",
+            "report.html",
+        ]
+    )
     return " ".join(cmd)
 
 
@@ -234,7 +263,7 @@ def _repro_command(raw_json: dict | None, model: str,
 # --------------------------------------------------------------------------
 
 
-def _esc(s) -> str:
+def _esc(s: object) -> str:
     return _html.escape("" if s is None else str(s))
 
 
@@ -267,7 +296,12 @@ def _highlight_repro(cmd: str) -> str:
     """Wrap --flags, args, and <placeholders> in spans for syntax colour."""
     parts = []
     for tok in cmd.split():
-        if tok.startswith("--") or tok.startswith("-") and len(tok) > 1 and not tok[1].isdigit():
+        if (
+            tok.startswith("--")
+            or tok.startswith("-")
+            and len(tok) > 1
+            and not tok[1].isdigit()
+        ):
             parts.append(f'<span class="flag">{_esc(tok)}</span>')
         elif tok.startswith("<") and tok.endswith(">"):
             parts.append(f'<span class="placeholder">{_esc(tok)}</span>')
@@ -288,8 +322,13 @@ def _axis_letter_chip(letter: str) -> str:
     return f'<span class="letter">{_esc(letter)}</span>'
 
 
-def _stat_block(name: str, score: Optional[float], *, is_composite: bool = False,
-                low_confidence: bool = False) -> str:
+def _stat_block(
+    name: str,
+    score: Optional[float],
+    *,
+    is_composite: bool = False,
+    low_confidence: bool = False,
+) -> str:
     # When score is None the axis was skipped (--skip-gtm / --skip-kld).
     # Render explicit "n/a" instead of a fake 100/EXCELLENT.
     if score is None and not is_composite:
@@ -297,20 +336,21 @@ def _stat_block(name: str, score: Optional[float], *, is_composite: bool = False
         short = _AXIS_SHORT.get(name, name)
         label_html = (
             f'<div class="label"><span class="axis-letter">{_esc(letter)}</span>'
-            f'{_esc(short)}</div>'
+            f"{_esc(short)}</div>"
         )
         value_html = (
             f'<div class="value-row">'
             f'<div class="value" style="color: var(--fg-faint);" '
             f'title="axis was skipped via --skip-{name} — not measured">n/a</div>'
-            f'</div>'
+            f"</div>"
         )
         return (
             f'<div class="stat skipped">'
-            f'{label_html}{value_html}'
+            f"{label_html}{value_html}"
             f'<div class="badge-row">{_badge("", "Skipped")}</div>'
-            f'</div>'
+            f"</div>"
         )
+    assert score is not None
     b = band(score)
     cls = "stat composite" if is_composite else "stat"
     if is_composite:
@@ -324,7 +364,7 @@ def _stat_block(name: str, score: Optional[float], *, is_composite: bool = False
         short = _AXIS_SHORT.get(name, name)
         label_html = (
             f'<div class="label"><span class="axis-letter">{_esc(letter)}</span>'
-            f'{_esc(short)}</div>'
+            f"{_esc(short)}</div>"
         )
         # v0.3.3: when an axis flags itself low-confidence, the score is
         # mathematically true but uninformative (e.g. R-NIAH=100 when base
@@ -339,16 +379,18 @@ def _stat_block(name: str, score: Optional[float], *, is_composite: bool = False
                 f'also fails at most cells">—</div></div>'
             )
         else:
-            value_html = f'<div class="value-row"><div class="value">{score:.2f}</div></div>'
+            value_html = (
+                f'<div class="value-row"><div class="value">{score:.2f}</div></div>'
+            )
     if low_confidence:
         badge = _badge("", "Low confidence")
     else:
         badge = _badge(b)
     return (
         f'<div class="{cls}">'
-        f'{label_html}{value_html}'
+        f"{label_html}{value_html}"
         f'<div class="badge-row">{badge}</div>'
-        f'</div>'
+        f"</div>"
     )
 
 
@@ -365,28 +407,27 @@ def _findings(diagnosis: list[str]) -> str:
         else:
             inner = _esc(sentence)
         items.append(
-            f'<div class="finding">'
-            f'<span class="num">{i:02d}</span>'
-            f'<p>{inner}</p>'
-            f'</div>'
+            f'<div class="finding"><span class="num">{i:02d}</span><p>{inner}</p></div>'
         )
     return f'<div class="findings">{"".join(items)}</div>'
 
 
-def _axis_row(name: str, score: Optional[float], *, low_confidence: bool = False) -> str:
+def _axis_row(
+    name: str, score: Optional[float], *, low_confidence: bool = False
+) -> str:
     if score is None:
         # Skipped axis: explicit n/a row instead of fake 100/EXCELLENT.
         empty_meter = '<div class="meter-cell"><div class="meter"></div></div>'
         return (
             f'<div class="axis-row skipped">'
             f'<div class="key">{_axis_letter_chip(_AXIS_LETTER.get(name, ""))}'
-            f'{_esc(_AXIS_SHORT.get(name, name))}</div>'
+            f"{_esc(_AXIS_SHORT.get(name, name))}</div>"
             f'<div class="name">{_esc(_AXIS_FULL.get(name, name))}'
             f'<span class="desc">skipped via --skip-{name}; not measured</span></div>'
             f'<div class="score" style="color: var(--fg-faint);">n/a</div>'
             f'<div class="badge-cell">{_badge("", "Skipped")}</div>'
-            f'{empty_meter}'
-            f'</div>'
+            f"{empty_meter}"
+            f"</div>"
         )
     b = band(score)
     if low_confidence:
@@ -403,13 +444,13 @@ def _axis_row(name: str, score: Optional[float], *, low_confidence: bool = False
     return (
         f'<div class="axis-row">'
         f'<div class="key">{_axis_letter_chip(_AXIS_LETTER.get(name, ""))}'
-        f'{_esc(_AXIS_SHORT.get(name, name))}</div>'
+        f"{_esc(_AXIS_SHORT.get(name, name))}</div>"
         f'<div class="name">{_esc(_AXIS_FULL.get(name, name))}'
         f'<span class="desc">{_esc(_AXIS_PROSE.get(name, ""))}</span></div>'
-        f'{score_html}'
+        f"{score_html}"
         f'<div class="badge-cell">{badge}</div>'
-        f'{_meter(score, meter_b)}'
-        f'</div>'
+        f"{_meter(score, meter_b)}"
+        f"</div>"
     )
 
 
@@ -432,25 +473,27 @@ def _rniah_matrix_detail(rniah: RNIAHResult) -> str:
             '<div class="body">'
             '<div class="title">Low confidence — score is noise floor.</div>'
             f'<div class="desc">fp16 baseline retrieves at only '
-            f'{base_avg:.0%} of cells on average. With the reference '
-            f'failing this often, R-NIAH = {rniah.score:.2f} measures '
+            f"{base_avg:.0%} of cells on average. With the reference "
+            f"failing this often, R-NIAH = {rniah.score:.2f} measures "
             f'"candidate matches base" rather than real retrieval '
-            f'capability. Try lower --rniah-up-to or a model with '
-            f'longer effective context.</div>'
-            '</div></div>'
+            f"capability. Try lower --rniah-up-to or a model with "
+            f"longer effective context.</div>"
+            "</div></div>"
         )
     lengths = sorted({c.length for c in rniah.cells})
     positions = sorted({c.position for c in rniah.cells})
-    head = "<tr><th>length \\ position</th>" + "".join(
-        f'<th>{p:.2f}</th>' for p in positions
-    ) + "</tr>"
+    head = (
+        "<tr><th>length \\ position</th>"
+        + "".join(f"<th>{p:.2f}</th>" for p in positions)
+        + "</tr>"
+    )
     rows = []
     for length in lengths:
         tds = []
         for pos in positions:
             cell = next(
-                (c for c in rniah.cells
-                 if c.length == length and c.position == pos), None,
+                (c for c in rniah.cells if c.length == length and c.position == pos),
+                None,
             )
             if cell is None:
                 tds.append('<td class="cell-na" title="cell not run">—</td>')
@@ -468,28 +511,28 @@ def _rniah_matrix_detail(rniah: RNIAHResult) -> str:
                 continue
             if cell.degradation > 0:
                 cls = "cell-fail"
-                title = (f"candidate retrieves at {cand:.2f}, "
-                         f"base at {base:.2f} — degradation {cell.degradation:.2f}")
+                title = (
+                    f"candidate retrieves at {cand:.2f}, "
+                    f"base at {base:.2f} — degradation {cell.degradation:.2f}"
+                )
             else:
                 cls = "cell-pass"
-                title = (f"candidate retrieves at {cand:.2f}, "
-                         f"base at {base:.2f} — match")
+                title = f"candidate retrieves at {cand:.2f}, base at {base:.2f} — match"
             tds.append(
-                f'<td class="{cls}" title="{_esc(title)}">'
-                f'{cand:.2f} / {base:.2f}</td>'
+                f'<td class="{cls}" title="{_esc(title)}">{cand:.2f} / {base:.2f}</td>'
             )
         rows.append(f"<tr><th>{length}</th>{''.join(tds)}</tr>")
     return (
         f'<div class="axis-detail-row">'
         f'<div class="detail-inner">'
-        f'{warning_html}'
+        f"{warning_html}"
         f'<div class="detail-label">R-NIAH per-cell '
         f'<span class="legend">cand / base retrieval rate · '
-        f'green = match · red = candidate worse · '
-        f'n/a = base also fails at this cell</span></div>'
+        f"green = match · red = candidate worse · "
+        f"n/a = base also fails at this cell</span></div>"
         f'<table class="matrix"><thead>{head}</thead>'
-        f'<tbody>{"".join(rows)}</tbody></table>'
-        f'</div></div>'
+        f"<tbody>{''.join(rows)}</tbody></table>"
+        f"</div></div>"
     )
 
 
@@ -498,41 +541,43 @@ def _plad_table_detail(plad: PLADResult) -> str:
     for pert, score in plad.per_perturbation_score.items():
         if not isinstance(score, (int, float)) or math.isnan(score):
             rows.append(
-                f'<tr>'
+                f"<tr>"
                 f'<td class="label">{_esc(pert)}</td>'
                 f'<td class="score-cell"><span class="skipped">skipped</span></td>'
                 f'<td class="band-cell">{_badge("", "N/A")}</td>'
                 f'<td class="meter-cell"></td>'
                 f'<td class="note-cell">didn\'t apply on these prompts</td>'
-                f'</tr>'
+                f"</tr>"
             )
             continue
         b = band(score)
         rows.append(
-            f'<tr>'
+            f"<tr>"
             f'<td class="label">{_esc(pert)}</td>'
             f'<td class="score-cell">{score:.2f}</td>'
             f'<td class="band-cell">{_badge(b)}</td>'
             f'<td class="meter-cell">{_mini_meter(score, b)}</td>'
             f'<td class="note-cell"></td>'
-            f'</tr>'
+            f"</tr>"
         )
     return (
         f'<div class="axis-detail-row">'
         f'<div class="detail-inner">'
         f'<div class="detail-label">PLAD per-perturbation</div>'
         f'<table class="plad-table"><thead>'
-        f'<tr><th>perturbation</th><th>score</th><th>band</th>'
-        f'<th>distribution</th><th></th></tr></thead>'
-        f'<tbody>{"".join(rows)}</tbody></table>'
-        f'</div></div>'
+        f"<tr><th>perturbation</th><th>score</th><th>band</th>"
+        f"<th>distribution</th><th></th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+        f"</div></div>"
     )
 
 
 def _summary_box(composite: CompositeScore) -> str:
     b = composite.band
     cls = _BAND_CLASS.get(b, "gray")
-    icon_text = {"EXCELLENT": "✓", "PASS": "✓", "DEGRADED": "!", "FAIL": "!"}.get(b, "·")
+    icon_text = {"EXCELLENT": "✓", "PASS": "✓", "DEGRADED": "!", "FAIL": "!"}.get(
+        b, "·"
+    )
     title = _BAND_PROSE.get(b, "")
     # Build a one-liner about which axes drove the band.
     bits = []
@@ -564,22 +609,29 @@ def _summary_box(composite: CompositeScore) -> str:
         f'<div class="body">'
         f'<div class="title">{_esc(title)}</div>'
         f'<div class="desc">{_esc(desc)}</div>'
-        f'</div></div>'
+        f"</div></div>"
     )
 
 
-def _kv_pair(label: str, value: str) -> str:
+def _kv_pair(label: str, value: object) -> str:
     return f"<dt>{_esc(label)}</dt><dd>{_esc(value)}</dd>"
 
 
-def _run_details(model_meta: dict, hw_meta: dict,
-                 reference_label: str, candidate_label: str,
-                 env_meta: Optional[dict] = None) -> str:
+def _run_details(
+    model_meta: dict,
+    hw_meta: dict,
+    reference_label: str,
+    candidate_label: str,
+    env_meta: Optional[dict] = None,
+) -> str:
     # Model card
     model_dl = []
     for k, label in (
-        ("name", "name"), ("size_gb", "size"), ("format", "format"),
-        ("model_type", "type"), ("hidden_size", "hidden"),
+        ("name", "name"),
+        ("size_gb", "size"),
+        ("format", "format"),
+        ("model_type", "type"),
+        ("hidden_size", "hidden"),
         ("num_hidden_layers", "layers"),
         ("num_attention_heads", "heads"),
         ("num_key_value_heads", "kv heads"),
@@ -598,10 +650,12 @@ def _run_details(model_meta: dict, hw_meta: dict,
     if hw_meta.get("chip"):
         hw_dl.append(_kv_pair("chip", hw_meta["chip"]))
     if hw_meta.get("platform_pretty") or hw_meta.get("platform"):
-        hw_dl.append(_kv_pair(
-            "platform",
-            hw_meta.get("platform_pretty") or hw_meta.get("platform"),
-        ))
+        hw_dl.append(
+            _kv_pair(
+                "platform",
+                hw_meta.get("platform_pretty") or hw_meta.get("platform"),
+            )
+        )
     if "ram_gb" in hw_meta:
         hw_dl.append(_kv_pair("ram", f"{hw_meta['ram_gb']} GB"))
     if hw_meta.get("machine"):
@@ -610,7 +664,7 @@ def _run_details(model_meta: dict, hw_meta: dict,
         hw_dl.append(_kv_pair("python", hw_meta["python"]))
     if hw_meta.get("nvidia_gpus"):
         gpu_str = ", ".join(
-            f"{g['name']} ({g['memory_mb']/1024:.1f} GB)"
+            f"{g['name']} ({g['memory_mb'] / 1024:.1f} GB)"
             for g in hw_meta["nvidia_gpus"]
         )
         hw_dl.append(_kv_pair("gpu", gpu_str))
@@ -620,6 +674,7 @@ def _run_details(model_meta: dict, hw_meta: dict,
     def _split_kv(spec: str) -> str:
         parts = [p.strip() for p in spec.split(",")]
         return "<br>".join(parts) if parts else spec
+
     env_dl = []
     em = env_meta or {}
     backend_name = em.get("backend")
@@ -646,26 +701,28 @@ def _run_details(model_meta: dict, hw_meta: dict,
     ):
         if em.get(key):
             env_dl.append(_kv_pair(label, em[key]))
-    env_dl.extend([
-        f"<dt>reference</dt><dd>{_split_kv(_esc(reference_label))}</dd>",
-        f"<dt>candidate</dt><dd>{_split_kv(_esc(candidate_label))}</dd>",
-    ])
+    env_dl.extend(
+        [
+            f"<dt>reference</dt><dd>{_split_kv(_esc(reference_label))}</dd>",
+            f"<dt>candidate</dt><dd>{_split_kv(_esc(candidate_label))}</dd>",
+        ]
+    )
 
     return (
         f'<div class="run-grid">'
         f'<div class="run-card">'
         f'<div class="card-head"><span class="dot"></span><h3>Model</h3></div>'
-        f'<dl>{"".join(model_dl)}</dl>'
-        f'</div>'
+        f"<dl>{''.join(model_dl)}</dl>"
+        f"</div>"
         f'<div class="run-card">'
         f'<div class="card-head"><span class="dot"></span><h3>Hardware</h3></div>'
-        f'<dl>{"".join(hw_dl)}</dl>'
-        f'</div>'
+        f"<dl>{''.join(hw_dl)}</dl>"
+        f"</div>"
         f'<div class="run-card">'
         f'<div class="card-head"><span class="dot"></span><h3>Environment</h3></div>'
-        f'<dl>{"".join(env_dl)}</dl>'
-        f'</div>'
-        f'</div>'
+        f"<dl>{''.join(env_dl)}</dl>"
+        f"</div>"
+        f"</div>"
     )
 
 
@@ -1089,11 +1146,14 @@ def html_report(
 ) -> str:
     """Render the report as a self-contained HTML page (string)."""
     from . import __version__
+
     model_meta = _model_metadata(Path(model))
     hw_meta = _hardware_metadata()
     repro = _repro_command(
-        raw_json=raw_json, model=model,
-        reference_label=reference_label, candidate_label=candidate_label,
+        raw_json=raw_json,
+        model=model,
+        reference_label=reference_label,
+        candidate_label=candidate_label,
         has_rniah=rniah is not None,
         has_plad=(plad is not None and composite.plad_score is not None),
     )
@@ -1108,7 +1168,9 @@ def html_report(
     when_pretty = _dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # Stats strip
-    stats = [_stat_block(axis_a_key, composite.gtm_score, is_composite=False)]  # placeholder, replaced below
+    stats = [
+        _stat_block(axis_a_key, composite.gtm_score, is_composite=False)
+    ]  # placeholder, replaced below
     stats = [
         _stat_block("composite", composite.composite, is_composite=True).replace(
             'class="label"><span class="axis-letter"></span>composite',
@@ -1116,38 +1178,53 @@ def html_report(
         ),
     ]
     # Actual composite block (overrides the placeholder)
-    rniah_low_conf = (rniah is not None and _rniah_low_confidence(rniah))
+    rniah_low_conf = rniah is not None and _rniah_low_confidence(rniah)
 
     stats = []
     stats.append(_stat_block("composite", composite.composite, is_composite=True))
     stats.append(_stat_block(axis_a_key, composite.gtm_score))
     stats.append(_stat_block("kld", composite.kld_score))
     if rniah is not None:
-        stats.append(_stat_block(
-            "rniah", rniah.score,
-            low_confidence=rniah_low_conf,
-        ))
+        stats.append(
+            _stat_block(
+                "rniah",
+                rniah.score,
+                low_confidence=rniah_low_conf,
+            )
+        )
     if composite.plad_score is not None:
         stats.append(_stat_block("plad", composite.plad_score))
 
     # Axes table rows
-    axis_rows = [_axis_row(axis_a_key, composite.gtm_score),
-                 _axis_row("kld", composite.kld_score)]
+    axis_rows = [
+        _axis_row(axis_a_key, composite.gtm_score),
+        _axis_row("kld", composite.kld_score),
+    ]
     if rniah is not None:
-        axis_rows.append(_axis_row(
-            "rniah", rniah.score, low_confidence=rniah_low_conf,
-        ))
+        axis_rows.append(
+            _axis_row(
+                "rniah",
+                rniah.score,
+                low_confidence=rniah_low_conf,
+            )
+        )
         axis_rows.append(_rniah_matrix_detail(rniah))
     if composite.plad_score is not None and plad is not None:
         axis_rows.append(_axis_row("plad", composite.plad_score))
         axis_rows.append(_plad_table_detail(plad))
 
-    n_axes = sum(1 for s in (
-        composite.gtm_score, composite.kld_score,
-        composite.rniah_score, composite.plad_score,
-    ) if s is not None)
+    n_axes = sum(
+        1
+        for s in (
+            composite.gtm_score,
+            composite.kld_score,
+            composite.rniah_score,
+            composite.plad_score,
+        )
+        if s is not None
+    )
 
-    raw = _json.dumps(raw_json or {}, indent=2, default=str)
+    raw = to_json_string(raw_json or {})
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1168,26 +1245,34 @@ def html_report(
     <div>
       <div class="brand">
         <span class="brand-mark">R</span>
-        <span class="brand-text">refract <span class="ver">v{_esc(__version__)}</span></span>
+        <span class="brand-text">refract <span class="ver">v{
+        _esc(__version__)
+    }</span></span>
       </div>
       <h1>{_esc(model_meta.get("name", model))}</h1>
-      <div class="subtitle">Quantization audit · {_esc(candidate_label)} against fp16 reference</div>
+      <div class="subtitle">Quantization audit · {
+        _esc(candidate_label)
+    } against fp16 reference</div>
     </div>
     <div class="meta">
-      <div class="row"><span class="k">report</span><span class="v">{_esc(rid)}</span></div>
-      <div class="row"><span class="k">generated</span><span class="v">{_esc(when_pretty)}</span></div>
+      <div class="row"><span class="k">report</span><span class="v">{
+        _esc(rid)
+    }</span></div>
+      <div class="row"><span class="k">generated</span><span class="v">{
+        _esc(when_pretty)
+    }</span></div>
       <div class="row"><span class="k">scoring</span><span class="v">0–100, higher is better</span></div>
     </div>
   </header>
 
   <div class="stats-strip">
-    {''.join(stats)}
+    {"".join(stats)}
   </div>
 
   <section class="section">
     <div class="section-head">
       <h2>Diagnosis</h2>
-      <span class="hint">{len(diag)} finding{'s' if len(diag) != 1 else ''}</span>
+      <span class="hint">{len(diag)} finding{"s" if len(diag) != 1 else ""}</span>
     </div>
     {_summary_box(composite)}
     {_findings(diag)}
@@ -1206,7 +1291,7 @@ def html_report(
         <div>band</div>
         <div>distribution</div>
       </div>
-      {''.join(axis_rows)}
+      {"".join(axis_rows)}
     </div>
   </section>
 
@@ -1215,8 +1300,15 @@ def html_report(
       <h2>Run details</h2>
       <span class="hint">model · hardware · environment</span>
     </div>
-    {_run_details(model_meta, hw_meta, reference_label, candidate_label,
-                  env_meta=(raw_json or {}).get("environment"))}
+    {
+        _run_details(
+            model_meta,
+            hw_meta,
+            reference_label,
+            candidate_label,
+            env_meta=(raw_json or {}).get("environment"),
+        )
+    }
   </section>
 
   <section class="section">

@@ -26,7 +26,11 @@ The rest of this paper is the evidence.
 
 ## 1. Motivation
 
-Triggered by Mitzenmacher and Portnoy's EDEN-line critique of TurboQuant ([#87](https://github.com/dipeshbabu/turboquant_plus/issues/87), [#89](https://github.com/dipeshbabu/turboquant_plus/issues/89)). The companion paper [eden-optimal-s-revisit.md](./eden-optimal-s-revisit.md) refutes the algorithmic claim at production setup.
+Triggered by Mitzenmacher and Portnoy's EDEN-line critique of TurboQuant
+(historical issues `#87` and `#89`;
+[public endpoints unavailable](../../docs/reference/historical-forks.md#archived-identifiers)).
+The companion paper [eden-optimal-s-revisit.md](./eden-optimal-s-revisit.md)
+refutes the algorithmic claim at production setup.
 
 This paper is independent. While running the EDEN tests, hypothesis H8 (distribution analysis) returned an unexpected observation: **K cache is sub-Gaussian post-WHT.** The 27 follow-ups produce no shipping change and one negative result that subsumes everything else.
 
@@ -477,6 +481,6 @@ Full ledger of all 35 hypotheses (including the EDEN-arc H1–H7, secondary fitt
 - EDEN paper (ICML 2022): [proceedings.mlr.press/v162/vargaftik22a.html](https://proceedings.mlr.press/v162/vargaftik22a.html)
 - Note on TurboQuant and DRIVE/EDEN: [arXiv:2604.18555](https://arxiv.org/abs/2604.18555)
 - Companion paper (algorithmic claim): [eden-optimal-s-revisit.md](./eden-optimal-s-revisit.md)
-- Issue #87 (Mitzenmacher): [dipeshbabu/turboquant_plus#87](https://github.com/dipeshbabu/turboquant_plus/issues/87)
-- Issue #89 (Portnoy): [dipeshbabu/turboquant_plus#89](https://github.com/dipeshbabu/turboquant_plus/issues/89)
+- Issue #87 (Mitzenmacher): historical identifier ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers))
+- Issue #89 (Portnoy): historical identifier ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers))
 - Related work (cited if developed further): KIVI (Liu et al., 2024), HIGGS, SmoothQuant (Xiao et al.), OmniQuant, GPTQ

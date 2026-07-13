@@ -1,6 +1,9 @@
 # Getting Started with TurboQuant+
 
-Get up and running with TurboQuant+ KV cache compression in under 5 minutes.
+This dated setup guide requires the historical experimental llama.cpp fork.
+That fork does not currently have a public source URL, so the build commands
+below are usable only with an existing checkout. See
+[Historical engine forks](../reference/historical-forks.md#llamacpp-experimental-forks).
 
 ## Prerequisites
 
@@ -11,7 +14,7 @@ Get up and running with TurboQuant+ KV cache compression in under 5 minutes.
 ## Build
 
 ```bash
-git clone https://github.com/dipeshbabu/llama-cpp-turboquant
+# Start from an existing checkout of the historical experimental fork.
 cd llama-cpp-turboquant
 git checkout feature/turboquant-kv-cache
 
@@ -215,7 +218,8 @@ wget https://huggingface.co/nisten/llama3-8b-instruct-32k-gguf/raw/main/wiki.tes
 
 ### Step 5: Share results
 
-Post your numbers on [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45). This is where we are tracking all test results before merge.
+The original results were collected under historical `PR #45`. New reports
+can be filed in [this repository's issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
 
 Include: model name, weight quantization, GPU, VRAM, turbo config, PPL, and speed numbers.
 
@@ -225,17 +229,20 @@ Include: model name, weight quantization, GPU, VRAM, turbo config, PPL, and spee
 
 TQ4_1S applies WHT rotation + Lloyd-Max polar quantization to model weights (not just KV cache). This is post-training quantization -- no retraining or calibration required. Apply directly to Q8_0 GGUF models.
 
-**Code:** Weight compression is now on [main](https://github.com/dipeshbabu/llama-cpp-turboquant/tree/feature/turboquant-kv-cache). No separate branch needed.
+**Code:** Weight compression was reported as merged into the historical
+`feature/turboquant-kv-cache` line. Its
+[public fork URL is currently unavailable](../reference/historical-forks.md#llamacpp-experimental-forks).
 
 See the [weight compression paper](../../research/papers/weight-compression-tq4.md) for full methodology and results.
 
 ### Quick Test (copy-paste, 5 minutes)
 
-Clone, build, compress a known-good model, and benchmark. Paste the llama-bench output back in the [PR #45 comments](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45).
+With an existing checkout, build, compress a known-good model, and benchmark.
+Historical `PR #45` is no longer linked; file new results in the
+[current issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
 
 ```bash
-# 1. Clone and build from PR #45
-git clone https://github.com/dipeshbabu/llama-cpp-turboquant.git
+# 1. Build an existing checkout of the historical PR #45 branch
 cd llama-cpp-turboquant
 git checkout pr/tq4-weight-compression
 
@@ -283,7 +290,9 @@ Expected results (Qwen3.5-27B):
 - Quality: +1.3% PPL
 - Speed (Metal): 94-102% of Q8_0. Speed (CUDA): varies by GPU, collecting data
 
-**What to report:** paste all 3 llama-bench outputs in [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45) along with your GPU model. Crashes, errors, or unexpected output are equally valuable.
+**What to report:** include all three `llama-bench` outputs and your GPU model
+in the [current issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
+Crashes, errors, and unexpected output are equally valuable.
 
 ### Other Models and Configs
 
@@ -364,7 +373,7 @@ Models marked with * need community validation. Predictions based on `convert_hf
 **Hybrid:** attn=TQ4_1S, ALL FFN=Q4_K, boundary 2+2. For Llama-family. Max compression, +16% PPL.
 **Premium:** attn=TQ4_1S, ffn_gate/up=Q5_K, ffn_down=Q6_K, boundary 4+4. For Llama-family. Best quality, +5.8% PPL.
 
-The key discriminator is whether the model's GGUF conversion permutes Q/K weights for RoPE (`undo_permute` in `convert_hf_to_gguf.py`). Models without permutation tend to work well with Config I. However, permutation alone does not fully explain the sensitivity difference (see paper Section 5.7). Treat predictions as directional. **Community validation on untested models is very welcome** -- post results on [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45).
+The key discriminator is whether the model's GGUF conversion permutes Q/K weights for RoPE (`undo_permute` in `convert_hf_to_gguf.py`). Models without permutation tend to work well with Config I. However, permutation alone does not fully explain the sensitivity difference (see paper Section 5.7). Treat predictions as directional. **Community validation on untested models is very welcome** -- post results in the [current issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
 
 ### Benchmark a Compressed Model
 

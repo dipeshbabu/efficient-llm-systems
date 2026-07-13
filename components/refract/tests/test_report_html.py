@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-import math
 import re
 
-import pytest
-
 from refract.report_html import (
-    _BAND_CLASS,
-    _BAND_PROSE,
-    _BAND_PRETTY,
     _AXIS_FULL,
     _AXIS_LETTER,
     _AXIS_PROSE,
     _AXIS_SHORT,
+    _BAND_CLASS,
+    _BAND_PRETTY,
     _axis_letter_chip,
     _axis_row,
     _badge,
@@ -26,8 +22,8 @@ from refract.report_html import (
     _mini_meter,
     _model_metadata,
     _plad_table_detail,
-    _repro_command,
     _report_id,
+    _repro_command,
     _rniah_low_confidence,
     _rniah_matrix_detail,
     _stat_block,
@@ -45,14 +41,15 @@ from ._fixtures import (
     make_trajectory,
 )
 
-
 # --- mappings consistency -------------------------------------------------
 
 
 def test_band_pretty_keys_match_band_classes():
-    assert set(_BAND_PRETTY.keys()) == set(_BAND_CLASS.keys()) == {
-        "EXCELLENT", "PASS", "DEGRADED", "FAIL"
-    }
+    assert (
+        set(_BAND_PRETTY.keys())
+        == set(_BAND_CLASS.keys())
+        == {"EXCELLENT", "PASS", "DEGRADED", "FAIL"}
+    )
 
 
 def test_axis_letter_short_full_have_same_keys():
@@ -304,8 +301,10 @@ def test_repro_command_uses_json_field_when_present():
     out = _repro_command(
         raw_json={"repro_command": "refract score --model X"},
         model="X.gguf",
-        reference_label="ref", candidate_label="cand",
-        has_rniah=False, has_plad=False,
+        reference_label="ref",
+        candidate_label="cand",
+        has_rniah=False,
+        has_plad=False,
     )
     assert out == "refract score --model X"
 
@@ -313,10 +312,12 @@ def test_repro_command_uses_json_field_when_present():
 def test_repro_command_synthesizes_when_argv_not_refract(monkeypatch):
     monkeypatch.setattr("sys.argv", ["pytest"])
     out = _repro_command(
-        raw_json=None, model="/path/to/m.gguf",
+        raw_json=None,
+        model="/path/to/m.gguf",
         reference_label="ctk=f16,ctv=f16",
         candidate_label="ctk=q8_0,ctv=q8_0",
-        has_rniah=False, has_plad=False,
+        has_rniah=False,
+        has_plad=False,
     )
     assert "refract.cli" in out
     assert "m.gguf" in out
@@ -327,9 +328,12 @@ def test_repro_command_synthesizes_when_argv_not_refract(monkeypatch):
 def test_repro_command_full_when_rniah_or_plad(monkeypatch):
     monkeypatch.setattr("sys.argv", ["pytest"])
     out = _repro_command(
-        raw_json=None, model="m.gguf",
-        reference_label="r", candidate_label="c",
-        has_rniah=True, has_plad=True,
+        raw_json=None,
+        model="m.gguf",
+        reference_label="r",
+        candidate_label="c",
+        has_rniah=True,
+        has_plad=True,
     )
     assert "--full" in out
     assert "--rniah-up-to" in out
@@ -346,7 +350,9 @@ def test_html_report_two_axis_smoke():
         model="my-model.gguf",
         reference_label="ctk=f16,ctv=f16",
         candidate_label="ctk=q8_0,ctv=q8_0",
-        composite=comp, gtm=gtm, kld=kld,
+        composite=comp,
+        gtm=gtm,
+        kld=kld,
     )
     # Basic structural sanity
     assert "<!DOCTYPE html>" in html
@@ -367,8 +373,13 @@ def test_html_report_full_four_axis():
     comp = composite_score(traj.score, kld.score, rniah.score, plad.score)
     html = html_report(
         model="my-model.gguf",
-        reference_label="ref", candidate_label="cand",
-        composite=comp, gtm=traj, kld=kld, rniah=rniah, plad=plad,
+        reference_label="ref",
+        candidate_label="cand",
+        composite=comp,
+        gtm=traj,
+        kld=kld,
+        rniah=rniah,
+        plad=plad,
     )
     assert "R-NIAH" in html
     assert "PLAD" in html
@@ -382,8 +393,13 @@ def test_html_report_low_confidence_rniah_suppresses_headline():
     rniah = make_rniah_low_base()  # base_acc avg < 0.2
     comp = composite_score(traj.score, kld.score, rniah_score=rniah.score)
     html = html_report(
-        model="m.gguf", reference_label="r", candidate_label="c",
-        composite=comp, gtm=traj, kld=kld, rniah=rniah,
+        model="m.gguf",
+        reference_label="r",
+        candidate_label="c",
+        composite=comp,
+        gtm=traj,
+        kld=kld,
+        rniah=rniah,
     )
     assert "Low confidence" in html
     # n/a cells when base_acc==0
@@ -395,8 +411,12 @@ def test_html_report_includes_acronym_in_footer():
     kld = make_kld()
     comp = composite_score(gtm.score, kld.score)
     html = html_report(
-        model="m.gguf", reference_label="r", candidate_label="c",
-        composite=comp, gtm=gtm, kld=kld,
+        model="m.gguf",
+        reference_label="r",
+        candidate_label="c",
+        composite=comp,
+        gtm=gtm,
+        kld=kld,
     )
     # Footer "What is this?" expands the REFRACT acronym
     assert "REFerence-anchored Robust Acid-test for Compressed Transformers" in html
@@ -408,8 +428,13 @@ def test_html_report_embeds_raw_json():
     comp = composite_score(gtm.score, kld.score)
     raw = {"composite": 95.0, "schema": "refract.report.v0.3.1"}
     html = html_report(
-        model="m.gguf", reference_label="r", candidate_label="c",
-        composite=comp, gtm=gtm, kld=kld, raw_json=raw,
+        model="m.gguf",
+        reference_label="r",
+        candidate_label="c",
+        composite=comp,
+        gtm=gtm,
+        kld=kld,
+        raw_json=raw,
     )
     assert "refract.report.v0.3.1" in html
 
@@ -420,7 +445,11 @@ def test_html_report_score_display_correct_for_known_band():
     kld = make_kld(score=10.0)
     comp = composite_score(10.0, 10.0)
     html = html_report(
-        model="m.gguf", reference_label="r", candidate_label="c",
-        composite=comp, gtm=gtm, kld=kld,
+        model="m.gguf",
+        reference_label="r",
+        candidate_label="c",
+        composite=comp,
+        gtm=gtm,
+        kld=kld,
     )
     assert "Fail" in html

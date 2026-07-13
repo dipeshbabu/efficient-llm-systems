@@ -10,13 +10,13 @@ Requires: pip install transformers torch accelerate
 """
 
 import time
+
 import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from turboquant import TurboQuant, TurboQuantMSE, KVCacheCompressor
+from turboquant import KVCacheCompressor
 from turboquant.outlier import OutlierTurboQuant
-
 
 MODEL_NAME = "Qwen/Qwen3-1.7B"  # head_dim=128, same as 27B
 
@@ -78,8 +78,10 @@ def analyze_kv_distribution(kv: dict):
         print(f"    Value range:     [{flat.min():.4f}, {flat.max():.4f}]")
         print(f"    Mean:            {flat.mean():.6f}")
         print(f"    Std:             {flat.std():.6f}")
-        print(f"    Vector norms:    mean={norms.mean():.4f}, std={norms.std():.4f}, "
-              f"min={norms.min():.4f}, max={norms.max():.4f}")
+        print(
+            f"    Vector norms:    mean={norms.mean():.4f}, std={norms.std():.4f}, "
+            f"min={norms.min():.4f}, max={norms.max():.4f}"
+        )
         print(f"    Kurtosis:        {_kurtosis(flat):.2f} (Gaussian=3.0)")
 
     return kv
@@ -97,10 +99,14 @@ def compress_and_compare(kv: dict):
 
     print(f"\n  Model KV shape: {k_cache.shape}")
     print(f"  Total vectors: {num_layers * num_heads * seq_len}")
-    print(f"  Original size: {k_cache.nbytes + v_cache.nbytes:,} bytes "
-          f"({(k_cache.nbytes + v_cache.nbytes) / 1024 / 1024:.1f} MB)")
+    print(
+        f"  Original size: {k_cache.nbytes + v_cache.nbytes:,} bytes "
+        f"({(k_cache.nbytes + v_cache.nbytes) / 1024 / 1024:.1f} MB)"
+    )
 
-    print(f"\n  {'Config':<22} {'K MSE':>12} {'V MSE':>12} {'K Cosine':>10} {'Ratio':>8}")
+    print(
+        f"\n  {'Config':<22} {'K MSE':>12} {'V MSE':>12} {'K Cosine':>10} {'Ratio':>8}"
+    )
     print(f"  {'─' * 66}")
 
     configs = [
@@ -114,14 +120,18 @@ def compress_and_compare(kv: dict):
     results = {}
     for name, k_bits, v_bits, mode in configs:
         if mode == "uniform":
-            compressor = KVCacheCompressor(head_dim=head_dim, k_bits=int(k_bits), v_bits=int(v_bits))
+            compressor = KVCacheCompressor(
+                head_dim=head_dim, k_bits=int(k_bits), v_bits=int(v_bits)
+            )
             compressed = compressor.compress(k_cache, v_cache)
             k_hat, v_hat = compressor.decompress(compressed)
             stats = compressor.memory_stats(seq_len, num_layers, num_heads)
             ratio = stats["compression_ratio"]
         else:
             # Outlier: compress each head individually
-            k_hat, v_hat, ratio = _compress_outlier(k_cache, v_cache, k_bits, v_bits, head_dim)
+            k_hat, v_hat, ratio = _compress_outlier(
+                k_cache, v_cache, k_bits, v_bits, head_dim
+            )
 
         k_mse = np.mean((k_cache - k_hat) ** 2)
         v_mse = np.mean((v_cache - v_hat) ** 2)
@@ -131,8 +141,15 @@ def compress_and_compare(kv: dict):
         k_hat_flat = k_hat.reshape(-1, head_dim)
         cosines = _batch_cosine_sim(k_flat, k_hat_flat)
 
-        print(f"  {name:<22} {k_mse:>12.8f} {v_mse:>12.8f} {np.mean(cosines):>10.6f} {ratio:>7.1f}×")
-        results[name] = {"k_mse": k_mse, "v_mse": v_mse, "cosine": np.mean(cosines), "ratio": ratio}
+        print(
+            f"  {name:<22} {k_mse:>12.8f} {v_mse:>12.8f} {np.mean(cosines):>10.6f} {ratio:>7.1f}×"
+        )
+        results[name] = {
+            "k_mse": k_mse,
+            "v_mse": v_mse,
+            "cosine": np.mean(cosines),
+            "ratio": ratio,
+        }
 
     return results
 
@@ -146,14 +163,18 @@ def _compress_outlier(k_cache, v_cache, k_bits, v_bits, head_dim):
     for layer in range(num_layers):
         for head in range(num_heads):
             # K cache with outlier TurboQuant
-            k_oq = OutlierTurboQuant(head_dim, target_bits=k_bits, seed=42 + layer * 100 + head)
+            k_oq = OutlierTurboQuant(
+                head_dim, target_bits=k_bits, seed=42 + layer * 100 + head
+            )
             k_vecs = k_cache[layer, head]
             for i in range(seq_len):
                 c = k_oq.quantize(k_vecs[i])
                 k_hat[layer, head, i] = k_oq.dequantize(c)
 
             # V cache with outlier PolarQuant (MSE-only, lower overhead)
-            v_oq = OutlierTurboQuant(head_dim, target_bits=v_bits, seed=42 + layer * 100 + head + 50)
+            v_oq = OutlierTurboQuant(
+                head_dim, target_bits=v_bits, seed=42 + layer * 100 + head + 50
+            )
             v_vecs = v_cache[layer, head]
             for i in range(seq_len):
                 c = v_oq.quantize(v_vecs[i])
@@ -179,7 +200,9 @@ def attention_quality_test(model, tokenizer, kv: dict):
     # This simulates what happens during autoregressive generation
     rng = np.random.default_rng(42)
 
-    print(f"\n  Testing attention output quality per layer (using real K/V from layer)...")
+    print(
+        "\n  Testing attention output quality per layer (using real K/V from layer)..."
+    )
     print(f"  {'Config':<20} {'Avg Attn Cosine':>16} {'Max Attn Error':>16}")
     print(f"  {'─' * 54}")
 
@@ -203,7 +226,9 @@ def attention_quality_test(model, tokenizer, kv: dict):
 
                 # Compressed attention
                 if mode == "uniform":
-                    compressor = KVCacheCompressor(head_dim=head_dim, k_bits=k_bits, v_bits=v_bits)
+                    compressor = KVCacheCompressor(
+                        head_dim=head_dim, k_bits=k_bits, v_bits=v_bits
+                    )
                     k_4d = k[np.newaxis, np.newaxis, :, :]
                     v_4d = v[np.newaxis, np.newaxis, :, :]
                     compressed = compressor.compress(k_4d, v_4d)
@@ -212,18 +237,25 @@ def attention_quality_test(model, tokenizer, kv: dict):
                 else:
                     k_oq = OutlierTurboQuant(head_dim, target_bits=k_bits, seed=42)
                     v_oq = OutlierTurboQuant(head_dim, target_bits=v_bits, seed=43)
-                    k_c = np.array([k_oq.dequantize(k_oq.quantize(k[i])) for i in range(seq_len)])
-                    v_c = np.array([v_oq.dequantize(v_oq.quantize(v[i])) for i in range(seq_len)])
+                    k_c = np.array(
+                        [k_oq.dequantize(k_oq.quantize(k[i])) for i in range(seq_len)]
+                    )
+                    v_c = np.array(
+                        [v_oq.dequantize(v_oq.quantize(v[i])) for i in range(seq_len)]
+                    )
 
                 scores_c = q @ k_c.T / np.sqrt(head_dim)
                 attn_c = _softmax(scores_c)
                 out_comp = attn_c @ v_c
 
                 cos = np.dot(out_orig.ravel(), out_comp.ravel()) / (
-                    max(np.linalg.norm(out_orig) * np.linalg.norm(out_comp), 1e-10))
+                    max(np.linalg.norm(out_orig) * np.linalg.norm(out_comp), 1e-10)
+                )
                 attn_cosines.append(cos)
 
-        print(f"  {bits_label:<20} {np.mean(attn_cosines):>16.6f} {1 - min(attn_cosines):>16.6f}")
+        print(
+            f"  {bits_label:<20} {np.mean(attn_cosines):>16.6f} {1 - min(attn_cosines):>16.6f}"
+        )
 
 
 def niah_test(model, tokenizer):
@@ -250,7 +282,9 @@ def niah_test(model, tokenizer):
             temperature=1.0,
         )
 
-    response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+    response = tokenizer.decode(
+        outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
+    )
     found = "TURBOQUANT42" in response
     print(f"  Response: {response[:100]}...")
     print(f"  Needle found: {'✅ YES' if found else '❌ NO'}")
@@ -291,10 +325,12 @@ def main():
     model, tokenizer = load_model()
 
     # Step 1: Extract real KV tensors
-    prompt = ("Explain the concept of vector quantization in the context of "
-              "large language model inference optimization, including KV cache "
-              "compression techniques and their impact on memory usage and "
-              "generation speed for long-context applications.")
+    prompt = (
+        "Explain the concept of vector quantization in the context of "
+        "large language model inference optimization, including KV cache "
+        "compression techniques and their impact on memory usage and "
+        "generation speed for long-context applications."
+    )
     print(f"\n  Extracting KV cache for prompt ({len(prompt)} chars)...")
     t0 = time.perf_counter()
     kv = extract_kv_cache(model, tokenizer, prompt)
@@ -321,10 +357,12 @@ def main():
     print(f"\n  Model: {MODEL_NAME}")
     print(f"  KV shape: {kv['k_cache'].shape}")
     for name, r in results.items():
-        print(f"  {name}: ratio={r['ratio']:.1f}×, K cosine={r['cosine']:.4f}, K MSE={r['k_mse']:.8f}")
+        print(
+            f"  {name}: ratio={r['ratio']:.1f}×, K cosine={r['cosine']:.4f}, K MSE={r['k_mse']:.8f}"
+        )
 
-    print(f"\n  ✅ Phase A validation complete.")
-    print(f"  Next: Phase B — port to llama.cpp for real inference testing.")
+    print("\n  ✅ Phase A validation complete.")
+    print("  Next: Phase B — port to llama.cpp for real inference testing.")
 
 
 if __name__ == "__main__":

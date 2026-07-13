@@ -123,7 +123,8 @@ We accept rows where:
 ## Reproducibility info for the rows above
 
   - REFRACT version: v0.3.0
-  - Backend: llamacpp (dipeshbabu/llama.cpp `feature/turboquant-kv-cache`)
+  - Backend: llamacpp (historical `llama.cpp` fork,
+    `feature/turboquant-kv-cache`; [public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks))
   - Hardware: M5 Max 128 GB RAM, macOS Tahoe 26.4
   - Reference KV: ctk=f16,ctv=f16
   - R-NIAH ctx_max: 16384

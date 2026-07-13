@@ -58,8 +58,8 @@ The llama.cpp backend needs compatible binaries (`llama-cli`,
 path — `LD_LIBRARY_PATH` / `ldconfig` on Linux, DLLs next to the `.exe`
 or on `PATH` on Windows. `selftest` detects this and prints the right
 remediation per OS. The trajectory capture extension is available in the
-[llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant)
-builds linked by the root README; it is not embedded in this wheel. MLX is
+[historical llama.cpp TurboQuant fork](../../docs/reference/historical-forks.md#llamacpp-experimental-forks)
+builds described by the root README; it is not embedded in this wheel. MLX is
 Apple Silicon only by upstream design.
 
 The vLLM backend uses `vllm.LLM` in-process. Each call instantiates an

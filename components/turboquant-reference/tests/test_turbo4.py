@@ -13,9 +13,7 @@ Written as part of Issue #29 fix — turbo4 had zero test coverage.
 import numpy as np
 import pytest
 
-from turboquant.turboquant import TurboQuant, TurboQuantMSE, CompressedVector
-from turboquant.polar_quant import PolarQuant
-from turboquant.qjl import QJL
+from turboquant.turboquant import CompressedVector, TurboQuant, TurboQuantMSE
 
 
 class TestTurbo4RoundTrip:
@@ -80,7 +78,9 @@ class TestTurbo4RoundTrip:
 
         assert x_hat.shape == (d,)
         assert not np.any(np.isnan(x_hat))
-        assert np.linalg.norm(x - x_hat) < np.linalg.norm(x)  # reconstruction is closer than zero
+        assert np.linalg.norm(x - x_hat) < np.linalg.norm(
+            x
+        )  # reconstruction is closer than zero
 
 
 class TestTurbo4QJLBenefit:
@@ -95,8 +95,8 @@ class TestTurbo4QJLBenefit:
         We just verify both errors are small and in the same ballpark.
         """
         d = 128
-        tq_full = TurboQuant(d=d, bit_width=4, seed=42)     # 3-bit PQ + 1-bit QJL
-        tq_mse = TurboQuantMSE(d=d, bit_width=3, seed=42)   # 3-bit PQ only
+        tq_full = TurboQuant(d=d, bit_width=4, seed=42)  # 3-bit PQ + 1-bit QJL
+        tq_mse = TurboQuantMSE(d=d, bit_width=3, seed=42)  # 3-bit PQ only
 
         rng = np.random.default_rng(77)
 
@@ -185,7 +185,9 @@ class TestTurbo4EdgeCases:
         norm_x = np.linalg.norm(x)
         if norm_x > 1e-10:
             rel_err = np.linalg.norm(x - x_hat) / norm_x
-            assert rel_err < 0.6, f"Relative error {rel_err:.4f} too high at scale={scale}"
+            assert rel_err < 0.6, (
+                f"Relative error {rel_err:.4f} too high at scale={scale}"
+            )
 
     def test_turbo4_vs_turbo3_quality(self):
         """turbo4 (4-bit) should have lower MSE than turbo3 (3-bit)."""
@@ -208,5 +210,5 @@ class TestTurbo4EdgeCases:
             mse4 += np.mean((x - x4) ** 2)
 
         assert mse4 / n < mse3 / n, (
-            f"turbo4 MSE ({mse4/n:.5f}) should be lower than turbo3 ({mse3/n:.5f})"
+            f"turbo4 MSE ({mse4 / n:.5f}) should be lower than turbo3 ({mse3 / n:.5f})"
         )

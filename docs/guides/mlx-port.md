@@ -2,11 +2,12 @@
 
 TurboQuant KV cache compression is being ported to Apple's [MLX framework](https://github.com/ml-explore/mlx) for native Python/Swift inference on Apple Silicon.
 
-**Fork:** [dipeshbabu/mlx `feature/turboquant-plus`](https://github.com/dipeshbabu/mlx/tree/feature/turboquant-plus)
+**Fork:** historical MLX `feature/turboquant-plus` implementation
+([public source URL unavailable](../reference/historical-forks.md#mlx-experimental-fork))
 
 ### Results (M5 Max)
 
-**Qwen2.5-3B 4bit — delegated KVCache (5-run avg, 500 decode tokens, [`7ad7500`](https://github.com/dipeshbabu/mlx/commit/7ad75002bbf87f5d1774859e94e2a76ccbd3a56d)):**
+**Qwen2.5-3B 4bit — delegated KVCache (5-run avg, 500 decode tokens, historical commit `7ad7500`):**
 
 | Config | Decode tok/s | vs Baseline | PPL | PPL Delta |
 |--------|-------------|-------------|-----|-----------|
@@ -64,7 +65,7 @@ TurboQuant KV cache compression is being ported to Apple's [MLX framework](https
 
 M2 Pro shows more decode regression at long context — lower memory bandwidth amplifies turbo overhead.
 
-**M5 Max Context Scaling (Qwen2.5-7B 8bit, delegated KVCache, [`7ad7500`](https://github.com/dipeshbabu/mlx/commit/7ad75002bbf87f5d1774859e94e2a76ccbd3a56d)):**
+**M5 Max Context Scaling (Qwen2.5-7B 8bit, delegated KVCache, historical commit `7ad7500`):**
 
 | Context | Baseline | Sym turbo4 | vs Baseline | Asym (K=FP16) | vs Baseline |
 |---------|----------|-----------|-------------|---------------|-------------|
@@ -109,7 +110,8 @@ text = mlx_lm.generate(model, tokenizer, prompt="Hello!",
 ```
 
 ```bash
-pip install git+https://github.com/dipeshbabu/mlx.git@feature/turboquant-plus
+# Requires an existing checkout of the historical feature branch.
+python -m pip install -e /path/to/mlx
 pip install mlx-lm
 ```
 
@@ -117,7 +119,7 @@ pip install mlx-lm
 
 `TurboKVCache` is a drop-in replacement for mlx-lm's `KVCache` that adds TurboQuant 4-bit K+V compression. Compatible with **mlx-lm** and **mlx-vlm** — no framework changes needed.
 
-**Delegated KVCache architecture** ([`7ad7500`](https://github.com/dipeshbabu/mlx/commit/7ad75002bbf87f5d1774859e94e2a76ccbd3a56d)): During prefill, stores raw FP16. On first decode step, compresses to packed TurboQuant storage and seeds an internal `KVCache` with decoded FP16. Subsequent decode tokens go through the native KVCache (pre-allocated buffers, zero-alloc slice-assign). Packed storage updated in background via periodic batch recompression on CPU stream.
+**Delegated KVCache architecture** (historical commit `7ad7500`): During prefill, stores raw FP16. On first decode step, compresses to packed TurboQuant storage and seeds an internal `KVCache` with decoded FP16. Subsequent decode tokens go through the native KVCache (pre-allocated buffers, zero-alloc slice-assign). Packed storage updated in background via periodic batch recompression on CPU stream.
 
 - **97–100% baseline decode speed** across 512–16K context (Qwen2.5-7B, M5 Max)
 - +0.51% PPL (asymmetric), +1.70% PPL (symmetric)
@@ -153,7 +155,8 @@ generate(model, processor, prompt="Continue.", max_tokens=200, prompt_cache=cach
 ```
 
 ```bash
-pip install git+https://github.com/dipeshbabu/mlx.git@feature/turboquant-plus
+# Requires an existing checkout of the historical feature branch.
+python -m pip install -e /path/to/mlx
 pip install mlx-vlm
 ```
 
@@ -186,4 +189,3 @@ gemma-4-26b-a4b-it · BF16 · 4-bit TQ+ Compact · MM-NIAH (val) · M5 Max 128GB
 | **Total** | **79%** | **78%** | **99%** | **51.1** | **47.2** | **0.92x** | **0.58G** | **0.29G** | **50%** |
 
 99% answer agreement with baseline across all context lengths — zero systematic quality degradation. KV savings of 10–64% where TQ+ is active. Decode speedup scales from 0.99x at ~1K to 0.79x at ~60K (dequant-once overhead on longer prefills).
-

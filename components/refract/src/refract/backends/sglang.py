@@ -36,10 +36,9 @@ from __future__ import annotations
 
 import math
 import os
-import sys
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from .base import (
     Backend,
@@ -49,7 +48,6 @@ from .base import (
     TrajectoryResult,
     approximate_topk_kl,
 )
-
 
 _SUPPORTED_KV: set[tuple[str, str]] = {
     ("f16", "f16"),
@@ -86,7 +84,8 @@ def _post(url: str, path: str, body: dict, *, timeout_s: float) -> dict:
     Raises BackendCapabilityError on connection refused / timeout with an
     actionable message about the server URL.
     """
-    import requests  # type: ignore[import-not-found]
+    import requests
+
     try:
         r = requests.post(url + path, json=body, timeout=timeout_s)
     except requests.exceptions.ConnectionError as e:
@@ -103,7 +102,8 @@ def _post(url: str, path: str, body: dict, *, timeout_s: float) -> dict:
 
 def _model_id(url: str) -> str:
     """Look up the served model id (used as the `model` field in some endpoints)."""
-    import requests  # type: ignore[import-not-found]
+    import requests
+
     try:
         r = requests.get(url + "/v1/models", timeout=30)
         data = r.json().get("data", [])
@@ -118,7 +118,8 @@ def _model_id(url: str) -> str:
 def _load_tokenizer(model_id: str):
     """Load the model tokenizer used to build identical SGLang prompts."""
     try:
-        from transformers import AutoTokenizer  # type: ignore[import-not-found]
+        from transformers import AutoTokenizer
+
         return AutoTokenizer.from_pretrained(model_id)
     except Exception as e:
         raise BackendCapabilityError(
@@ -157,7 +158,11 @@ def _prompt_token_ids(
 
     body = {"prompt": prompt, "model": _model_id(url) or model.as_posix()}
     response = _post(url, "/tokenize", body, timeout_s=120.0)
-    ids = response[0]["tokens"] if isinstance(response, list) else response.get("tokens", [])
+    ids = (
+        response[0]["tokens"]
+        if isinstance(response, list)
+        else response.get("tokens", [])
+    )
     return [int(token_id) for token_id in ids]
 
 
@@ -183,7 +188,10 @@ class SGLangBackend(Backend):
         _validate_kv_str(kv_config_str)
         url = _url("REFRACT_SGLANG_URL")
         ids = _prompt_token_ids(
-            model, url, prompt, system=system,
+            model,
+            url,
+            prompt,
+            system=system,
             apply_template=apply_chat_template,
         )
         body = {
@@ -218,7 +226,10 @@ class SGLangBackend(Backend):
         url = _url("REFRACT_SGLANG_URL")
         # Use the same locally templated prompt IDs as ``run_completion``.
         ids = _prompt_token_ids(
-            model, url, prompt, system=system,
+            model,
+            url,
+            prompt,
+            system=system,
             apply_template=apply_chat_template,
         )
         gen_body = {
@@ -274,8 +285,7 @@ class SGLangBackend(Backend):
         # SGLang reserves a few tokens internally; leave headroom on chunk_len
         chunk_len = ctx - 8
         slices = [
-            ids[i : i + chunk_len]
-            for i in range(0, len(ids) - chunk_len, chunk_len)
+            ids[i : i + chunk_len] for i in range(0, len(ids) - chunk_len, chunk_len)
         ][:chunks]
         if not slices:
             raise BackendCapabilityError(
@@ -310,7 +320,11 @@ class SGLangBackend(Backend):
                         pos.append({})
                     else:
                         pos.append(
-                            {int(e[1]): float(e[0]) for e in entry if e and e[0] is not None}
+                            {
+                                int(e[1]): float(e[0])
+                                for e in entry
+                                if e and e[0] is not None
+                            }
                         )
                 res.append(pos)
             return res
@@ -336,21 +350,15 @@ class SGLangBackend(Backend):
                     if p > 1e-9:
                         sq_dp_sum += ((math.exp(cand_lp) - p) / p) ** 2
                         n_dp += 1
-                total_kl += approximate_topk_kl(
-                    ref_pos, cand_pos, log_floor=LOG_FLOOR
-                )
+                total_kl += approximate_topk_kl(ref_pos, cand_pos, log_floor=LOG_FLOOR)
                 ref_top = max(ref_pos.items(), key=lambda kv: kv[1])[0]
                 cand_top = max(cand_pos.items(), key=lambda kv: kv[1])[0]
                 same_topp_hits += int(ref_top == cand_top)
                 same_topp_n += 1
         mean_kl = total_kl / max(n_pos, 1)
-        rms_dp_pct = (
-            100.0 * math.sqrt(sq_dp_sum / max(n_dp, 1)) if n_dp else None
-        )
+        rms_dp_pct = 100.0 * math.sqrt(sq_dp_sum / max(n_dp, 1)) if n_dp else None
         same_topp_pct = (
-            100.0 * same_topp_hits / max(same_topp_n, 1)
-            if same_topp_n
-            else None
+            100.0 * same_topp_hits / max(same_topp_n, 1) if same_topp_n else None
         )
         return KLDResult(
             mean_kld=mean_kl,

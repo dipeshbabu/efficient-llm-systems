@@ -14,7 +14,6 @@ These pin the v0.1.1 + v0.1.2 fixes:
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -81,8 +80,9 @@ def test_run_perplexity_kld_base_has_base_flag(captured, tmp_path):
     corpus = tmp_path / "wiki.raw"
     corpus.write_text("hello world")
     base = tmp_path / "base.bin"
-    run_perplexity_kld_base(model=model, corpus=corpus, kv=KVConfig(),
-                            base_path=base, chunks=4)
+    run_perplexity_kld_base(
+        model=model, corpus=corpus, kv=KVConfig(), base_path=base, chunks=4
+    )
     cmd = captured[0].cmd
     assert "--kl-divergence-base" in cmd
     assert str(base) in cmd
@@ -95,8 +95,9 @@ def test_run_perplexity_kld_has_both_flags(captured, tmp_path):
     corpus = tmp_path / "wiki.raw"
     corpus.write_text("hello world")
     base = tmp_path / "base.bin"
-    run_perplexity_kld(model=model, corpus=corpus, kv=KVConfig(),
-                       base_path=base, chunks=4)
+    run_perplexity_kld(
+        model=model, corpus=corpus, kv=KVConfig(), base_path=base, chunks=4
+    )
     cmd = captured[0].cmd
     assert "--kl-divergence" in cmd
     assert "--kl-divergence-base" in cmd
@@ -121,11 +122,14 @@ def test_extra_flags_shlex_split(monkeypatch):
     monkeypatch.setenv("REFRACT_LLAMA_EXTRA_FLAGS", "-ngl 28 -ncmoe 32")
     assert runner._llama_extra_flags() == ["-ngl", "28", "-ncmoe", "32"]
     monkeypatch.setenv(
-        "REFRACT_LLAMA_EXTRA_FLAGS", '-ts "1,1" --override-tensor "blk\\.\\d+\\.attn=CPU"'
+        "REFRACT_LLAMA_EXTRA_FLAGS",
+        '-ts "1,1" --override-tensor "blk\\.\\d+\\.attn=CPU"',
     )
     assert runner._llama_extra_flags() == [
-        "-ts", "1,1",
-        "--override-tensor", "blk\\.\\d+\\.attn=CPU",
+        "-ts",
+        "1,1",
+        "--override-tensor",
+        "blk\\.\\d+\\.attn=CPU",
     ]
 
 
@@ -141,8 +145,8 @@ def test_run_completion_appends_extra_flags(captured, tmp_path, monkeypatch):
     # last-wins on -ngl: REFRACT puts 99 first, user's 28 must come AFTER
     ngl_indices = [i for i, a in enumerate(cmd) if a == "-ngl"]
     assert len(ngl_indices) == 2, f"expected 2 -ngl flags, got {ngl_indices}"
-    assert cmd[ngl_indices[0] + 1] == "99"   # REFRACT default first
-    assert cmd[ngl_indices[1] + 1] == "28"   # user override last
+    assert cmd[ngl_indices[0] + 1] == "99"  # REFRACT default first
+    assert cmd[ngl_indices[1] + 1] == "28"  # user override last
 
 
 def test_run_perplexity_kld_base_appends_extra_flags(captured, tmp_path, monkeypatch):
@@ -153,8 +157,11 @@ def test_run_perplexity_kld_base_appends_extra_flags(captured, tmp_path, monkeyp
     corpus.write_text("hello world")
     base = tmp_path / "base.bin"
     run_perplexity_kld_base(
-        model=model, corpus=corpus, kv=KVConfig(),
-        base_path=base, chunks=4,
+        model=model,
+        corpus=corpus,
+        kv=KVConfig(),
+        base_path=base,
+        chunks=4,
     )
     assert "-ncmoe" in captured[0].cmd
 
@@ -167,8 +174,11 @@ def test_run_perplexity_kld_appends_extra_flags(captured, tmp_path, monkeypatch)
     corpus.write_text("hello world")
     base = tmp_path / "base.bin"
     run_perplexity_kld(
-        model=model, corpus=corpus, kv=KVConfig(),
-        base_path=base, chunks=4,
+        model=model,
+        corpus=corpus,
+        kv=KVConfig(),
+        base_path=base,
+        chunks=4,
     )
     assert "-ncmoe" in captured[0].cmd
 
@@ -178,11 +188,15 @@ def test_run_completion_trajectory_appends_extra_flags(captured, tmp_path, monke
     knob the same as run_completion. This is the trajectory hot path that
     the 3060/MoE user would actually hit during axis A."""
     from refract.runner import run_completion_trajectory
+
     monkeypatch.setenv("REFRACT_LLAMA_EXTRA_FLAGS", "-ngl 28 -ncmoe 32")
     model = tmp_path / "m.gguf"
     model.touch()
     run_completion_trajectory(
-        model=model, prompt="hi", kv=KVConfig(), n_predict=4,
+        model=model,
+        prompt="hi",
+        kv=KVConfig(),
+        n_predict=4,
     )
     cmd = captured[0].cmd
     assert "-ncmoe" in cmd

@@ -4,8 +4,8 @@
 Independent Researcher
 GitHub: [@dipeshbabu](https://github.com/dipeshbabu)
 
-**Code:** [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant/tree/feature/turboquant-kv-cache) — merged to main (Metal + CUDA). [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45) has the full testing log.
-**Getting started:** [docs/getting-started.md](https://github.com/dipeshbabu/turboquant_plus/blob/main/docs/getting-started.md)
+**Code:** [historical llama.cpp TurboQuant fork; public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks), branch `feature/turboquant-kv-cache` — reported as merged to main (Metal + CUDA). Historical `PR #45` contained the full testing log.
+**Getting started:** [getting-started.md](../../docs/guides/getting-started.md)
 
 ---
 
@@ -465,7 +465,10 @@ for i in range(4, n_layers - 4):
   -p 512 -n 128 -ctk q8_0 -ctv turbo4
 ```
 
-Implementation: [PR #45](https://github.com/dipeshbabu/llama-cpp-turboquant/pull/45) on branch `pr/tq4-weight-compression`. Metal backend only — CUDA port needed before merge. See [getting started](https://github.com/dipeshbabu/turboquant_plus/blob/main/docs/getting-started.md) for usage.
+Implementation: historical `PR #45` on branch `pr/tq4-weight-compression`
+([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers)).
+Metal backend only — CUDA port needed before merge. See
+[getting started](../../docs/guides/getting-started.md) for usage.
 
 ---
 
@@ -495,7 +498,7 @@ The current implementation validates the method end-to-end across 6 models and 3
 
 - TurboQuant paper: [arXiv 2504.19874](https://arxiv.org/abs/2504.19874) (ICLR 2026)
 - David Y. Tan's TQ3_1S implementation: [turbo-tan/llama.cpp-tq3](https://github.com/turbo-tan/llama.cpp-tq3/tree/main)
-- TurboQuant+ implementation: [github.com/dipeshbabu/turboquant_plus](https://github.com/dipeshbabu/turboquant_plus)
+- TurboQuant+ implementation: [current monorepo](../../README.md)
 - turbo4 KV cache resurrection: [turbo4-resurrection.md](turbo4-resurrection.md)
 - Asymmetric K/V compression: [asymmetric-kv-compression.md](asymmetric-kv-compression.md)
 - Boundary V layer-aware compression: [layer-aware-v-compression.md](layer-aware-v-compression.md)

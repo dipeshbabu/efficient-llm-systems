@@ -44,8 +44,8 @@ dependencies = []
 
 [project.optional-dependencies]
 refract-mlx = [
-    "mlx>=0.20",
-    "mlx-lm>=0.31",
+    "mlx>=0.20; sys_platform == 'darwin' and python_version >= '3.10'",
+    "mlx-lm>=0.31; sys_platform == 'darwin' and python_version >= '3.10'",
 ]
 refract-vllm = [
     "vllm>=0.5",
@@ -55,8 +55,8 @@ refract-sglang = [
     "transformers>=4.40",
 ]
 full = [
-    "mlx>=0.20",
-    "mlx-lm>=0.31",
+    "mlx>=0.20; sys_platform == 'darwin' and python_version >= '3.10'",
+    "mlx-lm>=0.31; sys_platform == 'darwin' and python_version >= '3.10'",
     "vllm>=0.5",
     "requests>=2.28",
     "transformers>=4.40",

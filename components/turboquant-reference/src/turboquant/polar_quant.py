@@ -26,7 +26,7 @@ we extract norms, normalize, quantize, then rescale on dequantization.
 
 import numpy as np
 
-from turboquant.codebook import optimal_centroids, nearest_centroid_indices
+from turboquant.codebook import nearest_centroid_indices, optimal_centroids
 from turboquant.rotation import random_rotation_dense
 
 
@@ -43,7 +43,9 @@ class PolarQuant:
         x_hat = pq.dequantize(indices, norms)  # reconstructed
     """
 
-    def __init__(self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True):
+    def __init__(
+        self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True
+    ):
         self.d = d
         self.bit_width = bit_width
         self.n_centroids = 1 << bit_width
@@ -118,7 +120,9 @@ class PolarQuant:
 
         return x_hat[0] if single else x_hat
 
-    def quantize_and_residual(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def quantize_and_residual(
+        self, x: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Quantize and return indices, norms, and residual error.
 
         Used by TurboQuant's second stage (QJL on residual).

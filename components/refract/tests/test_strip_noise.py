@@ -60,9 +60,7 @@ def test_unicode_block_chars_inside_generation_kept():
     """Block chars only stripped when the line is *only* block chars + ws.
     A generation that legitimately contains a block char in the middle of
     real text must survive."""
-    raw = (
-        "| The pixel art logo uses \u2588\u2588 here.\n"
-    )
+    raw = "| The pixel art logo uses \u2588\u2588 here.\n"
     out = _strip_noise(raw)
     assert "The pixel art logo uses" in out
     assert "\u2588\u2588" in out

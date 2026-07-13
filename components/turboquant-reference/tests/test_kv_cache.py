@@ -96,7 +96,9 @@ class TestKVCacheCompressor:
         # 3-bit quantization on both K and V with small d=64 and seq_len=16
         # introduces significant error. Cosine > 0.5 is reasonable here.
         # Higher d and higher bit-width would give much better similarity.
-        assert cosine_sim > 0.5, f"Attention output cosine similarity {cosine_sim:.3f} too low"
+        assert cosine_sim > 0.5, (
+            f"Attention output cosine similarity {cosine_sim:.3f} too low"
+        )
 
     def test_memory_stats(self):
         """Memory stats should show compression."""

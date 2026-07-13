@@ -46,14 +46,23 @@ class LlamaCppBackend(Backend):
         system: Optional[str] = None,
         reasoning: str = "off",
     ) -> CompletionResult:
-        from ..runner import KVConfig, run_completion as _rc
+        from ..runner import KVConfig
+        from ..runner import run_completion as _rc
+
         kv = KVConfig.parse(kv_config_str)
         text, meta = _rc(
-            model=model, prompt=prompt, kv=kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers,
-            seed=seed, temperature=temperature, timeout=timeout,
+            model=model,
+            prompt=prompt,
+            kv=kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
             apply_chat_template=apply_chat_template,
-            system=system, reasoning=reasoning,
+            system=system,
+            reasoning=reasoning,
         )
         return CompletionResult(text=text, n_tokens=0, metadata=meta)
 
@@ -73,13 +82,22 @@ class LlamaCppBackend(Backend):
         apply_chat_template: bool = True,
         system: Optional[str] = None,
     ) -> TrajectoryResult:
-        from ..runner import KVConfig, run_completion_trajectory as _rct
+        from ..runner import KVConfig
+        from ..runner import run_completion_trajectory as _rct
+
         kv = KVConfig.parse(kv_config_str)
         token_ids, meta = _rct(
-            model=model, prompt=prompt, kv=kv,
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers,
-            seed=seed, temperature=temperature, timeout=timeout,
-            apply_chat_template=apply_chat_template, system=system,
+            model=model,
+            prompt=prompt,
+            kv=kv,
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            apply_chat_template=apply_chat_template,
+            system=system,
         )
         return TrajectoryResult(token_ids=token_ids, metadata=meta)
 
@@ -96,9 +114,13 @@ class LlamaCppBackend(Backend):
         n_gpu_layers: int = 99,
     ) -> KLDResult:
         from ..runner import (
-            KVConfig, run_perplexity_kld, run_perplexity_kld_base,
-            corpus_identity, write_corpus_sidecar,
+            KVConfig,
+            corpus_identity,
+            run_perplexity_kld,
+            run_perplexity_kld_base,
+            write_corpus_sidecar,
         )
+
         ref_kv = KVConfig.parse(ref_kv_str)
         cand_kv = KVConfig.parse(cand_kv_str)
         fd, base_path = tempfile.mkstemp(prefix="refract-kldbase-", suffix=".bin")
@@ -107,14 +129,22 @@ class LlamaCppBackend(Backend):
         base_path_p = Path(base_path)
         try:
             run_perplexity_kld_base(
-                model=model, corpus=corpus, kv=ref_kv,
-                base_path=base_path_p, chunks=chunks, ctx=ctx,
+                model=model,
+                corpus=corpus,
+                kv=ref_kv,
+                base_path=base_path_p,
+                chunks=chunks,
+                ctx=ctx,
                 n_gpu_layers=n_gpu_layers,
             )
             write_corpus_sidecar(base_path_p, corpus)
             scored = run_perplexity_kld(
-                model=model, corpus=corpus, kv=cand_kv,
-                base_path=base_path_p, chunks=chunks, ctx=ctx,
+                model=model,
+                corpus=corpus,
+                kv=cand_kv,
+                base_path=base_path_p,
+                chunks=chunks,
+                ctx=ctx,
                 n_gpu_layers=n_gpu_layers,
             )
             return KLDResult(
@@ -122,7 +152,8 @@ class LlamaCppBackend(Backend):
                 ppl=scored.get("ppl"),
                 rms_dp_pct=scored.get("rms_dp_pct"),
                 same_topp_pct=scored.get("same_topp_pct"),
-                chunks=chunks, ctx=ctx,
+                chunks=chunks,
+                ctx=ctx,
                 metadata={
                     "base_path": str(base_path_p),
                     "corpus": corpus_identity(corpus),
@@ -145,18 +176,25 @@ class LlamaCppBackend(Backend):
         timeout: float = 120.0,
     ) -> list[int]:
         from ..runner import tokenize_to_ids as _tti
+
         return _tti(model=model, text=text, timeout=timeout)
 
     # ---------------------------------------------------------------- model_metadata
     def model_metadata(self, *, model: Path) -> dict:
         from ..runner import DEFAULT_BIN_DIR
+
         commit = None
         try:
-            commit = subprocess.run(
-                ["git", "rev-parse", "--short", "HEAD"],
-                cwd=str(DEFAULT_BIN_DIR.parent.parent),
-                capture_output=True, text=True, timeout=5,
-            ).stdout.strip() or None
+            commit = (
+                subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=str(DEFAULT_BIN_DIR.parent.parent),
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ).stdout.strip()
+                or None
+            )
         except Exception:
             pass
         return {

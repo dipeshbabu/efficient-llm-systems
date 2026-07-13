@@ -1,0 +1,58 @@
+minimum_pre_commit_version: "4.3.0"
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-illegal-windows-names
+      - id: check-json
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+        exclude: ^(artifacts/|research/)
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^(artifacts/|research/)
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+        exclude: ^(?:artifacts|research)/
+        types_or: [python, pyi]
+      - id: ruff-format
+        exclude: ^(?:artifacts|research)/
+        types_or: [python, pyi]
+
+  - repo: local
+    hooks:
+      - id: strict-json
+        name: check strict JSON numbers
+        entry: uv run --locked python tools/maintenance/check_strict_json.py
+        language: system
+        files: \.json$
+
+      - id: markdown-links
+        name: check local Markdown links
+        entry: uv run --locked python tools/maintenance/check_markdown_links.py
+        language: system
+        files: \.md$
+        pass_filenames: false
+        always_run: true
+
+      - id: mypy
+        name: check Python types
+        entry: uv run --locked mypy
+        language: system
+        files: |
+          (?x)^(
+              (components/(refract|turboquant-reference)/src/|tools/).*\.pyi?
+              | (components/(refract|turboquant-reference)/)?pyproject\.toml
+              | \.pre-commit-config\.yaml
+              | uv\.lock
+          )$
+        pass_filenames: false

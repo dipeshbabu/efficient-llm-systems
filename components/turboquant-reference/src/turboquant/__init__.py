@@ -14,9 +14,16 @@
 
 """TurboQuant: KV cache compression via PolarQuant + QJL."""
 
+from turboquant.kv_cache import KVCacheCompressor
 from turboquant.polar_quant import PolarQuant
 from turboquant.qjl import QJL
-from turboquant.turboquant import TurboQuant, TurboQuantMSE, CompressedVector
-from turboquant.kv_cache import KVCacheCompressor
+from turboquant.turboquant import CompressedVector, TurboQuant, TurboQuantMSE
 
-__all__ = ["PolarQuant", "QJL", "TurboQuant", "TurboQuantMSE", "CompressedVector", "KVCacheCompressor"]
+__all__ = [
+    "PolarQuant",
+    "QJL",
+    "TurboQuant",
+    "TurboQuantMSE",
+    "CompressedVector",
+    "KVCacheCompressor",
+]

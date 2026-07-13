@@ -24,7 +24,7 @@ The bench documents 8 nontrivial engine-side bugs encountered during bring-up. T
 
 KV cache compression is one lever for fitting long context into GPU memory at inference time. Three production engines support 8-bit KV cache compression on AMD MI300X via different paths: llama.cpp via `q8_0` (block-quantized int8), vLLM via `fp8_e4m3` (AMD's fnuz fp8 variant through ROCm flash-attention), and SGLang via `fp8_e4m3` (intended through AITER's fp8 prefill kernel, in this bench forced through Triton attention).
 
-This paper reports a controlled cross-engine measurement on a single MI300X. Methodology matches context length, tokenization, and reference anchoring across engines where the engine APIs permit. Fidelity scoring uses [REFRACT](https://github.com/dipeshbabu/turboquant_plus/tree/main/refract), a 4-axis evaluation framework anchored to each engine's own fp/bf16 reference.
+This paper reports a controlled cross-engine measurement on a single MI300X. Methodology matches context length, tokenization, and reference anchoring across engines where the engine APIs permit. Fidelity scoring uses [REFRACT](../../components/refract/README.md), a 4-axis evaluation framework anchored to each engine's own fp/bf16 reference.
 
 The bench is baseline-only. No advanced KV compression schemes are tested.
 
@@ -47,9 +47,9 @@ The bench is baseline-only. No advanced KV compression schemes are tested.
 
 | Engine | Source | KV-cache option used |
 |---|---|---|
-| **vLLM** | [dipeshbabu/vllm](https://github.com/dipeshbabu/vllm) `pr/tq-prebaked-centroids`. BF16 attention path identical to upstream main. | `kv_cache_dtype="fp8_e4m3"` (candidate); `"auto"` = bfloat16 (reference) |
+| **vLLM** | [Historical TurboQuant vLLM fork](../../docs/reference/historical-forks.md#vllm-experimental-forks), branch `pr/tq-prebaked-centroids`. BF16 attention path identical to upstream main. | `kv_cache_dtype="fp8_e4m3"` (candidate); `"auto"` = bfloat16 (reference) |
 | **SGLang** | `lmsysorg/sglang:v0.5.10.post1-rocm720-mi30x` Docker image (stock, not a fork) | `--kv-cache-dtype fp8_e4m3` (candidate); `auto` = bfloat16 (reference); forced `--attention-backend triton` |
-| **llama.cpp** | [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant) `feature/turboquant-kv-cache`. Hybrid model support hardened over preceding months. | `-ctk q8_0 -ctv q8_0` (candidate); `f16/f16` (reference) |
+| **llama.cpp** | [Historical TurboQuant llama.cpp fork](../../docs/reference/historical-forks.md#llamacpp-experimental-forks), branch `feature/turboquant-kv-cache`. Hybrid model support hardened over preceding months. | `-ctk q8_0 -ctv q8_0` (candidate); `f16/f16` (reference) |
 
 The vLLM and llama.cpp branches are the author's forks. The SGLang configuration is the published Docker image. This is a fork-vs-stock asymmetry; readers should weight bring-up smoothness accordingly.
 
@@ -88,7 +88,7 @@ KV / state footprint numbers are not directly comparable: vLLM reserves a KV poo
 
 ## 4. REFRACT 4-Axis Fidelity Results
 
-[REFRACT](https://github.com/dipeshbabu/turboquant_plus/tree/main/refract) scores how much fidelity each engine retains when 8-bit KV compression is enabled, anchored to that engine's own fp/bf16 reference. Four axes:
+[REFRACT](../../components/refract/README.md) scores how much fidelity each engine retains when 8-bit KV compression is enabled, anchored to that engine's own fp/bf16 reference. Four axes:
 
 - **Trajectory (gtm):** greedy-decode N tokens per prompt under both KV configs. Score = fraction of candidate tokens that match the reference token-by-token.
 - **KLD:** per-token KL divergence between candidate and reference next-token distributions on a natural-text corpus. Score = `100 * exp(-mean_kld)`.
@@ -241,7 +241,8 @@ All scripts and orchestrators on the droplet at `/root/scripts/`:
 - `refract_sglang_aggregate.py` / `refract_sglang_cd_aggregate.py` — REFRACT-format scoring from collected dumps
 - `sitecustomize.py` — `aiter.dtypes` stub for SGLang container
 
-REFRACT framework changes pushed to [dipeshbabu/turboquant_plus@main](https://github.com/dipeshbabu/turboquant_plus):
+REFRACT framework changes are now consolidated in the
+[current monorepo](../../README.md):
 
 - vLLM backend: working implementation, evict-on-key-change cache, env knobs for `MAX_NUM_SEQS`, `KLD_TOPK`, `GPU_MEMORY_UTILIZATION`, `MAX_MODEL_LEN`
 - SGLang backend with two-phase orchestration support
@@ -252,11 +253,11 @@ REFRACT framework changes pushed to [dipeshbabu/turboquant_plus@main](https://gi
 
 ## References
 
-- [REFRACT framework](https://github.com/dipeshbabu/turboquant_plus/tree/main/refract) — 4-axis KV-cache fidelity scoring
-- [REFRACT QUICKSTART](https://github.com/dipeshbabu/turboquant_plus/blob/main/refract/QUICKSTART.md)
-- [REFRACT vLLM backend](https://github.com/dipeshbabu/turboquant_plus/blob/main/refract/backends/vllm.py)
-- [REFRACT SGLang backend](https://github.com/dipeshbabu/turboquant_plus/blob/main/refract/backends/sglang.py)
-- [REFRACT leaderboard](https://github.com/dipeshbabu/turboquant_plus/blob/main/refract/LEADERBOARD.md)
-- [dipeshbabu/llama-cpp-turboquant](https://github.com/dipeshbabu/llama-cpp-turboquant) — llama.cpp fork
-- [dipeshbabu/vllm](https://github.com/dipeshbabu/vllm) — vLLM fork
+- [REFRACT framework](../../components/refract/README.md) — 4-axis KV-cache fidelity scoring
+- [REFRACT QUICKSTART](../../components/refract/QUICKSTART.md)
+- [REFRACT vLLM backend](../../components/refract/src/refract/backends/vllm.py)
+- [REFRACT SGLang backend](../../components/refract/src/refract/backends/sglang.py)
+- [REFRACT leaderboard](../../components/refract/LEADERBOARD.md)
+- [Historical llama.cpp fork](../../docs/reference/historical-forks.md#llamacpp-experimental-forks) — public URL unavailable
+- [Historical vLLM fork](../../docs/reference/historical-forks.md#vllm-experimental-forks) — public URL unavailable
 - PPL artifacts on instruct models: [attn-rotation-and-ppl-artifact.md](attn-rotation-and-ppl-artifact.md)

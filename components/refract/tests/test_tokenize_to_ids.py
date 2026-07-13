@@ -12,7 +12,6 @@ into a list[int]. Lock the parser against:
 from __future__ import annotations
 
 import subprocess
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -31,8 +30,9 @@ def fake_subprocess(monkeypatch, tmp_path):
 
     def fake_run(cmd, **kwargs):
         state["calls"] += 1
-        return SimpleNamespace(returncode=state["rc"],
-                               stdout=state["stdout"], stderr="")
+        return SimpleNamespace(
+            returncode=state["rc"], stdout=state["stdout"], stderr=""
+        )
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     fake_bin = tmp_path / "fake-bin"

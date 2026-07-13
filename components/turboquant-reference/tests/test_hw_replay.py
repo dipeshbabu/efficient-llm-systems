@@ -5,13 +5,11 @@ using a real M5 Max baseline profile and a synthetic M1 Max profile.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 
 from turboquant.hw_replay import (
     BenchResult,
-    ComparisonReport,
     GPUInfo,
     HardwareProfile,
     LoadSnapshot,
@@ -23,10 +21,10 @@ from turboquant.hw_replay import (
     predict_decode_from_baseline,
 )
 
-
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def m5_max_profile():
@@ -77,22 +75,48 @@ def m5_max_profile():
             BenchResult("q8_0 decode (short)", "q8_0", "q8_0", 0, "decode", 85.8, 0.17),
             BenchResult("q8_0 decode @4K", "q8_0", "q8_0", 4096, "decode", 79.9, 1.55),
             BenchResult("q8_0 decode @8K", "q8_0", "q8_0", 8192, "decode", 77.4, 0.95),
-            BenchResult("q8_0 decode @16K", "q8_0", "q8_0", 16384, "decode", 74.0, 0.80),
-            BenchResult("q8_0 decode @32K", "q8_0", "q8_0", 32768, "decode", 68.0, 0.50),
+            BenchResult(
+                "q8_0 decode @16K", "q8_0", "q8_0", 16384, "decode", 74.0, 0.80
+            ),
+            BenchResult(
+                "q8_0 decode @32K", "q8_0", "q8_0", 32768, "decode", 68.0, 0.50
+            ),
             # turbo3 decode
-            BenchResult("turbo3 decode (short)", "turbo3", "turbo3", 0, "decode", 77.4, 0.05),
-            BenchResult("turbo3 decode @4K", "turbo3", "turbo3", 4096, "decode", 70.9, 1.27),
-            BenchResult("turbo3 decode @8K", "turbo3", "turbo3", 8192, "decode", 66.6, 0.50),
-            BenchResult("turbo3 decode @16K", "turbo3", "turbo3", 16384, "decode", 60.0, 0.40),
-            BenchResult("turbo3 decode @32K", "turbo3", "turbo3", 32768, "decode", 52.0, 0.30),
+            BenchResult(
+                "turbo3 decode (short)", "turbo3", "turbo3", 0, "decode", 77.4, 0.05
+            ),
+            BenchResult(
+                "turbo3 decode @4K", "turbo3", "turbo3", 4096, "decode", 70.9, 1.27
+            ),
+            BenchResult(
+                "turbo3 decode @8K", "turbo3", "turbo3", 8192, "decode", 66.6, 0.50
+            ),
+            BenchResult(
+                "turbo3 decode @16K", "turbo3", "turbo3", 16384, "decode", 60.0, 0.40
+            ),
+            BenchResult(
+                "turbo3 decode @32K", "turbo3", "turbo3", 32768, "decode", 52.0, 0.30
+            ),
             # q8_0 prefill baselines
-            BenchResult("q8_0 prefill 2K", "q8_0", "q8_0", 2048, "prefill", 2707.0, 9.17),
-            BenchResult("q8_0 prefill 4K", "q8_0", "q8_0", 4096, "prefill", 2429.0, 39.91),
-            BenchResult("q8_0 prefill 8K", "q8_0", "q8_0", 8192, "prefill", 2052.0, 18.60),
+            BenchResult(
+                "q8_0 prefill 2K", "q8_0", "q8_0", 2048, "prefill", 2707.0, 9.17
+            ),
+            BenchResult(
+                "q8_0 prefill 4K", "q8_0", "q8_0", 4096, "prefill", 2429.0, 39.91
+            ),
+            BenchResult(
+                "q8_0 prefill 8K", "q8_0", "q8_0", 8192, "prefill", 2052.0, 18.60
+            ),
             # turbo3 prefill
-            BenchResult("turbo3 prefill 2K", "turbo3", "turbo3", 2048, "prefill", 2632.0, 13.13),
-            BenchResult("turbo3 prefill 4K", "turbo3", "turbo3", 4096, "prefill", 2362.0, 118.70),
-            BenchResult("turbo3 prefill 8K", "turbo3", "turbo3", 8192, "prefill", 2014.0, 26.99),
+            BenchResult(
+                "turbo3 prefill 2K", "turbo3", "turbo3", 2048, "prefill", 2632.0, 13.13
+            ),
+            BenchResult(
+                "turbo3 prefill 4K", "turbo3", "turbo3", 4096, "prefill", 2362.0, 118.70
+            ),
+            BenchResult(
+                "turbo3 prefill 8K", "turbo3", "turbo3", 8192, "prefill", 2014.0, 26.99
+            ),
         ],
         ppl_results=[
             PPLResult("q8_0", 8, 6.111, 0.326),
@@ -100,8 +124,17 @@ def m5_max_profile():
             PPLResult("turbo3", 8, 6.120, 0.327, env="TURBO_LAYER_ADAPTIVE=2"),
         ],
         load_snapshots=[
-            LoadSnapshot("pre_benchmark", "2026-03-26T13:43:09Z", "1.5 2.0 1.8", 50000, "", 350),
-            LoadSnapshot("post_all_benchmarks", "2026-03-26T14:10:00Z", "3.0 2.5 2.0", 48000, "", 355),
+            LoadSnapshot(
+                "pre_benchmark", "2026-03-26T13:43:09Z", "1.5 2.0 1.8", 50000, "", 350
+            ),
+            LoadSnapshot(
+                "post_all_benchmarks",
+                "2026-03-26T14:10:00Z",
+                "3.0 2.5 2.0",
+                48000,
+                "",
+                355,
+            ),
         ],
     )
     return profile
@@ -148,14 +181,28 @@ def m1_max_profile():
             BenchResult("q8_0 decode (short)", "q8_0", "q8_0", 0, "decode", 42.0, 0.20),
             BenchResult("q8_0 decode @4K", "q8_0", "q8_0", 4096, "decode", 38.0, 0.30),
             BenchResult("q8_0 decode @8K", "q8_0", "q8_0", 8192, "decode", 35.0, 0.25),
-            BenchResult("q8_0 decode @16K", "q8_0", "q8_0", 16384, "decode", 30.0, 0.20),
-            BenchResult("q8_0 decode @32K", "q8_0", "q8_0", 32768, "decode", 25.0, 0.15),
+            BenchResult(
+                "q8_0 decode @16K", "q8_0", "q8_0", 16384, "decode", 30.0, 0.20
+            ),
+            BenchResult(
+                "q8_0 decode @32K", "q8_0", "q8_0", 32768, "decode", 25.0, 0.15
+            ),
             # turbo3 decode — catastrophic at long context on M1
-            BenchResult("turbo3 decode (short)", "turbo3", "turbo3", 0, "decode", 36.0, 0.10),
-            BenchResult("turbo3 decode @4K", "turbo3", "turbo3", 4096, "decode", 20.0, 0.50),
-            BenchResult("turbo3 decode @8K", "turbo3", "turbo3", 8192, "decode", 10.0, 0.30),
-            BenchResult("turbo3 decode @16K", "turbo3", "turbo3", 16384, "decode", 5.0, 0.10),
-            BenchResult("turbo3 decode @32K", "turbo3", "turbo3", 32768, "decode", 2.5, 0.05),
+            BenchResult(
+                "turbo3 decode (short)", "turbo3", "turbo3", 0, "decode", 36.0, 0.10
+            ),
+            BenchResult(
+                "turbo3 decode @4K", "turbo3", "turbo3", 4096, "decode", 20.0, 0.50
+            ),
+            BenchResult(
+                "turbo3 decode @8K", "turbo3", "turbo3", 8192, "decode", 10.0, 0.30
+            ),
+            BenchResult(
+                "turbo3 decode @16K", "turbo3", "turbo3", 16384, "decode", 5.0, 0.10
+            ),
+            BenchResult(
+                "turbo3 decode @32K", "turbo3", "turbo3", 32768, "decode", 2.5, 0.05
+            ),
         ],
         ppl_results=[
             PPLResult("q8_0", 8, 6.111, 0.326),
@@ -169,8 +216,8 @@ def m1_max_profile():
 # Profile Serialization
 # ============================================================
 
-class TestProfileSerialization:
 
+class TestProfileSerialization:
     def test_to_json_roundtrip(self, m5_max_profile):
         """Profile survives JSON serialization."""
         json_str = m5_max_profile.to_json()
@@ -217,8 +264,8 @@ class TestProfileSerialization:
 # Curve Extraction
 # ============================================================
 
-class TestCurveExtraction:
 
+class TestCurveExtraction:
     def test_decode_curve(self, m5_max_profile):
         curve = m5_max_profile.get_decode_curve("turbo3")
         assert len(curve) == 5
@@ -260,16 +307,20 @@ class TestCurveExtraction:
 
     def test_inflection_point_m5(self, m5_max_profile):
         """M5 has gradual degradation — inflection exists but at deeper context."""
-        inflection = m5_max_profile.find_decode_inflection("turbo3")
+        _inflection = m5_max_profile.find_decode_inflection("turbo3")
         # M5 has smoother curve, but still degrades
         # May or may not detect inflection depending on gradient
 
     def test_unreliable_measurements(self):
         """Flag impossibly high tok/s at 1K context."""
-        profile = HardwareProfile(benchmarks=[
-            BenchResult("test 1K", "turbo3", "turbo3", 1024, "decode", 999999.0, 0.0),
-            BenchResult("test 4K", "turbo3", "turbo3", 4096, "decode", 70.0, 0.5),
-        ])
+        profile = HardwareProfile(
+            benchmarks=[
+                BenchResult(
+                    "test 1K", "turbo3", "turbo3", 1024, "decode", 999999.0, 0.0
+                ),
+                BenchResult("test 4K", "turbo3", "turbo3", 4096, "decode", 70.0, 0.5),
+            ]
+        )
         warnings = profile.flag_unreliable_measurements()
         assert len(warnings) == 1
         assert "1K" in warnings[0]
@@ -284,8 +335,8 @@ class TestCurveExtraction:
 # Profile Comparison
 # ============================================================
 
-class TestComparison:
 
+class TestComparison:
     def test_compare_detects_hardware_diff(self, m5_max_profile, m1_max_profile):
         report = compare_profiles(m5_max_profile, m1_max_profile)
         assert "GPU Family ID" in report.hardware_diff
@@ -300,8 +351,10 @@ class TestComparison:
         report = compare_profiles(m5_max_profile, m1_max_profile)
         assert len(report.anomalies) > 0
         # Should flag constant cache thrashing
-        assert any("constant cache" in a.lower() or "tensor" in a.lower()
-                    for a in report.anomalies)
+        assert any(
+            "constant cache" in a.lower() or "tensor" in a.lower()
+            for a in report.anomalies
+        )
 
     def test_compare_markdown_output(self, m5_max_profile, m1_max_profile):
         report = compare_profiles(m5_max_profile, m1_max_profile)
@@ -324,8 +377,8 @@ class TestComparison:
 # Decode Prediction
 # ============================================================
 
-class TestPrediction:
 
+class TestPrediction:
     def test_predict_m1_from_m5(self, m5_max_profile):
         """Predict M1 decode ratios from M5 baseline."""
         predicted = predict_decode_from_baseline(
@@ -375,8 +428,8 @@ class TestPrediction:
 # Diagnostic Output Parsing
 # ============================================================
 
-class TestDiagParsing:
 
+class TestDiagParsing:
     SAMPLE_DIAG = """TURBO_DIAG_VERSION=3
 TURBO_DIAG_TIMESTAMP=2026-03-26T13:43:09Z
 TURBO_DIAG_MODEL=Qwen3.5-35B-A3B-Q8_0.gguf
@@ -490,7 +543,11 @@ TURBO_DIAG_COMPLETE=true
     def test_parse_bench_results(self):
         profile = parse_diag_output(self.SAMPLE_DIAG)
         assert len(profile.benchmarks) >= 2
-        q8_decode = [b for b in profile.benchmarks if b.cache_type_k == "q8_0" and b.mode == "decode"]
+        q8_decode = [
+            b
+            for b in profile.benchmarks
+            if b.cache_type_k == "q8_0" and b.mode == "decode"
+        ]
         assert len(q8_decode) >= 1
         assert q8_decode[0].tok_per_sec == 85.83
 

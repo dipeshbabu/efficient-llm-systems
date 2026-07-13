@@ -18,7 +18,7 @@ llama.cpp ``ctk=X,ctv=Y`` syntax → MLX ``kv_bits``:
   - ``ctk=q6_K,ctv=q6_K``     → kv_bits=6
   - asymmetric (ctk≠ctv)      → BackendCapabilityError; mlx-lm's stock
                                 cache is symmetric.
-  - ``turbo*``                → BackendCapabilityError; needs dipeshbabu/mlx
+  - ``turbo*``                → BackendCapabilityError; needs a TurboQuant-enabled MLX build
                                 feature/turboquant-plus branch.
 
 Trajectory + KLD
@@ -42,13 +42,17 @@ Verified against mlx_lm 0.31.2:
 
 from __future__ import annotations
 
-import functools
-import os
 import re
 from pathlib import Path
 from typing import Any, Optional
 
-from .base import Backend, BackendCapabilityError, CompletionResult, KLDResult, TrajectoryResult
+from .base import (
+    Backend,
+    BackendCapabilityError,
+    CompletionResult,
+    KLDResult,
+    TrajectoryResult,
+)
 
 
 def _require_mlx():
@@ -57,20 +61,27 @@ def _require_mlx():
         import mlx.core as mx
         import mlx_lm
         from mlx_lm.models import cache as cache_mod
+
         return mx, mlx_lm, cache_mod
     except ImportError as e:
         raise BackendCapabilityError(
             "MLX backend requires `mlx-lm`. Install with:\n"
             "    pip install mlx mlx-lm\n"
             f"Underlying import error: {e}"
-        )
+        ) from e
 
 
 _KV_QUANT_BITS = {
-    "f16": None, "fp16": None, "f32": None,
-    "q8_0": 8, "q8": 8,
-    "q4_0": 4, "q4_K": 4, "q4": 4,
-    "q6_K": 6, "q6": 6,
+    "f16": None,
+    "fp16": None,
+    "f32": None,
+    "q8_0": 8,
+    "q8": 8,
+    "q4_0": 4,
+    "q4_K": 4,
+    "q4": 4,
+    "q6_K": 6,
+    "q6": 6,
 }
 
 
@@ -105,14 +116,13 @@ def _translate_kv_to_mlx(kv_config_str: str) -> dict:
         )
     if ctk.startswith("turbo"):
         raise BackendCapabilityError(
-            f"TurboQuant KV scheme {ctk!r} requires dipeshbabu/mlx "
-            f"feature/turboquant-plus branch. To test, install that mlx "
-            f"build OR set REFRACT_BACKEND=llamacpp."
+            f"TurboQuant KV scheme {ctk!r} requires a TurboQuant-enabled MLX "
+            f"build. The historical reference fork has no current public URL. "
+            f"Use an existing compatible build or set REFRACT_BACKEND=llamacpp."
         )
     if ctk not in _KV_QUANT_BITS:
         raise BackendCapabilityError(
-            f"Unrecognized MLX KV type {ctk!r}. Recognized: "
-            f"{sorted(_KV_QUANT_BITS)}"
+            f"Unrecognized MLX KV type {ctk!r}. Recognized: {sorted(_KV_QUANT_BITS)}"
         )
     bits = _KV_QUANT_BITS[ctk]
     kwargs: dict = {
@@ -130,6 +140,7 @@ def _load_model(model_path: Path):
     """Load + cache a model. Re-load is the slow part for big GGUFs."""
     _require_mlx()
     import mlx_lm
+
     key = str(model_path)
     if key not in _MODEL_CACHE:
         _MODEL_CACHE[key] = mlx_lm.load(key)
@@ -143,7 +154,9 @@ def _apply_chat_template(tokenizer, prompt: str, system: Optional[str]) -> str:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
     return tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True,
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
     )
 
 
@@ -171,8 +184,9 @@ class MLXBackend(Backend):
         m, tok = _load_model(model)
         kv_kwargs = _translate_kv_to_mlx(kv_config_str)
 
-        rendered = (_apply_chat_template(tok, prompt, system)
-                    if apply_chat_template else prompt)
+        rendered = (
+            _apply_chat_template(tok, prompt, system) if apply_chat_template else prompt
+        )
 
         mx.random.seed(seed)
         # mlx_lm.generate returns the GENERATED text (not the prompt echo)
@@ -180,7 +194,8 @@ class MLXBackend(Backend):
         # (argmax) when temperature == 0; otherwise we'd construct a
         # temperature sampler.
         text = mlx_lm.generate(
-            m, tok,
+            m,
+            tok,
             prompt=rendered,
             max_tokens=n_predict,
             verbose=False,
@@ -214,13 +229,15 @@ class MLXBackend(Backend):
         m, tok = _load_model(model)
         kv_kwargs = _translate_kv_to_mlx(kv_config_str)
 
-        rendered = (_apply_chat_template(tok, prompt, system)
-                    if apply_chat_template else prompt)
+        rendered = (
+            _apply_chat_template(tok, prompt, system) if apply_chat_template else prompt
+        )
 
         mx.random.seed(seed)
         token_ids: list[int] = []
         for record in mlx_lm.stream_generate(
-            m, tok,
+            m,
+            tok,
             prompt=rendered,
             max_tokens=n_predict,
             **kv_kwargs,
@@ -266,15 +283,12 @@ class MLXBackend(Backend):
         all_tokens = tok.encode(text, add_special_tokens=False)
         if len(all_tokens) < ctx:
             raise BackendCapabilityError(
-                f"Corpus too short for KLD: {len(all_tokens)} tokens, "
-                f"need ≥ {ctx}."
+                f"Corpus too short for KLD: {len(all_tokens)} tokens, need ≥ {ctx}."
             )
 
         n_chunks = min(chunks, len(all_tokens) // ctx)
         if n_chunks < 1:
-            raise BackendCapabilityError(
-                f"Corpus yields zero chunks at ctx={ctx}."
-            )
+            raise BackendCapabilityError(f"Corpus yields zero chunks at ctx={ctx}.")
 
         def _logits_for_chunk(chunk_tokens: list[int], kv_bits: Optional[int]) -> Any:
             """Run forward with the requested KV bits; return logits [T, V]."""
@@ -286,7 +300,11 @@ class MLXBackend(Backend):
                 # location first, fall back for older mlx_lm versions.
                 _mqc = getattr(cache_mod, "maybe_quantize_kv_cache", None)
                 if _mqc is None:
-                    from mlx_lm.generate import maybe_quantize_kv_cache as _mqc
+                    from mlx_lm.generate import (
+                        maybe_quantize_kv_cache as fallback_quantize_kv_cache,
+                    )
+
+                    _mqc = fallback_quantize_kv_cache
                 _mqc(
                     prompt_cache,
                     quantized_kv_start=0,
@@ -368,6 +386,7 @@ class MLXBackend(Backend):
         }
         try:
             import importlib.metadata as md
+
             info["mlx_lm_version"] = md.version("mlx-lm")
             info["mlx_version"] = md.version("mlx")
         except Exception:

@@ -61,15 +61,15 @@ def _lloyds_gaussian(n_centroids: int, sigma: float, n_iter: int = 100) -> np.nd
         Sorted array of optimal centroids.
     """
     # Initialize boundary positions from uniform quantiles
-    boundaries = stats.norm.ppf(
-        np.linspace(0, 1, n_centroids + 1)[1:-1], scale=sigma
-    )
+    boundaries = stats.norm.ppf(np.linspace(0, 1, n_centroids + 1)[1:-1], scale=sigma)
     centroids = np.zeros(n_centroids)
 
     # Initial centroids: conditional expectations within each region
     centroids[0] = _gaussian_conditional_expectation(sigma, -np.inf, boundaries[0])
     for i in range(1, n_centroids - 1):
-        centroids[i] = _gaussian_conditional_expectation(sigma, boundaries[i - 1], boundaries[i])
+        centroids[i] = _gaussian_conditional_expectation(
+            sigma, boundaries[i - 1], boundaries[i]
+        )
     centroids[-1] = _gaussian_conditional_expectation(sigma, boundaries[-1], np.inf)
 
     for _ in range(n_iter):
@@ -79,7 +79,9 @@ def _lloyds_gaussian(n_centroids: int, sigma: float, n_iter: int = 100) -> np.nd
         # Update centroids (conditional expectations within each region)
         centroids[0] = _gaussian_conditional_expectation(sigma, -np.inf, boundaries[0])
         for i in range(1, n_centroids - 1):
-            centroids[i] = _gaussian_conditional_expectation(sigma, boundaries[i - 1], boundaries[i])
+            centroids[i] = _gaussian_conditional_expectation(
+                sigma, boundaries[i - 1], boundaries[i]
+            )
         centroids[-1] = _gaussian_conditional_expectation(sigma, boundaries[-1], np.inf)
 
     return np.sort(centroids)

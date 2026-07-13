@@ -13,6 +13,7 @@
 |------|---------|---------------|-------|
 | Git | 2.x | Pre-installed | `C:\Program Files\Git` |
 | Python | 3.10 | Windows Store | For the TurboQuant reference component |
+| uv | >=0.11.9 | [Development setup](../../CONTRIBUTING.md#development-setup) | Locked Python workspace |
 | **VS 2022 Build Tools** | v143 | `winget install Microsoft.VisualStudio.2022.BuildTools` | **REQUIRED** — VS 2019 won't work (see Gotcha #1) |
 | CMake | 4.3.1 | `winget install Kitware.CMake` | Installs to `C:\Program Files\CMake\bin` |
 | Ninja | latest | `pip install ninja` or `winget install Ninja-build.Ninja` | pip version is more reliable for PATH |
@@ -47,23 +48,25 @@ hipcc --version
 hipinfo
 ```
 
-### 3. Clone repos
+### 3. Prepare repositories
 
 ```bash
 cd C:\models
 
 # Python research prototype
 git clone https://github.com/dipeshbabu/efficient-llm-systems.git
-cd efficient-llm-systems && python -m venv .venv
-# On Windows: source .venv/Scripts/activate  (NOT bin/activate)
-source .venv/Scripts/activate
-pip install -e ".[dev]"
-python -m pytest tests/ -v  # 542+ pass, ~9 platform-specific failures OK
+cd efficient-llm-systems
+uv sync --all-packages
+uv run pytest
 
-# llama.cpp TurboQuant fork (with HIP/ROCm support)
-git clone --branch feature/turboquant-kv-cache \
-  https://github.com/dipeshbabu/llama-cpp-turboquant.git llama-cpp-tq
+# The historical llama.cpp TurboQuant fork has no current public URL.
+# Continue only if an existing checkout is available at C:\models\llama-cpp-tq.
+cd C:\models\llama-cpp-tq
+git checkout feature/turboquant-kv-cache
 ```
+
+See [Historical engine forks](../reference/historical-forks.md#llamacpp-experimental-forks)
+for source-availability details.
 
 ### 4. Apply Windows HIP patches
 

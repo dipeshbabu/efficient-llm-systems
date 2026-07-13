@@ -19,8 +19,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
-
+from typing import Optional, cast
 
 DEFAULT_BIN_DIR = Path(
     os.path.expanduser(
@@ -55,7 +54,7 @@ def _llama_extra_flags() -> list[str]:
 # --backend flag or REFRACT_BACKEND env. When set, the legacy run_completion
 # / run_completion_trajectory functions delegate to the backend so MLX or
 # vLLM users get the right inference engine without touching axis code.
-_ACTIVE_BACKEND = None  # type: ignore[var-annotated]
+_ACTIVE_BACKEND = None
 
 
 def set_active_backend(backend) -> None:
@@ -108,7 +107,7 @@ class KVConfig:
     extras: dict = field(default_factory=dict)
 
     @classmethod
-    def parse(cls, spec: str) -> "KVConfig":
+    def parse(cls, spec: str) -> KVConfig:
         cfg = cls()
         for part in spec.split(","):
             part = part.strip()
@@ -184,7 +183,7 @@ _NOISE_PATTERNS = [
     re.compile(r"^llama_perf_.*$", re.MULTILINE),
     re.compile(r"^Log end$", re.MULTILINE),
     re.compile(r"^Loading model\.\.\..*$", re.MULTILINE),
-    re.compile(r"^>\s.*$", re.MULTILINE),   # prompt echo
+    re.compile(r"^>\s.*$", re.MULTILINE),  # prompt echo
 ]
 
 # After noise removal, the remaining stdout typically looks like:
@@ -263,13 +262,23 @@ def run_completion(
     stdin.
     """
     # v0.3.1: dispatch to active backend if non-llamacpp is set.
-    if _ACTIVE_BACKEND is not None and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp":
+    if (
+        _ACTIVE_BACKEND is not None
+        and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp"
+    ):
         res = _ACTIVE_BACKEND.run_completion(
-            model=model, prompt=prompt, kv_config_str=kv.label(),
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers,
-            seed=seed, temperature=temperature, timeout=timeout,
+            model=model,
+            prompt=prompt,
+            kv_config_str=kv.label(),
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
             apply_chat_template=apply_chat_template,
-            system=system, reasoning=reasoning,
+            system=system,
+            reasoning=reasoning,
         )
         return res.text, res.metadata
 
@@ -277,21 +286,29 @@ def run_completion(
 
     cmd: list[str] = [
         str(bin_path),
-        "-m", str(model),
-        "-p", prompt,
-        "-n", str(n_predict),
-        "-c", str(ctx),
-        "-ngl", str(n_gpu_layers),
-        "--seed", str(seed),
-        "--temp", str(temperature),
-        "--single-turn",      # CRITICAL — see docstring
+        "-m",
+        str(model),
+        "-p",
+        prompt,
+        "-n",
+        str(n_predict),
+        "-c",
+        str(ctx),
+        "-ngl",
+        str(n_gpu_layers),
+        "--seed",
+        str(seed),
+        "--temp",
+        str(temperature),
+        "--single-turn",  # CRITICAL — see docstring
         # NOTE: do NOT pass --no-conversation. This fork's llama-cli rejects
         # it with "please use llama-completion instead" and prints help. The
         # bug surfaces silently because the help banner is captured as the
         # "completion" string. --single-turn alone gives plain non-interactive
         # completion behaviour without the chat template.
         "--no-display-prompt",
-        "-fa", "on",
+        "-fa",
+        "on",
     ]
     if apply_chat_template:
         cmd.extend(["--jinja", "-rea", reasoning])
@@ -306,8 +323,7 @@ def run_completion(
     proc = subprocess.run(
         cmd,
         stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         env=env,
         timeout=timeout,
         text=True,
@@ -357,13 +373,20 @@ def run_perplexity_kld_base(
     bin_path = _bin("llama-perplexity")
     cmd: list[str] = [
         str(bin_path),
-        "-m", str(model),
-        "-f", str(corpus),
-        "-c", str(ctx),
-        "--chunks", str(chunks),
-        "-ngl", str(n_gpu_layers),
-        "-fa", "on",
-        "--kl-divergence-base", str(base_path),
+        "-m",
+        str(model),
+        "-f",
+        str(corpus),
+        "-c",
+        str(ctx),
+        "--chunks",
+        str(chunks),
+        "-ngl",
+        str(n_gpu_layers),
+        "-fa",
+        "on",
+        "--kl-divergence-base",
+        str(base_path),
     ]
     cmd.extend(kv.cli_args())
     cmd.extend(_llama_extra_flags())
@@ -372,9 +395,12 @@ def run_perplexity_kld_base(
     env.update(kv.env())
 
     proc = subprocess.run(
-        cmd, stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        env=env, timeout=timeout, text=True,
+        cmd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        env=env,
+        timeout=timeout,
+        text=True,
         errors="replace",  # llama-perplexity stderr can contain non-utf-8 bytes
     )
     if proc.returncode != 0:
@@ -405,14 +431,21 @@ def run_perplexity_kld(
     bin_path = _bin("llama-perplexity")
     cmd: list[str] = [
         str(bin_path),
-        "-m", str(model),
-        "-f", str(corpus),
-        "-c", str(ctx),
-        "--chunks", str(chunks),
-        "-ngl", str(n_gpu_layers),
-        "-fa", "on",
+        "-m",
+        str(model),
+        "-f",
+        str(corpus),
+        "-c",
+        str(ctx),
+        "--chunks",
+        str(chunks),
+        "-ngl",
+        str(n_gpu_layers),
+        "-fa",
+        "on",
         "--kl-divergence",
-        "--kl-divergence-base", str(base_path),
+        "--kl-divergence-base",
+        str(base_path),
     ]
     cmd.extend(kv.cli_args())
     cmd.extend(_llama_extra_flags())
@@ -421,9 +454,12 @@ def run_perplexity_kld(
     env.update(kv.env())
 
     proc = subprocess.run(
-        cmd, stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        env=env, timeout=timeout, text=True,
+        cmd,
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        env=env,
+        timeout=timeout,
+        text=True,
         errors="replace",  # llama-perplexity stderr can contain non-utf-8 bytes
     )
     if proc.returncode != 0:
@@ -492,9 +528,7 @@ def write_corpus_sidecar(base_path: Path, corpus: Path) -> Path:
     it's scoring against a base built from the same corpus.
     """
     sidecar = Path(str(base_path) + ".corpus.json")
-    sidecar.write_text(
-        json.dumps(corpus_identity(corpus), indent=2), encoding="utf-8"
-    )
+    sidecar.write_text(json.dumps(corpus_identity(corpus), indent=2), encoding="utf-8")
     return sidecar
 
 
@@ -522,8 +556,9 @@ def assert_corpus_matches(base_path: Path, corpus: Path) -> None:
     if expected is None:
         return  # no sidecar, can't verify; treat as user knows best
     actual = corpus_identity(corpus)
+    expected_sha256_head = cast(str, expected.get("sha256_head"))
     mismatched = []
-    if expected.get("sha256_head") != actual["sha256_head"]:
+    if expected_sha256_head != actual["sha256_head"]:
         mismatched.append("sha256_head")
     if expected.get("size_bytes") != actual["size_bytes"]:
         mismatched.append("size_bytes")
@@ -532,7 +567,7 @@ def assert_corpus_matches(base_path: Path, corpus: Path) -> None:
             f"corpus identity mismatch on {mismatched}: KLD base file "
             f"{base_path} was built from\n  {expected.get('path')!r} "
             f"(size={expected.get('size_bytes')}, "
-            f"sha256_head={expected.get('sha256_head')[:16]}…)\n"
+            f"sha256_head={expected_sha256_head[:16]}…)\n"
             f"but you're now scoring against\n  {actual['path']!r} "
             f"(size={actual['size_bytes']}, "
             f"sha256_head={actual['sha256_head'][:16]}…).\n"
@@ -579,12 +614,22 @@ def run_completion_trajectory(
     function returns ``([], meta)``.
     """
     # v0.3.1: dispatch to active backend if non-llamacpp is set.
-    if _ACTIVE_BACKEND is not None and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp":
+    if (
+        _ACTIVE_BACKEND is not None
+        and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp"
+    ):
         res = _ACTIVE_BACKEND.run_completion_trajectory(
-            model=model, prompt=prompt, kv_config_str=kv.label(),
-            n_predict=n_predict, ctx=ctx, n_gpu_layers=n_gpu_layers,
-            seed=seed, temperature=temperature, timeout=timeout,
-            apply_chat_template=apply_chat_template, system=system,
+            model=model,
+            prompt=prompt,
+            kv_config_str=kv.label(),
+            n_predict=n_predict,
+            ctx=ctx,
+            n_gpu_layers=n_gpu_layers,
+            seed=seed,
+            temperature=temperature,
+            timeout=timeout,
+            apply_chat_template=apply_chat_template,
+            system=system,
         )
         return res.token_ids, res.metadata
 
@@ -596,16 +641,24 @@ def run_completion_trajectory(
 
     cmd: list[str] = [
         str(bin_path),
-        "-m", str(model),
-        "-p", prompt,
-        "-n", str(n_predict),
-        "-c", str(ctx),
-        "-ngl", str(n_gpu_layers),
-        "--seed", str(seed),
-        "--temp", str(temperature),
+        "-m",
+        str(model),
+        "-p",
+        prompt,
+        "-n",
+        str(n_predict),
+        "-c",
+        str(ctx),
+        "-ngl",
+        str(n_gpu_layers),
+        "--seed",
+        str(seed),
+        "--temp",
+        str(temperature),
         "-no-cnv",
         "--no-display-prompt",
-        "-fa", "on",
+        "-fa",
+        "on",
     ]
     # llama-completion supports --jinja and -sys but does NOT support
     # `-rea on|off`; reasoning-trace control there is done via
@@ -627,8 +680,7 @@ def run_completion_trajectory(
         proc = subprocess.run(
             cmd,
             stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             env=env,
             timeout=timeout,
             text=True,
@@ -690,12 +742,16 @@ def tokenize_to_ids(
     # provide their own tokenizer and avoid the llama-tokenize binary, which
     # may not be on PATH or may have a stale ABI when the host's llama.cpp
     # checkout has drifted.
-    if _ACTIVE_BACKEND is not None and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp":
+    if (
+        _ACTIVE_BACKEND is not None
+        and getattr(_ACTIVE_BACKEND, "name", None) != "llamacpp"
+    ):
         return _ACTIVE_BACKEND.tokenize_to_ids(model=model, text=text, timeout=timeout)
     bin_path = _bin("llama-tokenize")
     cmd: list[str] = [
         str(bin_path),
-        "-m", str(model),
+        "-m",
+        str(model),
         "--ids",
         "--no-bos",
         "--no-parse-special",
@@ -705,8 +761,7 @@ def tokenize_to_ids(
     proc = subprocess.run(
         cmd,
         input=text,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
         timeout=timeout,
         text=True,
         errors="replace",

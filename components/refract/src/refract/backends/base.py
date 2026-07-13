@@ -32,8 +32,8 @@ class BackendCapabilityError(RuntimeError):
 class CompletionResult:
     """Result of a backend.run_completion call."""
 
-    text: str                          # post-noise-strip completion text
-    n_tokens: int                      # tokens actually decoded
+    text: str  # post-noise-strip completion text
+    n_tokens: int  # tokens actually decoded
     metadata: dict = field(default_factory=dict)  # backend-specific extras
 
 
@@ -41,7 +41,7 @@ class CompletionResult:
 class TrajectoryResult:
     """Result of a backend.run_completion_trajectory call."""
 
-    token_ids: list[int]               # actual sampled IDs at decode time
+    token_ids: list[int]  # actual sampled IDs at decode time
     metadata: dict = field(default_factory=dict)
 
 
@@ -49,7 +49,7 @@ class TrajectoryResult:
 class KLDResult:
     """Result of a backend.run_kld call (Axis B)."""
 
-    mean_kld: float                    # nats
+    mean_kld: float  # nats
     ppl: Optional[float] = None
     rms_dp_pct: Optional[float] = None
     same_topp_pct: Optional[float] = None
@@ -120,8 +120,7 @@ class Backend(abc.ABC):
         apply_chat_template: bool = True,
         system: Optional[str] = None,
         reasoning: str = "off",
-    ) -> CompletionResult:
-        ...
+    ) -> CompletionResult: ...
 
     @abc.abstractmethod
     def run_completion_trajectory(
@@ -138,8 +137,7 @@ class Backend(abc.ABC):
         timeout: float = 300.0,
         apply_chat_template: bool = True,
         system: Optional[str] = None,
-    ) -> TrajectoryResult:
-        ...
+    ) -> TrajectoryResult: ...
 
     @abc.abstractmethod
     def run_kld(
@@ -152,8 +150,7 @@ class Backend(abc.ABC):
         chunks: int = 32,
         ctx: int = 512,
         n_gpu_layers: int = 99,
-    ) -> KLDResult:
-        ...
+    ) -> KLDResult: ...
 
     @abc.abstractmethod
     def tokenize_to_ids(
@@ -162,8 +159,7 @@ class Backend(abc.ABC):
         model: Path,
         text: str,
         timeout: float = 120.0,
-    ) -> list[int]:
-        ...
+    ) -> list[int]: ...
 
     def detect_thinking_mode(
         self,
@@ -178,11 +174,16 @@ class Backend(abc.ABC):
         override with a cheaper signal (read GGUF chat_template, etc.).
         """
         markers = (
-            "<think>", "</think>",
-            "<|thinking|>", "<|end_thinking|>",
-            "<|channel|>analysis", "<|channel|>commentary",
-            "[Start thinking]", "[End thinking]",
-            "<thinking>", "</thinking>",
+            "<think>",
+            "</think>",
+            "<|thinking|>",
+            "<|end_thinking|>",
+            "<|channel|>analysis",
+            "<|channel|>commentary",
+            "[Start thinking]",
+            "[End thinking]",
+            "<thinking>",
+            "</thinking>",
         )
         try:
             result = self.run_completion(

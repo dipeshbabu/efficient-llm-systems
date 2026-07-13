@@ -56,12 +56,14 @@ class TestBitPacking:
 
     def test_pack_indices_rejects_out_of_range_values(self):
         import pytest
+
         with pytest.raises(ValueError, match="do not fit"):
             pack_indices(np.array([0, 4]), 2)
 
     def test_pack_indices_invalid_bit_width(self):
         """Should raise ValueError for bit_width <= 0 or > 8."""
         import pytest
+
         from turboquant.utils import pack_indices
 
         with pytest.raises(ValueError, match="bit_width must be 1-8"):

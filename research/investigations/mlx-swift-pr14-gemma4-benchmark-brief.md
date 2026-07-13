@@ -20,7 +20,7 @@ This note summarizes the current Gemma 4 benchmark picture after `mlx-swift-lm` 
 
 ### llama.cpp
 
-- Repo: [`dipeshbabu/llama.cpp`](https://github.com/dipeshbabu/llama.cpp) (TurboQuant fork)
+- Repo: [historical llama.cpp TurboQuant fork](../../docs/reference/historical-forks.md#llamacpp-experimental-forks) (public URL unavailable)
 - Branch at test time: `feature/turboquant-kv-cache`
 - Model: `bartowski/google_gemma-4-E2B-it-Q4_K_L.gguf`
 - KV modes: no-turbo baseline, `turbo4v2`

@@ -28,19 +28,30 @@ def _build_minimal_report() -> dict:
         ],
     )
     kld = KLDResult(
-        score=99.5, mean_kld=0.005,
-        ppl=6.0, rms_dp_pct=1.1, same_topp_pct=98.4,
-        base_path="/tmp/base.bin", chunks=32, ctx=512,
+        score=99.5,
+        mean_kld=0.005,
+        ppl=6.0,
+        rms_dp_pct=1.1,
+        same_topp_pct=98.4,
+        base_path="/tmp/base.bin",
+        chunks=32,
+        ctx=512,
         is_self_reference=False,
-        corpus={"path": "/tmp/wiki.raw", "size_bytes": 1234,
-                "sha256_head": "deadbeef", "sha256_head_bytes": 1234},
+        corpus={
+            "path": "/tmp/wiki.raw",
+            "size_bytes": 1234,
+            "sha256_head": "deadbeef",
+            "sha256_head_bytes": 1234,
+        },
     )
     composite = composite_score(gtm.score, kld.score)
     return json_report(
         model="test.gguf",
         reference_label="ctk=f16,ctv=f16",
         candidate_label="ctk=q8_0,ctv=turbo4",
-        composite=composite, gtm=gtm, kld=kld,
+        composite=composite,
+        gtm=gtm,
+        kld=kld,
     )
 
 
@@ -109,9 +120,9 @@ def test_summary_is_layman_string():
     # so the prose can be edited but the contract holds.
     band_to_substr = {
         "EXCELLENT": "No material drift",
-        "PASS":      "Minor measured drift",
-        "DEGRADED":  "Audit",
-        "FAIL":      "broken",
+        "PASS": "Minor measured drift",
+        "DEGRADED": "Audit",
+        "FAIL": "broken",
     }
     expected = band_to_substr[rep["band"]]
     assert expected.lower() in rep["summary"].lower(), (

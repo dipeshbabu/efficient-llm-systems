@@ -22,8 +22,9 @@ Examples:
 - 3.5-bit: 50% channels at 4 bits + 50% at 3 bits = 3.5 bits average
 """
 
-import numpy as np
 from dataclasses import dataclass
+
+import numpy as np
 
 from turboquant.polar_quant import PolarQuant
 from turboquant.qjl import QJL
@@ -32,12 +33,13 @@ from turboquant.qjl import QJL
 @dataclass
 class OutlierCompressedVector:
     """Container for outlier-strategy compressed vector."""
-    outlier_indices: np.ndarray    # indices for outlier channels (higher bits)
-    outlier_norms: np.ndarray      # norms for outlier channels
-    normal_indices: np.ndarray     # indices for normal channels (lower bits)
-    normal_norms: np.ndarray       # norms for normal channels
-    qjl_signs: np.ndarray          # QJL signs for full residual
-    residual_norms: np.ndarray     # ||residual||_2
+
+    outlier_indices: np.ndarray  # indices for outlier channels (higher bits)
+    outlier_norms: np.ndarray  # norms for outlier channels
+    normal_indices: np.ndarray  # indices for normal channels (lower bits)
+    normal_norms: np.ndarray  # norms for normal channels
+    qjl_signs: np.ndarray  # QJL signs for full residual
+    residual_norms: np.ndarray  # ||residual||_2
     effective_bits: float
 
 
@@ -81,7 +83,9 @@ class OutlierTurboQuant:
         self.d = d
         self.target_bits = target_bits
 
-        n_outlier, high_bits, n_normal, low_bits = _compute_channel_split(d, target_bits)
+        n_outlier, high_bits, n_normal, low_bits = _compute_channel_split(
+            d, target_bits
+        )
         self.n_outlier = n_outlier
         self.n_normal = n_normal
         self.high_bits = high_bits
@@ -99,8 +103,16 @@ class OutlierTurboQuant:
 
         # Separate PolarQuant for outlier and normal channels
         # PolarQuant bit-width is (total - 1) since QJL adds 1 bit
-        self.pq_outlier = PolarQuant(n_outlier, bit_width=high_bits - 1, seed=seed) if n_outlier > 0 else None
-        self.pq_normal = PolarQuant(n_normal, bit_width=low_bits - 1, seed=seed + 500) if n_normal > 0 else None
+        self.pq_outlier = (
+            PolarQuant(n_outlier, bit_width=high_bits - 1, seed=seed)
+            if n_outlier > 0
+            else None
+        )
+        self.pq_normal = (
+            PolarQuant(n_normal, bit_width=low_bits - 1, seed=seed + 500)
+            if n_normal > 0
+            else None
+        )
 
         # QJL on full residual
         self.qjl = QJL(d, seed=seed + 1000)
@@ -119,9 +131,7 @@ class OutlierTurboQuant:
             )
         importance = np.mean(np.abs(samples.reshape(-1, self.d)), axis=0)
         if self.n_outlier:
-            selected = np.argpartition(
-                importance, -self.n_outlier
-            )[-self.n_outlier:]
+            selected = np.argpartition(importance, -self.n_outlier)[-self.n_outlier :]
             self.outlier_idx = np.sort(selected)
         else:
             self.outlier_idx = np.empty(0, dtype=int)
@@ -142,11 +152,13 @@ class OutlierTurboQuant:
 
         # Split channels
         x_outlier = x[:, self.outlier_idx]  # (batch, n_outlier)
-        x_normal = x[:, self.normal_idx]    # (batch, n_normal)
+        x_normal = x[:, self.normal_idx]  # (batch, n_normal)
 
         # Quantize outlier channels at higher bits
         if self.pq_outlier is not None:
-            out_idx, out_norms, out_residual = self.pq_outlier.quantize_and_residual(x_outlier if batch > 1 else x_outlier[0])
+            out_idx, out_norms, out_residual = self.pq_outlier.quantize_and_residual(
+                x_outlier if batch > 1 else x_outlier[0]
+            )
         else:
             out_idx = np.array([])
             out_norms = np.array([])
@@ -154,7 +166,9 @@ class OutlierTurboQuant:
 
         # Quantize normal channels at lower bits
         if self.pq_normal is not None:
-            norm_idx, norm_norms, norm_residual = self.pq_normal.quantize_and_residual(x_normal if batch > 1 else x_normal[0])
+            norm_idx, norm_norms, norm_residual = self.pq_normal.quantize_and_residual(
+                x_normal if batch > 1 else x_normal[0]
+            )
         else:
             norm_idx = np.array([])
             norm_norms = np.array([])
@@ -163,15 +177,21 @@ class OutlierTurboQuant:
         # Reconstruct full residual
         if single:
             full_residual = np.zeros(self.d)
-            full_residual[self.outlier_idx] = out_residual if out_residual.ndim == 1 else out_residual[0]
-            full_residual[self.normal_idx] = norm_residual if norm_residual.ndim == 1 else norm_residual[0]
+            full_residual[self.outlier_idx] = (
+                out_residual if out_residual.ndim == 1 else out_residual[0]
+            )
+            full_residual[self.normal_idx] = (
+                norm_residual if norm_residual.ndim == 1 else norm_residual[0]
+            )
         else:
             full_residual = np.zeros((batch, self.d))
             full_residual[:, self.outlier_idx] = out_residual
             full_residual[:, self.normal_idx] = norm_residual
 
         # QJL on full residual
-        qjl_signs, residual_norms = self.qjl.quantize(full_residual if not single else full_residual)
+        qjl_signs, residual_norms = self.qjl.quantize(
+            full_residual if not single else full_residual
+        )
 
         if single:
             return OutlierCompressedVector(
@@ -200,13 +220,17 @@ class OutlierTurboQuant:
 
         # Reconstruct outlier channels
         if self.pq_outlier is not None:
-            x_outlier = self.pq_outlier.dequantize(compressed.outlier_indices, compressed.outlier_norms)
+            x_outlier = self.pq_outlier.dequantize(
+                compressed.outlier_indices, compressed.outlier_norms
+            )
         else:
             x_outlier = np.zeros(0)
 
         # Reconstruct normal channels
         if self.pq_normal is not None:
-            x_normal = self.pq_normal.dequantize(compressed.normal_indices, compressed.normal_norms)
+            x_normal = self.pq_normal.dequantize(
+                compressed.normal_indices, compressed.normal_norms
+            )
         else:
             x_normal = np.zeros(0)
 

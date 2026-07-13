@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import io
 import json
 import os
 import platform
@@ -34,7 +33,6 @@ import textwrap
 import threading
 import time
 import zipfile
-from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -101,14 +99,18 @@ def detect_storage_type(model_path: str, plat: str) -> str:
             # Get the mount point for the model file
             result = subprocess.run(
                 ["diskutil", "info", "-plist", "/"],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if "Solid State" in result.stdout or "SolidState" in result.stdout:
                 return "ssd"
             # Apple Silicon Macs are always SSD
             cpu = subprocess.run(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             if "Apple" in cpu.stdout:
                 return "ssd"
@@ -118,7 +120,9 @@ def detect_storage_type(model_path: str, plat: str) -> str:
             model_real = os.path.realpath(model_path)
             result = subprocess.run(
                 ["df", model_real],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split("\n")
@@ -236,10 +240,18 @@ class BackgroundMonitor(threading.Thread):
         # Write CSV header
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "timestamp", "load_1m", "mem_pressure_pct", "swap_used_mb",
-                "gpu_temp_c", "cpu_speed_limit", "gpu_mem_used_mb", "gpu_util_pct",
-            ])
+            writer.writerow(
+                [
+                    "timestamp",
+                    "load_1m",
+                    "mem_pressure_pct",
+                    "swap_used_mb",
+                    "gpu_temp_c",
+                    "cpu_speed_limit",
+                    "gpu_mem_used_mb",
+                    "gpu_util_pct",
+                ]
+            )
 
     def run(self) -> None:
         while not self._stop_event.is_set():
@@ -250,12 +262,18 @@ class BackgroundMonitor(threading.Thread):
                     self._sample_count += 1
                 with open(self._csv_path, "a", newline="", encoding="utf-8") as f:
                     writer = csv.writer(f)
-                    writer.writerow([
-                        sample["timestamp"], sample["load_1m"],
-                        sample["mem_pressure_pct"], sample["swap_used_mb"],
-                        sample["gpu_temp_c"], sample["cpu_speed_limit"],
-                        sample["gpu_mem_used_mb"], sample["gpu_util_pct"],
-                    ])
+                    writer.writerow(
+                        [
+                            sample["timestamp"],
+                            sample["load_1m"],
+                            sample["mem_pressure_pct"],
+                            sample["swap_used_mb"],
+                            sample["gpu_temp_c"],
+                            sample["cpu_speed_limit"],
+                            sample["gpu_mem_used_mb"],
+                            sample["gpu_util_pct"],
+                        ]
+                    )
             except Exception as e:
                 # Don't crash monitor, but track failures
                 with self._lock:
@@ -293,7 +311,9 @@ class BackgroundMonitor(threading.Thread):
         plat = platform.system()
 
         try:
-            load_1m = str(round(os.getloadavg()[0], 2))
+            getloadavg = getattr(os, "getloadavg", None)
+            if getloadavg is not None:
+                load_1m = str(round(getloadavg()[0], 2))
         except Exception:
             pass  # Expected probe failure on platforms without getloadavg
 
@@ -390,11 +410,11 @@ class BackgroundMonitor(threading.Thread):
         """Query nvidia-smi. For multi-GPU, returns sum/max/first depending on field."""
         try:
             out = subprocess.check_output(
-                ["nvidia-smi", f"--query-gpu={field}",
-                 "--format=csv,noheader,nounits"],
-                text=True, timeout=5,
+                ["nvidia-smi", f"--query-gpu={field}", "--format=csv,noheader,nounits"],
+                text=True,
+                timeout=5,
             )
-            lines = [l.strip() for l in out.strip().split("\n") if l.strip()]
+            lines = [line.strip() for line in out.strip().split("\n") if line.strip()]
             if not lines:
                 return "N/A"
             if len(lines) == 1:
@@ -425,10 +445,12 @@ class LiveDisplay:
 
     def __init__(self, use_rich: bool = True):
         self._use_rich = use_rich and HAS_RICH
-        self._decode_results: dict[str, dict[int, float]] = {}  # cache_type -> {depth: tps}
+        self._decode_results: dict[
+            str, dict[int, float]
+        ] = {}  # cache_type -> {depth: tps}
         self._ratios: dict[int, float] = {}  # depth -> turbo3/q8_0 ratio
-        self._live: Optional[Live] = None  # type: ignore[type-arg]
-        self._console: Optional[Console] = None  # type: ignore[type-arg]
+        self._live: Optional[Live] = None
+        self._console: Optional[Console] = None
 
         if self._use_rich:
             self._console = Console()
@@ -746,7 +768,9 @@ def detect_hardware(log: DiagLog) -> dict:
     hw: dict = {}
     plat = detect_platform()
 
-    log.write(f"[HW] os={plat} os_version={platform.release()} arch={platform.machine()}")
+    log.write(
+        f"[HW] os={plat} os_version={platform.release()} arch={platform.machine()}"
+    )
     hw["platform"] = plat
     hw["os_version"] = platform.release()
     hw["arch"] = platform.machine()
@@ -765,7 +789,11 @@ def _run_cmd(cmd: list[str] | str, timeout: int = 10, shell: bool = False) -> st
     """Run a command, return stdout. Never raises."""
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, shell=shell,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            shell=shell,
         )
         return result.stdout.strip()
     except Exception:
@@ -814,7 +842,7 @@ def _detect_macos_hw(log: DiagLog, hw: dict) -> None:
         memsize = _sysctl("hw.memsize")
         if memsize:
             ram_bytes = int(memsize)
-            ram_gb = ram_bytes // (1024 ** 3)
+            ram_gb = ram_bytes // (1024**3)
             log.write(f"[HW] ram_total_bytes={ram_bytes}")
             log.write(f"[HW] ram_total_gb={ram_gb}")
             hw["ram_total_gb"] = ram_gb
@@ -830,7 +858,10 @@ def _detect_macos_hw(log: DiagLog, hw: dict) -> None:
         gpu_out = _run_cmd(["system_profiler", "SPDisplaysDataType"], timeout=15)
         for line in gpu_out.splitlines():
             stripped = line.strip()
-            if any(kw in stripped for kw in ("Chipset", "Total Number", "Metal", "Cores", "Model")):
+            if any(
+                kw in stripped
+                for kw in ("Chipset", "Total Number", "Metal", "Cores", "Model")
+            ):
                 log.write(f"[HW_GPU] {stripped}")
     except Exception as e:
         log.warning(f"Could not query system_profiler for GPU info: {e}")
@@ -868,7 +899,9 @@ def _detect_macos_hw(log: DiagLog, hw: dict) -> None:
         log.subsection("Power State")
         pmset_out = _run_cmd(["pmset", "-g", "batt"])
         for line in pmset_out.splitlines():
-            if any(kw in line for kw in ("Now drawing", "charging", "AC Power", "Battery")):
+            if any(
+                kw in line for kw in ("Now drawing", "charging", "AC Power", "Battery")
+            ):
                 log.write(f"[HW_POWER] {line.strip()}")
         therm_out = _run_cmd(["pmset", "-g", "therm"])
         m = re.search(r"CPU_Speed_Limit\s+(\d+)", therm_out)
@@ -921,10 +954,13 @@ def _detect_linux_hw(log: DiagLog, hw: dict) -> None:
         log.subsection("GPU Details")
         nvidia = shutil.which("nvidia-smi")
         if nvidia:
-            gpu_out = _run_cmd([
-                "nvidia-smi", "--query-gpu=name,memory.total,driver_version,gpu_bus_id",
-                "--format=csv,noheader",
-            ])
+            gpu_out = _run_cmd(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,memory.total,driver_version,gpu_bus_id",
+                    "--format=csv,noheader",
+                ]
+            )
             for line in gpu_out.splitlines():
                 log.write(f"[HW_GPU] {line.strip()}")
             log.write("[HW] gpu_backend=cuda")
@@ -934,8 +970,14 @@ def _detect_linux_hw(log: DiagLog, hw: dict) -> None:
                 vendor_f = card_dir / "vendor"
                 device_f = card_dir / "device"
                 if vendor_f.exists():
-                    vendor = vendor_f.read_text(encoding="utf-8", errors="replace").strip()
-                    device = device_f.read_text(encoding="utf-8", errors="replace").strip() if device_f.exists() else "unknown"
+                    vendor = vendor_f.read_text(
+                        encoding="utf-8", errors="replace"
+                    ).strip()
+                    device = (
+                        device_f.read_text(encoding="utf-8", errors="replace").strip()
+                        if device_f.exists()
+                        else "unknown"
+                    )
                     log.write(f"[HW_GPU] pci_vendor={vendor} pci_device={device}")
             log.write("[HW] gpu_backend=vulkan_or_other")
             hw["gpu_backend"] = "vulkan_or_other"
@@ -976,8 +1018,16 @@ def _detect_linux_hw(log: DiagLog, hw: dict) -> None:
             for ps_dir in sorted(ps_base.iterdir()):
                 ptype_f = ps_dir / "type"
                 status_f = ps_dir / "status"
-                ptype = ptype_f.read_text(encoding="utf-8", errors="replace").strip() if ptype_f.exists() else "unknown"
-                status = status_f.read_text(encoding="utf-8", errors="replace").strip() if status_f.exists() else "unknown"
+                ptype = (
+                    ptype_f.read_text(encoding="utf-8", errors="replace").strip()
+                    if ptype_f.exists()
+                    else "unknown"
+                )
+                status = (
+                    status_f.read_text(encoding="utf-8", errors="replace").strip()
+                    if status_f.exists()
+                    else "unknown"
+                )
                 log.write(f"[HW_POWER] {ps_dir.name} type={ptype} status={status}")
     except Exception as e:
         log.warning(f"Could not read power supply info: {e}")
@@ -996,7 +1046,11 @@ def capture_load(label: str, log: DiagLog) -> None:
     # Load average
     try:
         if Path("/proc/loadavg").exists():
-            parts = Path("/proc/loadavg").read_text(encoding="utf-8", errors="replace").split()
+            parts = (
+                Path("/proc/loadavg")
+                .read_text(encoding="utf-8", errors="replace")
+                .split()
+            )
             log.write(f"[LOAD_SNAPSHOT] load_avg={parts[0]} {parts[1]} {parts[2]}")
         else:
             load_avg = _run_cmd(["sysctl", "-n", "vm.loadavg"])
@@ -1045,7 +1099,9 @@ def _capture_load_macos(log: DiagLog) -> None:
             if m:
                 swap_used = m.group(1)
 
-            log.write(f"[LOAD_SNAPSHOT] page_ins={pageins} page_outs={pageouts} swap_used={swap_used}")
+            log.write(
+                f"[LOAD_SNAPSHOT] page_ins={pageins} page_outs={pageouts} swap_used={swap_used}"
+            )
             free_mb = (free_pages + inactive_pages) * 4096 // (1024 * 1024)
             log.write(f"[LOAD_SNAPSHOT] approx_free_ram={free_mb} MB")
     except Exception as e:
@@ -1112,11 +1168,13 @@ def _capture_load_linux(log: DiagLog) -> None:
     # NVIDIA GPU
     try:
         if shutil.which("nvidia-smi"):
-            gpu_out = _run_cmd([
-                "nvidia-smi",
-                "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
-                "--format=csv,noheader",
-            ])
+            gpu_out = _run_cmd(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu",
+                    "--format=csv,noheader",
+                ]
+            )
             log.write(f"[LOAD_SNAPSHOT] gpu_util={gpu_out}")
     except Exception as e:
         log.warning(f"Could not query nvidia-smi for GPU utilization: {e}")
@@ -1150,8 +1208,12 @@ def _run_subprocess(
 
     try:
         proc = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, env=env, bufsize=1,
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1,
         )
         lines: list[str] = []
         assert proc.stdout is not None
@@ -1203,9 +1265,17 @@ def run_bench(
     )
 
     cmd = [
-        bench_bin, "-m", model,
-        "-ngl", "99", "-fa", "1",
-        "-ctk", ctk, "-ctv", ctv,
+        bench_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "1",
+        "-ctk",
+        ctk,
+        "-ctv",
+        ctv,
     ]
     # Split extra_args respecting the shell-like splitting
     if extra_args:
@@ -1239,15 +1309,25 @@ def run_perpl(
     log.subsection(label)
     log.write(
         f'[PPL_START] label="{label}" ctk={ctk} ctv={ctv} '
-        f'chunks={chunks} timestamp={_utc_now()}'
+        f"chunks={chunks} timestamp={_utc_now()}"
     )
 
     cmd = [
-        perpl_bin, "-m", model,
-        "-ngl", "99", "-fa", "on",
-        "--cache-type-k", ctk, "--cache-type-v", ctv,
-        "-f", wiki_path,
-        "--chunks", str(chunks),
+        perpl_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "on",
+        "--cache-type-k",
+        ctk,
+        "--cache-type-v",
+        ctv,
+        "-f",
+        wiki_path,
+        "--chunks",
+        str(chunks),
     ]
 
     env_extra = _parse_env_string(env_prefix)
@@ -1330,10 +1410,15 @@ def parse_bench_tps(output: str) -> list[dict]:
                 row_ctk = cs
                 break
 
-        results.append({
-            "mode": mode, "depth": depth, "tps": tps,
-            "stddev": stddev, "ctk": row_ctk,
-        })
+        results.append(
+            {
+                "mode": mode,
+                "depth": depth,
+                "tps": tps,
+                "stddev": stddev,
+                "ctk": row_ctk,
+            }
+        )
 
     return results
 
@@ -1377,7 +1462,9 @@ def section_2_system_load_pre(log: DiagLog) -> None:
             line = line.strip()
             if line:
                 data_lines.append(line)
-        data_lines.sort(key=lambda x: float(x.split()[0]) if x.split() else 0, reverse=True)
+        data_lines.sort(
+            key=lambda x: float(x.split()[0]) if x.split() else 0, reverse=True
+        )
         for line in data_lines[:10]:
             log.write(f"[LOAD_TOP] {line}")
     except Exception as e:
@@ -1400,7 +1487,9 @@ def section_2_system_load_pre(log: DiagLog) -> None:
             ps_out = _run_cmd(["ps", "-eo", "pcpu,comm"])
             found = False
             for line in ps_out.splitlines():
-                if re.search(r"windowserver|gpu|metal|render|chrome.*helper", line, re.IGNORECASE):
+                if re.search(
+                    r"windowserver|gpu|metal|render|chrome.*helper", line, re.IGNORECASE
+                ):
                     log.write(f"[LOAD_GPU_PROC] {line.strip()}")
                     found = True
             if not found:
@@ -1409,10 +1498,13 @@ def section_2_system_load_pre(log: DiagLog) -> None:
             log.warning(f"Could not detect GPU-using processes on macOS: {e}")
     elif plat == "Linux" and shutil.which("nvidia-smi"):
         try:
-            gpu_procs = _run_cmd([
-                "nvidia-smi", "--query-compute-apps=pid,process_name,used_memory",
-                "--format=csv,noheader",
-            ])
+            gpu_procs = _run_cmd(
+                [
+                    "nvidia-smi",
+                    "--query-compute-apps=pid,process_name,used_memory",
+                    "--format=csv,noheader",
+                ]
+            )
             if gpu_procs:
                 for line in gpu_procs.splitlines():
                     log.write(f"[LOAD_GPU_PROC] {line.strip()}")
@@ -1425,7 +1517,9 @@ def section_2_system_load_pre(log: DiagLog) -> None:
 
 
 def section_3_model_info(
-    log: DiagLog, cli_bin: str, model: str,
+    log: DiagLog,
+    cli_bin: str,
+    model: str,
 ) -> None:
     """Section 3: Model info."""
     log.section("3. MODEL INFO")
@@ -1434,21 +1528,56 @@ def section_3_model_info(
 
     # Run a quick CLI init to capture model metadata
     cmd = [
-        cli_bin, "-m", model, "-ngl", "99", "-fa", "on",
-        "--cache-type-k", "q8_0", "--cache-type-v", "q8_0",
-        "-c", "512", "-n", "0", "-p", "x", "--jinja",
+        cli_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "on",
+        "--cache-type-k",
+        "q8_0",
+        "--cache-type-v",
+        "q8_0",
+        "-c",
+        "512",
+        "-n",
+        "0",
+        "-p",
+        "x",
+        "--jinja",
     ]
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         output = result.stdout + result.stderr
         keywords = [
-            "general.name", "general.architecture", "general.file_type",
-            "general.size_label", "general.quantized_by", "general.base_model",
-            "model type", "model params", "file type", "file format", "file size",
-            "n_ctx_train", "n_embd", "n_layer", "n_head", "n_head_kv",
-            "n_expert", "n_expert_used", "n_embd_head", "vocab type", "n_vocab", "arch",
+            "general.name",
+            "general.architecture",
+            "general.file_type",
+            "general.size_label",
+            "general.quantized_by",
+            "general.base_model",
+            "model type",
+            "model params",
+            "file type",
+            "file format",
+            "file size",
+            "n_ctx_train",
+            "n_embd",
+            "n_layer",
+            "n_head",
+            "n_head_kv",
+            "n_expert",
+            "n_expert_used",
+            "n_embd_head",
+            "vocab type",
+            "n_vocab",
+            "arch",
         ]
         for line in output.splitlines():
             if any(kw in line for kw in keywords):
@@ -1469,7 +1598,9 @@ def section_3_model_info(
 
     # Model mmap + storage check
     log.subsection("Model storage and mmap check")
-    log.write(f"[MMAP] model_file={os.path.basename(model)}")  # basename only — no PII from path
+    log.write(
+        f"[MMAP] model_file={os.path.basename(model)}"
+    )  # basename only — no PII from path
 
     plat = detect_platform()
 
@@ -1478,7 +1609,9 @@ def section_3_model_info(
         ssd_status = detect_storage_type(model, plat)
         log.write(f"[STORAGE] type={ssd_status}")
         if ssd_status == "hdd":
-            log.warning("Model is on spinning disk (HDD). mmap performance will be degraded.")
+            log.warning(
+                "Model is on spinning disk (HDD). mmap performance will be degraded."
+            )
     except Exception as e:
         log.warning(f"Could not detect storage type: {e}")
         log.write("[STORAGE] type=unknown")
@@ -1504,7 +1637,9 @@ def section_3_model_info(
 
 
 def section_4_gpu_capabilities(
-    log: DiagLog, cli_bin: str, model: str,
+    log: DiagLog,
+    cli_bin: str,
+    model: str,
 ) -> str:
     """Section 4: GPU device capabilities. Returns raw GPU init output."""
     log.section("4. GPU DEVICE CAPABILITIES")
@@ -1513,21 +1648,59 @@ def section_4_gpu_capabilities(
 
     gpu_init = ""
     cmd = [
-        cli_bin, "-m", model, "-ngl", "99", "-fa", "on",
-        "--cache-type-k", "turbo3", "--cache-type-v", "turbo3",
-        "-c", "512", "-n", "1", "-p", "test", "--jinja",
+        cli_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "on",
+        "--cache-type-k",
+        "turbo3",
+        "--cache-type-v",
+        "turbo3",
+        "-c",
+        "512",
+        "-n",
+        "1",
+        "-p",
+        "test",
+        "--jinja",
     ]
     try:
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=60,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         gpu_init = result.stdout + result.stderr
         keywords = [
-            "build:", "GPU name", "GPU family", "simdgroup", "unified",
-            "bfloat", "has tensor", "residency", "shared buffers",
-            "recommendedMax", "system.info", "system_info", "n_threads",
-            "turbo", "TurboQuant", "KV buffer", "rotation", "metal_library",
-            "metal_init", "embed", "loaded in", "CUDA", "cuda", "VRAM", "cublas",
+            "build:",
+            "GPU name",
+            "GPU family",
+            "simdgroup",
+            "unified",
+            "bfloat",
+            "has tensor",
+            "residency",
+            "shared buffers",
+            "recommendedMax",
+            "system.info",
+            "system_info",
+            "n_threads",
+            "turbo",
+            "TurboQuant",
+            "KV buffer",
+            "rotation",
+            "metal_library",
+            "metal_init",
+            "embed",
+            "loaded in",
+            "CUDA",
+            "cuda",
+            "VRAM",
+            "cublas",
         ]
         for line in gpu_init.splitlines():
             if any(kw in line for kw in keywords):
@@ -1545,17 +1718,23 @@ def section_4_gpu_capabilities(
                 break
         log.write(f"[METAL_TENSOR] {has_tensor_line}")
         if "false" in has_tensor_line.lower():
-            log.write("[METAL_TENSOR] WARNING: Tensor API disabled. This is M1/M2/M3/M4 hardware.")
-            log.write("[METAL_TENSOR] WARNING: Turbo3 decode may be significantly slower due to constant cache limitations.")
+            log.write(
+                "[METAL_TENSOR] WARNING: Tensor API disabled. This is M1/M2/M3/M4 hardware."
+            )
+            log.write(
+                "[METAL_TENSOR] WARNING: Turbo3 decode may be significantly slower due to constant cache limitations."
+            )
     elif plat == "Linux":
         log.subsection("CUDA Device Check")
         if shutil.which("nvidia-smi"):
             try:
-                cuda_out = _run_cmd([
-                    "nvidia-smi",
-                    "--query-gpu=name,compute_cap,memory.total,clocks.max.sm",
-                    "--format=csv,noheader",
-                ])
+                cuda_out = _run_cmd(
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=name,compute_cap,memory.total,clocks.max.sm",
+                        "--format=csv,noheader",
+                    ]
+                )
                 for line in cuda_out.splitlines():
                     log.write(f"[CUDA] {line.strip()}")
             except Exception as e:
@@ -1567,7 +1746,11 @@ def section_4_gpu_capabilities(
 
 
 def section_5_build_validation(
-    log: DiagLog, bench_bin: str, cli_bin: str, model: str, llama_dir: str,
+    log: DiagLog,
+    bench_bin: str,
+    cli_bin: str,
+    model: str,
+    llama_dir: str,
 ) -> None:
     """Section 5: Build validation."""
     log.section("5. BUILD VALIDATION")
@@ -1575,9 +1758,23 @@ def section_5_build_validation(
     # Verify turbo3 works
     log.subsection("turbo3 in llama-bench")
     cmd = [
-        bench_bin, "-m", model, "-ngl", "99", "-fa", "1",
-        "-ctk", "turbo3", "-ctv", "turbo3",
-        "-p", "64", "-n", "0", "-r", "1",
+        bench_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "1",
+        "-ctk",
+        "turbo3",
+        "-ctv",
+        "turbo3",
+        "-p",
+        "64",
+        "-n",
+        "0",
+        "-r",
+        "1",
     ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -1593,9 +1790,24 @@ def section_5_build_validation(
     # Metal library validation
     log.subsection("Metal library validation")
     cmd = [
-        cli_bin, "-m", model, "-ngl", "99", "-fa", "on",
-        "--cache-type-k", "turbo3", "--cache-type-v", "turbo3",
-        "-c", "512", "-n", "1", "-p", "test", "--jinja",
+        cli_bin,
+        "-m",
+        model,
+        "-ngl",
+        "99",
+        "-fa",
+        "on",
+        "--cache-type-k",
+        "turbo3",
+        "--cache-type-v",
+        "turbo3",
+        "-c",
+        "512",
+        "-n",
+        "1",
+        "-p",
+        "test",
+        "--jinja",
     ]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
@@ -1605,8 +1817,20 @@ def section_5_build_validation(
             if any(kw in line for kw in ("metal_library", "embed", "loaded in")):
                 log.write(line.strip())
                 found = True
-                if found and len([l for l in output.splitlines()
-                                  if any(k in l for k in ("metal_library", "embed", "loaded in"))]) >= 5:
+                if (
+                    found
+                    and len(
+                        [
+                            output_line
+                            for output_line in output.splitlines()
+                            if any(
+                                keyword in output_line
+                                for keyword in ("metal_library", "embed", "loaded in")
+                            )
+                        ]
+                    )
+                    >= 5
+                ):
                     break
         if not found:
             log.write("WARNING: Could not verify Metal library load")
@@ -1626,7 +1850,10 @@ def section_5_build_validation(
 
 
 def section_6_prefill(
-    log: DiagLog, bench_bin: str, model: str, display: LiveDisplay,
+    log: DiagLog,
+    bench_bin: str,
+    model: str,
+    display: LiveDisplay,
 ) -> None:
     """Section 6: Prefill speed."""
     log.section("6. PREFILL SPEED (tok/s)")
@@ -1639,27 +1866,43 @@ def section_6_prefill(
     depths_str = ",".join(str(d) for d in PREFILL_DEPTHS)
 
     run_bench(
-        "q8_0 prefill (all depths)", "q8_0", "q8_0",
+        "q8_0 prefill (all depths)",
+        "q8_0",
+        "q8_0",
         f"-p {depths_str} -n 0",
-        log, bench_bin, model,
+        log,
+        bench_bin,
+        model,
     )
     run_bench(
-        "turbo3 prefill (all depths)", "turbo3", "turbo3",
+        "turbo3 prefill (all depths)",
+        "turbo3",
+        "turbo3",
         f"-p {depths_str} -n 0",
-        log, bench_bin, model,
+        log,
+        bench_bin,
+        model,
     )
     run_bench(
-        "turbo3 mode2 prefill (all depths)", "turbo3", "turbo3",
+        "turbo3 mode2 prefill (all depths)",
+        "turbo3",
+        "turbo3",
         f"-p {depths_str} -n 0",
-        log, bench_bin, model, env_prefix=MODE2_ENV,
+        log,
+        bench_bin,
+        model,
+        env_prefix=MODE2_ENV,
     )
 
     capture_load("post_prefill", log)
 
 
 def section_7_decode(
-    log: DiagLog, bench_bin: str, model: str,
-    display: LiveDisplay, anomaly: AnomalyDetector,
+    log: DiagLog,
+    bench_bin: str,
+    model: str,
+    display: LiveDisplay,
+    anomaly: AnomalyDetector,
 ) -> None:
     """Section 7: Decode speed — THE CRITICAL TEST."""
     log.section("7. DECODE SPEED (tok/s) \u2014 THE CRITICAL TEST")
@@ -1667,7 +1910,9 @@ def section_7_decode(
     log.write("")
     log.write("Known baselines:")
     log.write("  M5 Max: turbo3/q8_0 = 0.92x (short) \u2192 0.72x (48K)")
-    log.write("  M1 Max: turbo3/q8_0 = ??? (short) \u2192 0.09x (42K) \u2190 CATASTROPHIC")
+    log.write(
+        "  M1 Max: turbo3/q8_0 = ??? (short) \u2192 0.09x (42K) \u2190 CATASTROPHIC"
+    )
     log.write("")
     log.write("Healthy: ratio stays above 0.70x through 32K")
     log.write("Problem: ratio drops below 0.50x at any depth")
@@ -1688,8 +1933,13 @@ def section_7_decode(
 
         # q8_0
         output, _ = run_bench(
-            f"q8_0 decode ({depth_label})", "q8_0", "q8_0",
-            depth_flag, log, bench_bin, model,
+            f"q8_0 decode ({depth_label})",
+            "q8_0",
+            "q8_0",
+            depth_flag,
+            log,
+            bench_bin,
+            model,
         )
         results = parse_bench_tps(output)
         for r in results:
@@ -1698,13 +1948,20 @@ def section_7_decode(
                 display.update_decode("q8_0", depth, r["tps"])
                 if depth == 0:
                     anomaly.set_q8_short_decode(r["tps"])
-                    hw_class = "apple_silicon" if platform.system() == "Darwin" else "unknown"
+                    hw_class = (
+                        "apple_silicon" if platform.system() == "Darwin" else "unknown"
+                    )
                     anomaly.check_q8_baseline(r["tps"], hw_class)
 
         # turbo3
         output, _ = run_bench(
-            f"turbo3 decode ({depth_label})", "turbo3", "turbo3",
-            depth_flag, log, bench_bin, model,
+            f"turbo3 decode ({depth_label})",
+            "turbo3",
+            "turbo3",
+            depth_flag,
+            log,
+            bench_bin,
+            model,
         )
         results = parse_bench_tps(output)
         for r in results:
@@ -1718,8 +1975,14 @@ def section_7_decode(
 
         # turbo3 mode2
         run_bench(
-            f"turbo3 mode2 decode ({depth_label})", "turbo3", "turbo3",
-            depth_flag, log, bench_bin, model, env_prefix=MODE2_ENV,
+            f"turbo3 mode2 decode ({depth_label})",
+            "turbo3",
+            "turbo3",
+            depth_flag,
+            log,
+            bench_bin,
+            model,
+            env_prefix=MODE2_ENV,
         )
 
     anomaly.check_thermal()
@@ -1731,8 +1994,11 @@ def section_7_decode(
 
 
 def section_8_stress_test(
-    log: DiagLog, bench_bin: str, model: str,
-    display: LiveDisplay, anomaly: AnomalyDetector,
+    log: DiagLog,
+    bench_bin: str,
+    model: str,
+    display: LiveDisplay,
+    anomaly: AnomalyDetector,
 ) -> None:
     """Section 8: Constant cache stress test."""
     log.section("8. CONSTANT CACHE STRESS TEST (fine-grained decode gradient)")
@@ -1740,7 +2006,9 @@ def section_8_stress_test(
     log.write("This tells us where constant cache pressure becomes dominant.")
     log.write("")
     log.write("NOTE: 1K context is unreliable (Metal async dispatch timing artifact).")
-    log.write("      Results at 1K may show impossibly high numbers \u2014 ignore them.")
+    log.write(
+        "      Results at 1K may show impossibly high numbers \u2014 ignore them."
+    )
     log.write("")
 
     t3_stress: dict[int, float] = {}
@@ -1749,9 +2017,13 @@ def section_8_stress_test(
     # turbo3 stress
     for depth in STRESS_DEPTHS:
         output, _ = run_bench(
-            f"turbo3 decode @{depth} (stress)", "turbo3", "turbo3",
+            f"turbo3 decode @{depth} (stress)",
+            "turbo3",
+            "turbo3",
             f"-p 0 -n 64 -d {depth}",
-            log, bench_bin, model,
+            log,
+            bench_bin,
+            model,
         )
         results = parse_bench_tps(output)
         for r in results:
@@ -1764,9 +2036,13 @@ def section_8_stress_test(
     # q8_0 stress baseline
     for depth in STRESS_DEPTHS:
         output, _ = run_bench(
-            f"q8_0 decode @{depth} (stress)", "q8_0", "q8_0",
+            f"q8_0 decode @{depth} (stress)",
+            "q8_0",
+            "q8_0",
             f"-p 0 -n 64 -d {depth}",
-            log, bench_bin, model,
+            log,
+            bench_bin,
+            model,
         )
         results = parse_bench_tps(output)
         for r in results:
@@ -1790,7 +2066,9 @@ def section_8_stress_test(
 
 
 def section_9_combined(
-    log: DiagLog, bench_bin: str, model: str,
+    log: DiagLog,
+    bench_bin: str,
+    model: str,
 ) -> None:
     """Section 9: Combined prefill+decode (realistic workload)."""
     log.section("9. COMBINED PREFILL+DECODE (realistic workload)")
@@ -1799,32 +2077,53 @@ def section_9_combined(
 
     for pp, tg in COMBINED_CONFIGS:
         run_bench(
-            f"q8_0 pp{pp // 1024}K+tg{tg}", "q8_0", "q8_0",
+            f"q8_0 pp{pp // 1024}K+tg{tg}",
+            "q8_0",
+            "q8_0",
             f"-pg {pp},{tg}",
-            log, bench_bin, model,
+            log,
+            bench_bin,
+            model,
         )
         run_bench(
-            f"turbo3 pp{pp // 1024}K+tg{tg}", "turbo3", "turbo3",
+            f"turbo3 pp{pp // 1024}K+tg{tg}",
+            "turbo3",
+            "turbo3",
             f"-pg {pp},{tg}",
-            log, bench_bin, model,
+            log,
+            bench_bin,
+            model,
         )
         # Mode2 for all except the last one (matches bash script)
         if (pp, tg) != COMBINED_CONFIGS[-1]:
             run_bench(
-                f"turbo3 mode2 pp{pp // 1024}K+tg{tg}", "turbo3", "turbo3",
+                f"turbo3 mode2 pp{pp // 1024}K+tg{tg}",
+                "turbo3",
+                "turbo3",
                 f"-pg {pp},{tg}",
-                log, bench_bin, model, env_prefix=MODE2_ENV,
+                log,
+                bench_bin,
+                model,
+                env_prefix=MODE2_ENV,
             )
 
 
 def section_10_perplexity(
-    log: DiagLog, perpl_bin: str, model: str, wiki_path: str,
-    anomaly: AnomalyDetector, skip_ppl: bool = False,
+    log: DiagLog,
+    perpl_bin: str,
+    model: str,
+    wiki_path: str,
+    anomaly: AnomalyDetector,
+    skip_ppl: bool = False,
 ) -> None:
     """Section 10: Perplexity (quality validation)."""
     log.section("10. PERPLEXITY (quality validation)")
-    log.write("PPL must be within 2% of q8_0. If not, something is wrong with the build.")
-    log.write("CRITICAL: A PPL >2% delta means quality is broken \u2014 speed numbers are meaningless.")
+    log.write(
+        "PPL must be within 2% of q8_0. If not, something is wrong with the build."
+    )
+    log.write(
+        "CRITICAL: A PPL >2% delta means quality is broken \u2014 speed numbers are meaningless."
+    )
     log.write("")
 
     if skip_ppl:
@@ -1835,18 +2134,28 @@ def section_10_perplexity(
         log.write(f"SKIPPED: wikitext-2-raw not found at {wiki_path}")
         log.write("")
         log.write("To enable PPL testing, download wikitext-2:")
-        log.write("  wget https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-2-raw-v1.zip")
+        log.write(
+            "  wget https://huggingface.co/datasets/Salesforce/wikitext/resolve/main/wikitext-2-raw-v1.zip"
+        )
         llama_dir = str(Path(perpl_bin).parent.parent.parent)
         log.write(f"  unzip wikitext-2-raw-v1.zip -d {llama_dir}/wikitext-2-raw")
         log.write("")
-        log.write("PPL is the single most important quality check. Without it, speed numbers")
+        log.write(
+            "PPL is the single most important quality check. Without it, speed numbers"
+        )
         log.write("could be from a broken build that outputs garbage at high speed.")
         return
 
     # q8_0 baseline
     output, _ = run_perpl(
-        "q8_0 PPL (8 chunks)", "q8_0", "q8_0", 8,
-        log, perpl_bin, model, wiki_path,
+        "q8_0 PPL (8 chunks)",
+        "q8_0",
+        "q8_0",
+        8,
+        log,
+        perpl_bin,
+        model,
+        wiki_path,
     )
     ppl, stddev = parse_ppl_final(output)
     if ppl > 0:
@@ -1854,8 +2163,14 @@ def section_10_perplexity(
 
     # turbo3
     output, _ = run_perpl(
-        "turbo3 PPL (8 chunks)", "turbo3", "turbo3", 8,
-        log, perpl_bin, model, wiki_path,
+        "turbo3 PPL (8 chunks)",
+        "turbo3",
+        "turbo3",
+        8,
+        log,
+        perpl_bin,
+        model,
+        wiki_path,
     )
     ppl_t3, _ = parse_ppl_final(output)
     if ppl_t3 > 0:
@@ -1863,8 +2178,15 @@ def section_10_perplexity(
 
     # turbo3 mode2
     output, _ = run_perpl(
-        "turbo3 mode2 PPL (8 chunks)", "turbo3", "turbo3", 8,
-        log, perpl_bin, model, wiki_path, env_prefix=MODE2_ENV,
+        "turbo3 mode2 PPL (8 chunks)",
+        "turbo3",
+        "turbo3",
+        8,
+        log,
+        perpl_bin,
+        model,
+        wiki_path,
+        env_prefix=MODE2_ENV,
     )
     ppl_m2, _ = parse_ppl_final(output)
     if ppl_m2 > 0:
@@ -1872,7 +2194,9 @@ def section_10_perplexity(
 
 
 def section_11_memory(
-    log: DiagLog, cli_bin: str, model: str,
+    log: DiagLog,
+    cli_bin: str,
+    model: str,
 ) -> None:
     """Section 11: Memory breakdown."""
     log.section("11. MEMORY BREAKDOWN")
@@ -1884,16 +2208,39 @@ def section_11_memory(
     ]
 
     mem_keywords = [
-        "KV buffer", "KV", "size", "memory_breakdown", "compute buffer",
-        "RS buffer", "model buffer", "recommendedMax", "load_tensors", "offload",
+        "KV buffer",
+        "KV",
+        "size",
+        "memory_breakdown",
+        "compute buffer",
+        "RS buffer",
+        "model buffer",
+        "recommendedMax",
+        "load_tensors",
+        "offload",
     ]
 
     for title, ctk, ctx, tag in configs:
         log.subsection(title)
         cmd = [
-            cli_bin, "-m", model, "-ngl", "99", "-fa", "on",
-            "--cache-type-k", ctk, "--cache-type-v", ctk,
-            "-c", str(ctx), "-n", "1", "-p", "test", "--jinja",
+            cli_bin,
+            "-m",
+            model,
+            "-ngl",
+            "99",
+            "-fa",
+            "on",
+            "--cache-type-k",
+            ctk,
+            "--cache-type-v",
+            ctk,
+            "-c",
+            str(ctx),
+            "-n",
+            "1",
+            "-p",
+            "test",
+            "--jinja",
         ]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -1908,7 +2255,9 @@ def section_11_memory(
 def section_12_post_load(log: DiagLog) -> None:
     """Section 12: System load (post-benchmark)."""
     log.section("12. SYSTEM LOAD (post-benchmark)")
-    log.write("Final load snapshot \u2014 compare with pre-benchmark to detect thermal throttling.")
+    log.write(
+        "Final load snapshot \u2014 compare with pre-benchmark to detect thermal throttling."
+    )
     capture_load("post_all_benchmarks", log)
 
     # Thermal throttling check
@@ -1921,8 +2270,12 @@ def section_12_post_load(log: DiagLog) -> None:
             limit = m.group(1) if m else "100"
             log.write(f"[THERMAL] final_cpu_speed_limit={limit}")
             if int(limit) < 100:
-                log.write(f"[THERMAL] WARNING: CPU speed limited to {limit}%. Results may be throttled.")
-                log.write("[THERMAL] WARNING: Run benchmarks again after cooling down for accurate results.")
+                log.write(
+                    f"[THERMAL] WARNING: CPU speed limited to {limit}%. Results may be throttled."
+                )
+                log.write(
+                    "[THERMAL] WARNING: Run benchmarks again after cooling down for accurate results."
+                )
         except Exception as e:
             log.warning(f"Could not check post-benchmark thermal state on macOS: {e}")
     elif plat == "Linux":
@@ -1932,13 +2285,16 @@ def section_12_post_load(log: DiagLog) -> None:
                 temp = temp_path.read_text(encoding="utf-8", errors="replace").strip()
                 log.write(f"[THERMAL] final_cpu_temp={temp}m\u00b0C")
                 if _safe_int(temp) > 90000:
-                    log.write("[THERMAL] WARNING: CPU temperature above 90\u00b0C. Results may be thermally throttled.")
+                    log.write(
+                        "[THERMAL] WARNING: CPU temperature above 90\u00b0C. Results may be thermally throttled."
+                    )
         except Exception as e:
             log.warning(f"Could not check post-benchmark thermal state on Linux: {e}")
 
 
 def section_13_summary(
-    log: DiagLog, anomaly_detector: AnomalyDetector,
+    log: DiagLog,
+    anomaly_detector: AnomalyDetector,
 ) -> None:
     """Section 13: Diagnostic summary."""
     log.section("13. DIAGNOSTIC SUMMARY")
@@ -1979,7 +2335,9 @@ def section_13_summary(
     log.write("  HOW TO READ THESE RESULTS")
     log.write("=" * 44)
     log.write("")
-    log.write("1. MODEL: Section 3 confirms which model and quantization you're running.")
+    log.write(
+        "1. MODEL: Section 3 confirms which model and quantization you're running."
+    )
     log.write("")
     log.write("2. QUALITY: Section 10 PPL should be within 2% of q8_0.")
     log.write("   If PPL is broken, ALL speed numbers are meaningless.")
@@ -1988,8 +2346,12 @@ def section_13_summary(
     log.write("   across all depths. If it degrades = context scaling regression.")
     log.write("")
     log.write("4. DECODE: Section 7 is the critical metric.")
-    log.write("   Healthy (M5):  0.92x (short) -> 0.72x (48K) \u2014 gradual degradation")
-    log.write("   Problem (M1):  0.90x (short) -> 0.09x (42K) \u2014 constant cache thrashing")
+    log.write(
+        "   Healthy (M5):  0.92x (short) -> 0.72x (48K) \u2014 gradual degradation"
+    )
+    log.write(
+        "   Problem (M1):  0.90x (short) -> 0.09x (42K) \u2014 constant cache thrashing"
+    )
     log.write("")
     log.write("5. INFLECTION POINT: Section 8 stress test shows the exact depth")
     log.write("   where turbo3 decode starts falling off a cliff.")
@@ -2001,9 +2363,10 @@ def section_13_summary(
     log.write("   its recommendedMaxWorkingSetSize, swap pressure kills decode.")
     log.write("")
     log.write("NEXT STEPS:")
-    log.write("  1. Open a GitHub issue: github.com/dipeshbabu/efficient-llm-systems/issues")
+    log.write(
+        "  Open a GitHub issue: github.com/dipeshbabu/efficient-llm-systems/issues"
+    )
     log.write("     Title: 'Diagnostic: [your hardware]', attach the zip file.")
-    log.write("  2. Or DM @dipeshbabu on X/Twitter with the zip.")
     log.write("  If decode ratio < 0.50x at any depth, use TURBO_LAYER_ADAPTIVE=2")
     log.write("  or q8_0 cache until the M1 constant cache fix is available.")
     log.write("")
@@ -2014,7 +2377,10 @@ def section_13_summary(
 # JSON Profile Builder
 # ---------------------------------------------------------------------------
 def build_json_profile(
-    hw: dict, model: str, gpu_init: str, date_str: str,
+    hw: dict,
+    model: str,
+    gpu_init: str,
+    date_str: str,
 ) -> dict:
     """Build the machine-readable hardware profile JSON."""
     plat = detect_platform()
@@ -2089,7 +2455,7 @@ def package_results(
     for scrub_path in [log_path, profile_path, monitor.csv_path]:
         if os.path.isfile(scrub_path):
             try:
-                with open(scrub_path, "r", encoding="utf-8") as f:
+                with open(scrub_path, encoding="utf-8") as f:
                     content = f.read()
                 content = content.replace(home_dir, "~")
                 with open(scrub_path, "w", encoding="utf-8") as f:
@@ -2131,12 +2497,12 @@ def package_results(
     log.write("=" * 44)
     log.write("")
     log.write(f"  Zip file: {zip_path}")
-    log.write(f"  Contents:")
+    log.write("  Contents:")
     log.write(f"    {os.path.basename(log_path)}")
     log.write(f"    {os.path.basename(monitor.csv_path)}")
     log.write(f"    {profile_name}")
     log.write("")
-    log.write("  Share: github.com/dipeshbabu/efficient-llm-systems/issues or DM @dipeshbabu on X")
+    log.write("  Share: github.com/dipeshbabu/efficient-llm-systems/issues")
     log.write("")
 
     return zip_path
@@ -2156,7 +2522,7 @@ def main() -> int:
               python3 turbo_hardware_diag.py --skip-ppl --verbose
 
             Output: turbo-diag-<date>.zip
-              Share via: github.com/dipeshbabu/efficient-llm-systems/issues or DM @dipeshbabu
+              Share via: github.com/dipeshbabu/efficient-llm-systems/issues
               Contains .txt log, .json profile, .csv background monitor data.
 
             NO PII is collected. Only hardware specs, load stats, and benchmark numbers.
@@ -2164,35 +2530,49 @@ def main() -> int:
         """),
     )
     parser.add_argument(
-        "llama_dir", nargs="?", default=None,
+        "llama_dir",
+        nargs="?",
+        default=None,
         help="Path to llama.cpp directory (default: current directory)",
     )
     parser.add_argument(
-        "model_path", nargs="?", default=None,
+        "model_path",
+        nargs="?",
+        default=None,
         help="Path to .gguf model file (auto-detected if not specified)",
     )
     parser.add_argument(
-        "--model", dest="model_flag", default=None,
+        "--model",
+        dest="model_flag",
+        default=None,
         help="Path to .gguf model file (alternative to positional arg)",
     )
     parser.add_argument(
-        "--llama-dir", dest="llama_dir_flag", default=None,
+        "--llama-dir",
+        dest="llama_dir_flag",
+        default=None,
         help="Path to llama.cpp directory (alternative to positional arg)",
     )
     parser.add_argument(
-        "--skip-ppl", action="store_true",
+        "--skip-ppl",
+        action="store_true",
         help="Skip perplexity tests (saves ~10 minutes)",
     )
     parser.add_argument(
-        "--skip-stress", action="store_true",
+        "--skip-stress",
+        action="store_true",
         help="Skip the fine-grained stress test (section 8)",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Enable verbose output (debug-level logging)",
     )
     parser.add_argument(
-        "--output-dir", "-o", default=".",
+        "--output-dir",
+        "-o",
+        default=".",
         help="Output directory for diagnostic files (default: current directory)",
     )
 
@@ -2208,7 +2588,9 @@ def main() -> int:
         model = _find_model(llama_dir)
         if not model:
             print("ERROR: No .gguf model found. Pass model path as argument.")
-            print("Usage: python3 turbo_hardware_diag.py /path/to/llama.cpp /path/to/model.gguf")
+            print(
+                "Usage: python3 turbo_hardware_diag.py /path/to/llama.cpp /path/to/model.gguf"
+            )
             return 1
     model = os.path.abspath(model)
 
@@ -2229,7 +2611,9 @@ def main() -> int:
             print(f"  cd {llama_dir}")
             plat = platform.system()
             if plat == "Darwin":
-                print("  cmake -B build -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DCMAKE_BUILD_TYPE=Release")
+                print(
+                    "  cmake -B build -DGGML_METAL=ON -DGGML_METAL_EMBED_LIBRARY=ON -DCMAKE_BUILD_TYPE=Release"
+                )
             else:
                 print("  cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release")
             print("  cmake --build build -j")
@@ -2288,9 +2672,9 @@ def main() -> int:
     try:
         model_size = os.path.getsize(model)
         # Human-readable size
-        if model_size >= 1024 ** 3:
+        if model_size >= 1024**3:
             size_str = f"{model_size / (1024**3):.1f}G"
-        elif model_size >= 1024 ** 2:
+        elif model_size >= 1024**2:
             size_str = f"{model_size / (1024**2):.1f}M"
         else:
             size_str = f"{model_size}"
@@ -2353,8 +2737,12 @@ def main() -> int:
 
         # Section 10: Perplexity
         section_10_perplexity(
-            log, perpl_bin, model, wiki_path,
-            anomaly_detector, skip_ppl=args.skip_ppl,
+            log,
+            perpl_bin,
+            model,
+            wiki_path,
+            anomaly_detector,
+            skip_ppl=args.skip_ppl,
         )
 
         # Section 11: Memory breakdown
@@ -2370,6 +2758,7 @@ def main() -> int:
         _had_error = True
         log.write(f"\n[ERROR] Unhandled exception: {e}")
         import traceback
+
         log.write(traceback.format_exc())
     else:
         _had_error = False
@@ -2379,7 +2768,9 @@ def main() -> int:
         monitor.stop()
         if not _interrupted:
             try:
-                log.write(f"[MONITOR] Captured {monitor.sample_count} samples in {monitor.csv_path}")
+                log.write(
+                    f"[MONITOR] Captured {monitor.sample_count} samples in {monitor.csv_path}"
+                )
             except Exception as e:
                 log.warning(f"Could not write monitor summary: {e}")
 
@@ -2387,7 +2778,7 @@ def main() -> int:
     profile_json = build_json_profile(hw, model, gpu_init, date_str)
 
     # Package results
-    zip_path = package_results(log, monitor, profile_json, date_str, output_dir)
+    package_results(log, monitor, profile_json, date_str, output_dir)
 
     log.close()
 

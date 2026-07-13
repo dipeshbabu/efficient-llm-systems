@@ -19,7 +19,6 @@ Floor verification:
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -87,8 +86,9 @@ def interpret_pattern(
     brittle = low(plad_score)
 
     # Catastrophic case first: every measured axis below FAIL.
-    measured = [s for s in (gtm_score, kld_score, rniah_score, plad_score)
-                if s is not None]
+    measured = [
+        s for s in (gtm_score, kld_score, rniah_score, plad_score) if s is not None
+    ]
     if measured and all(s < 60.0 for s in measured):
         notes.append(
             "Catastrophic: every measured surface is broken. Treat as a "
@@ -151,12 +151,12 @@ class CompositeScore:
     layer can render bands per axis even when not all axes are run.
     """
 
-    composite: float                 # 0–100 (harmonic_mean of scored axes)
-    band: str                        # EXCELLENT / PASS / DEGRADED / FAIL
-    gtm_score: Optional[float]       # 0–100 (axis A); None if --skip-gtm
-    kld_score: Optional[float]       # 0–100 (axis B); None if --skip-kld
+    composite: float  # 0–100 (harmonic_mean of scored axes)
+    band: str  # EXCELLENT / PASS / DEGRADED / FAIL
+    gtm_score: Optional[float]  # 0–100 (axis A); None if --skip-gtm
+    kld_score: Optional[float]  # 0–100 (axis B); None if --skip-kld
     rniah_score: Optional[float] = None  # 0–100 (axis C; v0.2)
-    plad_score: Optional[float] = None   # 0–100 (axis D; v0.2)
+    plad_score: Optional[float] = None  # 0–100 (axis D; v0.2)
     floor_score: Optional[float] = None  # measured floor (ref vs ref)
     floor_ok: Optional[bool] = None
     floor_min: float = MIN_FLOOR

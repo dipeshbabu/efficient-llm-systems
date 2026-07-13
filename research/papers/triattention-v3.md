@@ -22,7 +22,7 @@ V3 is not a universal fix. On the Qwen3.5 hybrid Mamba+Attention architectures (
 
 ### 1.1 TurboQuant+
 
-TurboQuant (Google Research, ICLR 2026) compresses the KV cache via Walsh-Hadamard rotation followed by polar quantization. TurboQuant+ extends the original recipe with asymmetric K/V treatment (q8_0 keys, turbo3 values), turbo kernels for Metal and CUDA, and cross-model validation on the llama.cpp fork at `dipeshbabu/llama-cpp-turboquant`. The baseline stack on Qwen2.5-7B Q8_0 at 32K context compresses the f16 KV footprint from approximately 1.8 gigabytes down to approximately 690 megabytes (2.6 times smaller) at a cost of 0.55 percent perplexity and no measurable retrieval regression on needle-in-a-haystack.
+TurboQuant (Google Research, ICLR 2026) compresses the KV cache via Walsh-Hadamard rotation followed by polar quantization. TurboQuant+ extends the original recipe with asymmetric K/V treatment (q8_0 keys, turbo3 values), turbo kernels for Metal and CUDA, and cross-model validation on the [historical llama.cpp TurboQuant fork](../../docs/reference/historical-forks.md#llamacpp-experimental-forks). The baseline stack on Qwen2.5-7B Q8_0 at 32K context compresses the f16 KV footprint from approximately 1.8 gigabytes down to approximately 690 megabytes (2.6 times smaller) at a cost of 0.55 percent perplexity and no measurable retrieval regression on needle-in-a-haystack.
 
 TurboQuant+ is the "fewer bits per token" axis of KV cache compression.
 
@@ -72,7 +72,7 @@ Every number in the results section was produced by one of two test tracks: a pe
 
 ### 3.1 Hardware and Build
 
-All measurements in this paper are on an Apple M5 Max, 128 GB unified memory, Metal backend. The llama.cpp fork is `dipeshbabu/llama-cpp-turboquant` at the `experiment/triattention-integration` branch. Build configuration is the standard cmake flow with Metal enabled:
+All measurements in this paper are on an Apple M5 Max, 128 GB unified memory, Metal backend. The historical llama.cpp TurboQuant fork is at the `experiment/triattention-integration` branch. Build configuration is the standard cmake flow with Metal enabled:
 
 ```bash
 cmake -B build-test -DLLAMA_METAL=ON
@@ -409,10 +409,14 @@ V3 makes the minimum viable shipping case for TriAttention clean on the narrow v
 
 ### 6.1 Pull the Branch
 
-The code lives on the `experiment/triattention-integration` branch of the llama.cpp fork at `dipeshbabu/llama-cpp-turboquant`. This branch is not merged to the fork's main TurboQuant+ branch and is not intended to be merged until the open questions in Section 6 are resolved. It is published for community review and for anyone who wants to reproduce the results or run their own workloads against it.
+The code used for this experiment lives on the
+`experiment/triattention-integration` branch of the historical llama.cpp
+TurboQuant fork. This branch was not merged to the fork's main TurboQuant+
+branch. The fork no longer has a public source URL; see
+[Historical engine forks](../../docs/reference/historical-forks.md#llamacpp-experimental-forks).
 
 ```bash
-git clone https://github.com/dipeshbabu/llama-cpp-turboquant.git
+# Requires an existing checkout of the historical fork.
 cd llama-cpp-turboquant
 git checkout experiment/triattention-integration
 ```
@@ -593,7 +597,7 @@ All perplexity numbers on wikitext-2-raw, three chunks, batch size 512, with the
 
 ## Appendix B: Rollback Points
 
-The implementation commits on the `experiment/triattention-integration` branch of `dipeshbabu/llama-cpp-turboquant` form a clean rollback ladder.
+The implementation commits on the `experiment/triattention-integration` branch of the historical `llama-cpp-turboquant` fork form a clean rollback ladder.
 
 | Commit (short) | State |
 |----------------|-------|
@@ -631,7 +635,9 @@ Single GPU. No tensor parallelism. AMD Developer Cloud droplet, $300 promotional
 
 ### 9.2 Implementation summary
 
-Branch: `feature/turboquant_plus` of `dipeshbabu/vllm-turboquant` (https://github.com/dipeshbabu/vllm-turboquant). Port consists of seven commits, all merged into the shipping branch.
+Branch: `feature/turboquant_plus` of the historical `vllm-turboquant` fork
+([public source URL unavailable](../../docs/reference/historical-forks.md#vllm-experimental-forks)).
+The port consists of seven commits, all merged into the shipping branch.
 
 V3-specific files added under `vllm/v1/attention/triattention/`:
 
@@ -792,7 +798,7 @@ This section mirrors the paper's Section 6 but for the vLLM/ROCm-Triton path.
 #### 9.9.1 Pull the Branch
 
 ```bash
-git clone https://github.com/dipeshbabu/vllm-turboquant.git
+# Requires an existing checkout of the historical fork.
 cd vllm-turboquant
 git checkout feature/turboquant_plus
 ```
@@ -935,7 +941,7 @@ V3 alone is fundamentally one-way — eviction throws cells away. On hybrid mode
 ### 10.2 Setup
 
 - 1× Apple M5 Max, 128 GB unified memory, macOS 26.4
-- Engine: `dipeshbabu/mlx-swift-lm` at `feature/triattention-v3` (Swift port of V3)
+- Engine: historical `mlx-swift-lm` prototype at `feature/triattention-v3` (Swift port of V3)
 - Model: `mlx-community/Qwen3.5-2B-4bit` (hybrid Mamba+Attention, the same family Section 7.1 flags as broken under V3)
 - Companion service: `longctx-svc` v0.3.0a3 on `127.0.0.1:5054`
 - Driver: `ChatSession` (auto Tier-3 rehydrate hook fires at turn boundary)

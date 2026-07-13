@@ -1,6 +1,6 @@
 # Context Scaling Deep Dive
 
-Issue: https://github.com/dipeshbabu/turboquant_plus/issues/32
+Issue: historical `turboquant_plus#32` ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers))
 
 ## Problem Statement
 

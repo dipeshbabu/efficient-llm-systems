@@ -28,7 +28,6 @@ Key properties (orthogonal S):
 
 import numpy as np
 
-
 QJL_CONST = np.sqrt(np.pi / 2)
 
 
@@ -129,6 +128,6 @@ class QJL:
         # x̂ = √(π/2) / √d · ||x|| · S^T · signs
         reconstructed = (self.S.T @ signs.T).T
         scale = QJL_CONST / np.sqrt(self.d) * norms
-        reconstructed *= (scale[:, np.newaxis] * shrinkage)
+        reconstructed *= scale[:, np.newaxis] * shrinkage
 
         return reconstructed[0] if single else reconstructed

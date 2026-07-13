@@ -22,20 +22,15 @@ Requirements: Python 3.10+, mlx, mlx-lm (no other pip deps).
 from __future__ import annotations
 
 import argparse
-import math
 import random
-import sys
-import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import mlx.core as mx
 import mlx.nn as nn
 import mlx_lm
-from mlx_lm.models.cache import KVCache, make_prompt_cache
-from mlx_lm.generate import generate_step
 from mlx.nn.layers.turbo_kv_cache import TurboKVCache
+from mlx_lm.models.cache import make_prompt_cache
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -159,6 +154,7 @@ FILLER_PARAGRAPHS = [
 # Utility helpers
 # ---------------------------------------------------------------------------
 
+
 def _model_short_name(model_path: str) -> str:
     """Extract a short name from a model path/HF id for filenames."""
     return model_path.rstrip("/").split("/")[-1]
@@ -174,8 +170,9 @@ def _make_baseline_cache(model: nn.Module) -> list:
     return make_prompt_cache(model)
 
 
-def _make_turbo_cache(model: nn.Module, bits: int, asymmetric: bool,
-                      min_compress_tokens: int = 256) -> list:
+def _make_turbo_cache(
+    model: nn.Module, bits: int, asymmetric: bool, min_compress_tokens: int = 256
+) -> list:
     """Create a cache list with TurboKVCache replacing standard KVCache layers.
 
     For hybrid models (e.g., Qwen3.5) that mix linear-attention (ArraysCache)
@@ -198,14 +195,16 @@ def _make_turbo_cache(model: nn.Module, bits: int, asymmetric: bool,
         if rank < boundary or rank >= n_kv - boundary:
             continue  # Keep boundary layers at FP16
         turbo_cache[idx] = TurboKVCache(
-            bits=bits, key_bits=key_bits,
+            bits=bits,
+            key_bits=key_bits,
             min_compress_tokens=min_compress_tokens,
         )
     return turbo_cache
 
 
-def _build_haystack(target_tokens: int, tokenizer, rng: random.Random,
-                    needle_depth_pct: float = 0.5) -> str:
+def _build_haystack(
+    target_tokens: int, tokenizer, rng: random.Random, needle_depth_pct: float = 0.5
+) -> str:
     """Build filler text with a needle inserted at the given depth.
 
     Returns the full prompt string (haystack + query) ready for tokenization.
@@ -235,8 +234,9 @@ def _build_haystack(target_tokens: int, tokenizer, rng: random.Random,
     return f"{haystack}\n\n{NEEDLE_QUERY}"
 
 
-def _generate_text(model, tokenizer, prompt: str, max_tokens: int = 64,
-                   cache: list | None = None) -> tuple[str, float, float]:
+def _generate_text(
+    model, tokenizer, prompt: str, max_tokens: int = 64, cache: list | None = None
+) -> tuple[str, float, float]:
     """Generate text and return (text, prompt_tps, gen_tps).
 
     If cache is provided it's used as prompt_cache (and mutated in place).
@@ -245,7 +245,9 @@ def _generate_text(model, tokenizer, prompt: str, max_tokens: int = 64,
     prompt_tps = 0.0
     gen_tps = 0.0
     for resp in mlx_lm.stream_generate(
-        model, tokenizer, prompt,
+        model,
+        tokenizer,
+        prompt,
         max_tokens=max_tokens,
         prompt_cache=cache,
     ):
@@ -294,7 +296,10 @@ def _forward_logits(model, tokenizer, text: str, cache: list | None = None) -> m
 # Test: NIAH
 # ---------------------------------------------------------------------------
 
-def run_niah(model, tokenizer, bits: int, asymmetric: bool, verbose: bool) -> list[dict]:
+
+def run_niah(
+    model, tokenizer, bits: int, asymmetric: bool, verbose: bool
+) -> list[dict]:
     """Run Needle-In-A-Haystack tests at various depths and context sizes."""
     depths = [0.0, 0.25, 0.50, 0.75, 0.90]
     context_sizes = [1024, 2048, 4096]
@@ -315,8 +320,12 @@ def run_niah(model, tokenizer, bits: int, asymmetric: bool, verbose: bool) -> li
             for config_name, cache_fn in configs:
                 done += 1
                 cache = cache_fn()
-                print(f"  [{done}/{total}] ctx={ctx_size} depth={depth:.0%} "
-                      f"config={config_name} ...", end=" ", flush=True)
+                print(
+                    f"  [{done}/{total}] ctx={ctx_size} depth={depth:.0%} "
+                    f"config={config_name} ...",
+                    end=" ",
+                    flush=True,
+                )
 
                 text, p_tps, g_tps = _generate_text(
                     model, tokenizer, prompt, max_tokens=32, cache=cache
@@ -328,16 +337,18 @@ def run_niah(model, tokenizer, bits: int, asymmetric: bool, verbose: bool) -> li
                 if verbose and not passed:
                     print(f"         got: {text[:120]}")
 
-                results.append({
-                    "test": "niah",
-                    "context_tokens": ctx_size,
-                    "depth_pct": depth,
-                    "config": config_name,
-                    "passed": passed,
-                    "response": text[:200],
-                    "prompt_tps": p_tps,
-                    "gen_tps": g_tps,
-                })
+                results.append(
+                    {
+                        "test": "niah",
+                        "context_tokens": ctx_size,
+                        "depth_pct": depth,
+                        "config": config_name,
+                        "passed": passed,
+                        "response": text[:200],
+                        "prompt_tps": p_tps,
+                        "gen_tps": g_tps,
+                    }
+                )
 
     return results
 
@@ -453,22 +464,26 @@ def run_kld(model, tokenizer, bits: int, asymmetric: bool, verbose: bool) -> lis
         for pos, val in sorted_positions[:5]:
             print(f"    pos {pos}: KLD = {val:.6f}")
 
-    return [{
-        "test": "kld",
-        "config": config_label,
-        "positions": min_len,
-        "mean_kld": mean_kl,
-        "max_kld": max_kl,
-        "top1_match_rate": match_rate,
-    }]
+    return [
+        {
+            "test": "kld",
+            "config": config_label,
+            "positions": min_len,
+            "mean_kld": mean_kl,
+            "max_kld": max_kl,
+            "top1_match_rate": match_rate,
+        }
+    ]
 
 
 # ---------------------------------------------------------------------------
 # Test: Context Size Scaling
 # ---------------------------------------------------------------------------
 
-def _measure_generation(model, tokenizer, prompt_tokens: int, gen_tokens: int,
-                        cache: list) -> dict:
+
+def _measure_generation(
+    model, tokenizer, prompt_tokens: int, gen_tokens: int, cache: list
+) -> dict:
     """Generate gen_tokens from a prompt of prompt_tokens length.
 
     Returns dict with timing and memory info.
@@ -496,8 +511,9 @@ def _measure_generation(model, tokenizer, prompt_tokens: int, gen_tokens: int,
     }
 
 
-def run_context(model, tokenizer, bits: int, asymmetric: bool,
-                verbose: bool) -> list[dict]:
+def run_context(
+    model, tokenizer, bits: int, asymmetric: bool, verbose: bool
+) -> list[dict]:
     """Measure decode speed and memory at various context lengths."""
     context_sizes = [128, 512, 1024, 2048, 4096]
     gen_tokens = 32  # Generate a fixed number of tokens at each context size
@@ -518,17 +534,22 @@ def run_context(model, tokenizer, bits: int, asymmetric: bool,
     for ctx_size in context_sizes:
         for config_name, cache_fn in configs:
             done += 1
-            print(f"  [{done}/{total}] ctx={ctx_size} config={config_name} ...",
-                  end=" ", flush=True)
+            print(
+                f"  [{done}/{total}] ctx={ctx_size} config={config_name} ...",
+                end=" ",
+                flush=True,
+            )
 
             cache = cache_fn()
             info = _measure_generation(model, tokenizer, ctx_size, gen_tokens, cache)
             info["config"] = config_name
             info["test"] = "context"
 
-            print(f"prompt {info['prompt_tps']:.0f} t/s, "
-                  f"gen {info['gen_tps']:.1f} t/s, "
-                  f"mem {info['peak_memory_gb']:.2f} GB")
+            print(
+                f"prompt {info['prompt_tps']:.0f} t/s, "
+                f"gen {info['gen_tps']:.1f} t/s, "
+                f"mem {info['peak_memory_gb']:.2f} GB"
+            )
 
             results.append(info)
 
@@ -539,8 +560,10 @@ def run_context(model, tokenizer, bits: int, asymmetric: bool,
 # Report generation
 # ---------------------------------------------------------------------------
 
-def _write_report(results: list[dict], model_name: str, bits: int,
-                  asymmetric: bool, output_dir: Path) -> Path:
+
+def _write_report(
+    results: list[dict], model_name: str, bits: int, asymmetric: bool, output_dir: Path
+) -> Path:
     """Write a markdown report of all test results."""
     output_dir.mkdir(parents=True, exist_ok=True)
     short = _model_short_name(model_name)
@@ -554,11 +577,11 @@ def _write_report(results: list[dict], model_name: str, bits: int,
 
     lines = [
         f"# MLX Quality Suite — {short}",
-        f"",
+        "",
         f"**Date:** {datetime.now().strftime('%Y-%m-%d %H:%M')}",
         f"**Model:** `{model_name}`",
         f"**Config:** {config_label}",
-        f"",
+        "",
     ]
 
     # NIAH results
@@ -580,9 +603,13 @@ def _write_report(results: list[dict], model_name: str, bits: int,
             )
 
         # Summary
-        baseline_pass = sum(1 for r in niah_results if r["config"] == "baseline" and r["passed"])
+        baseline_pass = sum(
+            1 for r in niah_results if r["config"] == "baseline" and r["passed"]
+        )
         baseline_total = sum(1 for r in niah_results if r["config"] == "baseline")
-        turbo_pass = sum(1 for r in niah_results if r["config"] != "baseline" and r["passed"])
+        turbo_pass = sum(
+            1 for r in niah_results if r["config"] != "baseline" and r["passed"]
+        )
         turbo_total = sum(1 for r in niah_results if r["config"] != "baseline")
         lines.append("")
         lines.append(f"**Baseline:** {baseline_pass}/{baseline_total} passed  ")
@@ -595,8 +622,8 @@ def _write_report(results: list[dict], model_name: str, bits: int,
         lines.append("## KL Divergence")
         lines.append("")
         for r in kld_results:
-            lines.append(f"| Metric | Value |")
-            lines.append(f"|--------|-------|")
+            lines.append("| Metric | Value |")
+            lines.append("|--------|-------|")
             lines.append(f"| Config | {r['config']} |")
             lines.append(f"| Positions | {r['positions']} |")
             lines.append(f"| Mean KLD | {r['mean_kld']:.6f} |")
@@ -630,22 +657,34 @@ def _write_report(results: list[dict], model_name: str, bits: int,
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="MLX TurboQuant Quality Suite",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--model", required=True, help="HF model id or local path")
-    parser.add_argument("--test", choices=["niah", "kld", "context"],
-                        default=None, help="Run a specific test (default: all)")
-    parser.add_argument("--bits", type=int, default=4,
-                        help="Turbo compression bits (default: 4)")
-    parser.add_argument("--asymmetric", action="store_true",
-                        help="Keep keys at FP16, compress only values")
-    parser.add_argument("--verbose", action="store_true",
-                        help="Show extra debug info")
-    parser.add_argument("--output-dir", type=str, default=None,
-                        help="Output directory (default: artifacts/mlx/)")
+    parser.add_argument(
+        "--test",
+        choices=["niah", "kld", "context"],
+        default=None,
+        help="Run a specific test (default: all)",
+    )
+    parser.add_argument(
+        "--bits", type=int, default=4, help="Turbo compression bits (default: 4)"
+    )
+    parser.add_argument(
+        "--asymmetric",
+        action="store_true",
+        help="Keep keys at FP16, compress only values",
+    )
+    parser.add_argument("--verbose", action="store_true", help="Show extra debug info")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory (default: artifacts/mlx/)",
+    )
     args = parser.parse_args()
 
     # Determine output dir
@@ -662,7 +701,7 @@ def main():
     if args.asymmetric:
         config_label += "_asymmetric"
 
-    print(f"=== MLX Quality Suite ===")
+    print("=== MLX Quality Suite ===")
     print(f"Model:  {args.model}")
     print(f"Config: {config_label}")
     print(f"Tests:  {', '.join(tests_to_run)}")
@@ -690,7 +729,9 @@ def main():
 
     if "context" in tests_to_run:
         print("--- Context Size Scaling ---")
-        results = run_context(model, tokenizer, args.bits, args.asymmetric, args.verbose)
+        results = run_context(
+            model, tokenizer, args.bits, args.asymmetric, args.verbose
+        )
         all_results.extend(results)
         print()
 

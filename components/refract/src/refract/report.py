@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json as _json
+import math as _math
 import os
 from dataclasses import asdict
 from typing import Optional
@@ -22,7 +23,7 @@ from .axes.kld import KLDResult
 from .axes.plad import PLADResult
 from .axes.rniah import RNIAHResult
 from .axes.trajectory import TrajectoryResult
-from .score import CompositeScore, MIN_FLOOR, band, interpret_pattern
+from .score import MIN_FLOOR, CompositeScore, band, interpret_pattern
 
 
 def _use_color() -> bool:
@@ -41,27 +42,30 @@ def _wrap_lines(text: str, indent: str = "", width: int = 68) -> list[str]:
     don't overflow the report card on narrow terminals.
     """
     import textwrap
+
     return textwrap.wrap(
-        text, width=width,
-        initial_indent=indent, subsequent_indent=indent,
+        text,
+        width=width,
+        initial_indent=indent,
+        subsequent_indent=indent,
     ) or [indent.rstrip()]
 
 
 def _band_color(b: str) -> str:
     return {
         "EXCELLENT": "32",  # green
-        "PASS":      "32",
-        "DEGRADED":  "33",  # yellow
-        "FAIL":      "31",  # red
+        "PASS": "32",
+        "DEGRADED": "33",  # yellow
+        "FAIL": "31",  # red
     }.get(b, "0")
 
 
 # v0.1.4: layman-readable one-line interpretation per band.
 _BAND_PROSE: dict[str, str] = {
     "EXCELLENT": "No material drift detected on the measured surfaces.",
-    "PASS":      "Minor measured drift; validate on the target workload.",
-    "DEGRADED":  "Visible drift. Audit on your workload before deploying.",
-    "FAIL":      "Material quality loss. Treat as broken.",
+    "PASS": "Minor measured drift; validate on the target workload.",
+    "DEGRADED": "Visible drift. Audit on your workload before deploying.",
+    "FAIL": "Material quality loss. Treat as broken.",
 }
 
 
@@ -75,7 +79,7 @@ def _sanitize_home_arg(arg: str, home: Optional[str] = None) -> str:
         if arg == prefix:
             return "~"
         if arg.startswith(prefix + "/") or arg.startswith(prefix + "\\"):
-            return "~" + arg[len(prefix):]
+            return "~" + arg[len(prefix) :]
     return arg
 
 
@@ -83,22 +87,22 @@ def _sanitize_home_arg(arg: str, home: Optional[str] = None) -> str:
 # axis actually measures so layman-readers can map "Axis A score is bad"
 # to a real-world consequence without reading the paper.
 _AXIS_PROSE: dict[str, str] = {
-    "gtm":        "Token-level agreement with the fp16 reference.",
+    "gtm": "Token-level agreement with the fp16 reference.",
     "trajectory": "Token-level agreement with the fp16 reference.",
-    "kld":        "Distribution-level divergence from the fp16 reference.",
-    "rniah":      "Long-context retrieval quality vs the reference.",
-    "plad":       "Robustness to small prompt changes vs the reference.",
+    "kld": "Distribution-level divergence from the fp16 reference.",
+    "rniah": "Long-context retrieval quality vs the reference.",
+    "plad": "Robustness to small prompt changes vs the reference.",
 }
 
 
 def _axis_label(name: str) -> str:
     """Map internal axis key → display label in the report card."""
     return {
-        "gtm":        "Axis A GTM       ",
+        "gtm": "Axis A GTM       ",
         "trajectory": "Axis A Trajectory",
-        "kld":        "Axis B KLD       ",
-        "rniah":      "Axis C R-NIAH    ",
-        "plad":       "Axis D PLAD      ",
+        "kld": "Axis B KLD       ",
+        "rniah": "Axis C R-NIAH    ",
+        "plad": "Axis D PLAD      ",
     }.get(name, name)
 
 
@@ -152,12 +156,15 @@ def text_report(
 
     # Header
     lines.append("=" * 72)
-    lines.append(_c(
-        "1", f" REFRACT v{__version__} — Reference-anchored Robust Acid-test"
-    ))
-    lines.append(_c("2",
-        " Scoring: 0 = broken, 100 = matches the fp16 reference. "
-        "Higher is better."))
+    lines.append(
+        _c("1", f" REFRACT v{__version__} — Reference-anchored Robust Acid-test")
+    )
+    lines.append(
+        _c(
+            "2",
+            " Scoring: 0 = broken, 100 = matches the fp16 reference. Higher is better.",
+        )
+    )
     lines.append("=" * 72)
     lines.append(f" model     : {model}")
     lines.append(f" reference : {reference_label}")
@@ -191,14 +198,18 @@ def text_report(
         + (1 if composite.plad_score is not None else 0)
     )
     lines.append(
-        _c("1", f" REFRACT score    : {composite.composite:6.2f}  "
-                f"{_bar(composite.composite, bar_width)}  {band_str}")
+        _c(
+            "1",
+            f" REFRACT score    : {composite.composite:6.2f}  "
+            f"{_bar(composite.composite, bar_width)}  {band_str}",
+        )
     )
-    lines.append(f"   (harmonic mean of {n_axes} axes; any single low axis "
-                 f"drops the score hard)")
+    lines.append(
+        f"   (harmonic mean of {n_axes} axes; any single low axis drops the score hard)"
+    )
     # v0.1.4: layman-readable interpretation. The headline tells techies a
     # number; this line tells everyone else what the number means.
-    lines.append(f" → { _BAND_PROSE.get(composite.band, '') }")
+    lines.append(f" → {_BAND_PROSE.get(composite.band, '')}")
     lines.append("")
     # v0.1.4: per-axis lines now carry per-axis bands and a short prose
     # description of what that axis measures. So a "DEGRADED" composite
@@ -242,7 +253,9 @@ def text_report(
         lines.append(" GTM diagnostics")
         lines.append(f"   prompts                    : {gtm.n_prompts}")
         lines.append(f"   token cap each (n_predict) : {gtm.n_tokens_each}")
-        lines.append(f"   full match rate            : {gtm.full_match_rate*100:5.1f} %")
+        lines.append(
+            f"   full match rate            : {gtm.full_match_rate * 100:5.1f} %"
+        )
         if gtm.median_first_divergence is not None:
             lines.append(
                 f"   median first divergence    : token {gtm.median_first_divergence}"
@@ -260,8 +273,7 @@ def text_report(
             for n in gtm.notes:
                 lines.append(_c("33", f"   NOTE: {n}"))
     else:
-        lines.append(_c("33",
-            " GTM/Trajectory: SKIPPED via --skip-gtm; not measured."))
+        lines.append(_c("33", " GTM/Trajectory: SKIPPED via --skip-gtm; not measured."))
 
     # KLD diagnostics
     if composite.kld_score is not None:
@@ -283,8 +295,7 @@ def text_report(
             lines.append(f"   same top-p (vs reference)  : {kld.same_topp_pct:.2f} %")
     else:
         lines.append("")
-        lines.append(_c("33",
-            " KLD: SKIPPED via --skip-kld; not measured."))
+        lines.append(_c("33", " KLD: SKIPPED via --skip-kld; not measured."))
 
     # R-NIAH diagnostics
     if rniah is not None:
@@ -295,15 +306,18 @@ def text_report(
         lines.append(f"   fp16 base accuracy         : {rniah.base_accuracy:.1%}")
         if rniah.confidence == "low":
             lines.append(
-                _c("33", "   LOW CONFIDENCE: excluded from composite; fp16 did not "
-                   "reliably engage the retrieval task.")
+                _c(
+                    "33",
+                    "   LOW CONFIDENCE: excluded from composite; fp16 did not "
+                    "reliably engage the retrieval task.",
+                )
             )
         if rniah.skipped_cells:
-            lines.append(
-                f"   cells skipped (length>ctx) : {len(rniah.skipped_cells)}"
-            )
+            lines.append(f"   cells skipped (length>ctx) : {len(rniah.skipped_cells)}")
         if rniah.cells:
-            lines.append("   per-cell (length, pos) → base_acc / cand_acc / degradation:")
+            lines.append(
+                "   per-cell (length, pos) → base_acc / cand_acc / degradation:"
+            )
             for c in rniah.cells:
                 lines.append(
                     f"     ({c.length:>5}, {c.position:.2f}) → "
@@ -317,9 +331,11 @@ def text_report(
     if plad is not None:
         lines.append("")
         lines.append(" PLAD diagnostics")
-        lines.append(f"   prompts × perturbations    : "
-                     f"{plad.n_prompts} × {plad.n_perturbations}")
+        lines.append(
+            f"   prompts × perturbations    : {plad.n_prompts} × {plad.n_perturbations}"
+        )
         import math as _math
+
         for pert, score in plad.per_perturbation_score.items():
             if not isinstance(score, (int, float)) or _math.isnan(score):
                 # Skipped perturbation (no eligible word, no synonym match).
@@ -370,8 +386,10 @@ def json_report(
     # `composite_detail` for diagnostics.
     composite_scalar = composite_dict.pop("composite")
     composite_band = composite_dict.pop("band")
+
     def _band_or_skipped(s):
         return band(s) if s is not None else "skipped"
+
     # When an axis was skipped, the underlying result dataclass still has a
     # stub score=100. Null out the JSON 'score' field so downstream readers
     # (compare, leaderboards, paper tables) don't pick up the stub as real.
@@ -401,28 +419,37 @@ def json_report(
         # R-NIAH score of 100 is then a noise-floor reading rather than
         # real signal.
         base_avg = rniah.base_accuracy
-        excluded = rniah.confidence == "low" or composite.rniah_score is None
+        rniah_score = composite.rniah_score
+        excluded = rniah.confidence == "low" or rniah_score is None
         rn_dict["confidence"] = rniah.confidence
         rn_dict["base_acc_avg"] = base_avg
         rn_dict["excluded_from_composite"] = excluded
         axes_block["rniah"] = {
             **rn_dict,
-            "band": "unscored" if excluded else band(composite.rniah_score),
+            "band": (
+                band(rniah_score)
+                if rniah_score is not None and rniah.confidence != "low"
+                else "unscored"
+            ),
             "description": _AXIS_PROSE["rniah"],
         }
     if plad is not None and composite.plad_score is not None:
         pl_dict = asdict(plad)
-        # v0.3.1: confidence guard. Per-perturbation scores that are NaN
+        # v0.3.1: confidence guard. Non-finite per-perturbation scores
         # indicate the perturbation never fired (typo on prompts with no
         # ≥4-char words, paraphrase with no synonym matches). Mark them
-        # as "skipped" so a reader doesn't read NaN as FAIL.
-        import math as _math
-        skipped = [k for k, v in plad.per_perturbation_score.items()
-                   if not isinstance(v, (int, float)) or _math.isnan(v)]
+        # as "skipped" so a reader doesn't read them as FAIL.
+        skipped = [
+            k
+            for k, v in plad.per_perturbation_score.items()
+            if not isinstance(v, (int, float)) or not _math.isfinite(v)
+        ]
+        pl_dict["per_perturbation_score"] = {
+            key: None if key in skipped else value
+            for key, value in plad.per_perturbation_score.items()
+        }
         pl_dict["skipped_perturbations"] = skipped
-        pl_dict["confidence"] = (
-            "partial" if skipped else "ok"
-        )
+        pl_dict["confidence"] = "partial" if skipped else "ok"
         axes_block["plad"] = {
             **pl_dict,
             "band": band(composite.plad_score),
@@ -439,10 +466,14 @@ def json_report(
     env_meta: dict = {}
     try:
         from .runner import get_active_backend
+
         bk = get_active_backend()
         if bk is not None:
             from pathlib import Path as _P
-            env_meta = bk.model_metadata(model=_P(model)) if model else {"backend": bk.name}
+
+            env_meta = (
+                bk.model_metadata(model=_P(model)) if model else {"backend": bk.name}
+            )
     except Exception:
         pass
 
@@ -453,7 +484,10 @@ def json_report(
     # looks like a refract CLI run" so regen/test scripts don't pollute
     # the field.
     try:
-        import sys as _sys, shlex as _shlex, os as _os
+        import os as _os
+        import shlex as _shlex
+        import sys as _sys
+
         argv = [str(a) for a in _sys.argv]
         looks_like_refract = any(
             "refract.cli" in a
@@ -503,5 +537,16 @@ def json_report(
     }
 
 
+def _json_safe(value):
+    """Return a JSON-compatible copy with non-finite floats replaced by null."""
+    if isinstance(value, float) and not _math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def to_json_string(report: dict) -> str:
-    return _json.dumps(report, indent=2, default=str)
+    return _json.dumps(_json_safe(report), indent=2, default=str, allow_nan=False)

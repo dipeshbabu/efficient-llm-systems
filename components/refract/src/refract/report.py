@@ -301,7 +301,7 @@ def text_report(
     if rniah is not None:
         lines.append("")
         lines.append(" R-NIAH diagnostics")
-        lines.append(f"   needle keyword             : {rniah.password_keyword}")
+        lines.append(f"   needle keyword             : {rniah.needle_keyword}")
         lines.append(f"   cells run                  : {rniah.n_cells}")
         lines.append(f"   fp16 base accuracy         : {rniah.base_accuracy:.1%}")
         if rniah.confidence == "low":

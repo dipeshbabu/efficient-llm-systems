@@ -68,8 +68,8 @@ Four axes (A and B are cheap and run by default; C and D are opt-in):
                         though argmax stayed the same" failures.
 
   C — R-NIAH (--full)   Retrieval Needle-In-A-Haystack.
-                        Insert a sentinel fact ("the password is X") into a
-                        long context at fractional positions; ask the model
+                        Insert a neutral sentinel fact into a long context at
+                        fractional positions; ask the model
                         to retrieve it. Score = 100 * (1 - mean candidate
                         degradation vs reference per (length, position) cell).
                         Catches "scores 99 on KLD@D but fails at 32K context"

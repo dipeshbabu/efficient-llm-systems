@@ -156,7 +156,7 @@ refract fetch          # download wikitext-2-raw corpus to ~/.cache/refract/
 
 Every `score` run can emit two formats via `--json-out` and `--html-out`:
 
-- **JSON** (`--json-out report.json`) — schema `refract.report.v0.3.2`,
+- **JSON** (`--json-out report.json`) — schema `refract.report.v0.3.3`,
   consumable by `refract compare` or any JSON-aware tool.
 - **HTML** (`--html-out report.html`) — single **self-contained file**
   (~40 KB) with composite stats, diagnosis callout, per-axis bars,

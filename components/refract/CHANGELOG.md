@@ -5,6 +5,15 @@ matrix result that motivated or validated the change.
 
 ---
 
+## Unreleased
+
+- Renamed R-NIAH's synthetic retrieval marker from `password_keyword` to
+  `needle_keyword`. The old name incorrectly implied credential data and caused
+  CodeQL to classify the harmless benchmark marker as a password flowing to CLI
+  output. Report schema `refract.report.v0.3.3` records the renamed field.
+
+---
+
 ## v0.3.4 — symmetric trajectory scoring and repeatable defaults (2026-07-13)
 
 - Axis A now divides total prefix agreement by the per-prompt longer observed

@@ -15,7 +15,7 @@ current guidance, and the evidence behind the recommendations.
 
 | Component | Purpose | Stability |
 |---|---|---|
-| [REFRACT](components/refract/README.md) | Reference-anchored fidelity evaluation across llama.cpp, MLX, vLLM, and SGLang | Beta; published as `refract-llm` |
+| [REFRACT](components/refract/README.md) | Reference-anchored fidelity evaluation across llama.cpp, MLX, vLLM, and SGLang | Beta; distribution name `refract-llm` |
 | [TurboQuant Reference](components/turboquant-reference/README.md) | NumPy/SciPy implementation of PolarQuant, QJL, KV-cache compression, packing, and related experiments | Research reference |
 | [Tools](tools/README.md) | Diagnostics, quality validation, benchmarking, and model-conversion utilities | Mixed; see each tool's requirements |
 | [Research](research/README.md) | Dated papers, investigations, negative results, and archived plans | Evidence record |

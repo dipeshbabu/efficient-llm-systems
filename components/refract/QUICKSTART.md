@@ -18,8 +18,9 @@
 >
 > The framework is packaged and all axes are implemented, but inference
 > engines and model files remain user-managed:
-> - Install `refract-llm` from your package index, or use an editable source
->   checkout. The bundled prompt set removes the need for a prompt path.
+> - Install `refract-llm` 0.3.4 or newer from your package index, or use an
+>   editable source checkout. The bundled prompt set removes the need for a
+>   prompt path.
 > - **All four backends are implemented**: llama.cpp, MLX, vLLM,
 >   SGLang. vLLM and SGLang were verified on AMD MI300X / ROCm 7.2 in the
 >   cross-engine bench at `../../research/papers/cross-engine-mi300x.md`.
@@ -44,21 +45,25 @@ Metal, fail-loud (any single broken axis tanks the composite). Replaces
 
 ## Step 0 — install REFRACT
 
-### Recommended: PyPI
+### PyPI (version 0.3.4 or newer)
 
 ```bash
 # Apple Silicon
-pip install 'refract-llm[refract-mlx]'
+pip install 'refract-llm[refract-mlx]>=0.3.4'
 
 # CUDA / ROCm (vLLM in-process)
-pip install 'refract-llm[refract-vllm]'
+pip install 'refract-llm[refract-vllm]>=0.3.4'
 
 # SGLang HTTP client (you run the SGLang server separately, e.g. via Docker)
-pip install 'refract-llm[refract-sglang]'
+pip install 'refract-llm[refract-sglang]>=0.3.4'
 
 # All three backends in one shot
-pip install 'refract-llm[full]'
+pip install 'refract-llm[full]>=0.3.4'
 ```
+
+The version floor prevents an older package-index build from being installed
+silently. If 0.3.4 is not available from your index yet, use the source
+installation below.
 
 After install, the `refract` CLI is on your PATH and the v0.1 prompt set plus
 example reports ship inside the wheel. Inference engines and the

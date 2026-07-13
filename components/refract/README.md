@@ -9,15 +9,19 @@
 
 ## Install
 
-### From PyPI (recommended)
+### From PyPI (version 0.3.4 or newer)
 
 ```bash
-pip install refract-llm                       # base — zero non-stdlib deps
-pip install refract-llm[refract-mlx]          # + MLX backend (Apple Silicon)
-pip install refract-llm[refract-vllm]         # + vLLM backend (CUDA / ROCm)
-pip install refract-llm[refract-sglang]       # + SGLang HTTP client backend
-pip install refract-llm[full]                 # + all three backends
+pip install "refract-llm>=0.3.4"                       # base — zero non-stdlib deps
+pip install "refract-llm[refract-mlx]>=0.3.4"          # + MLX backend (Apple Silicon)
+pip install "refract-llm[refract-vllm]>=0.3.4"         # + vLLM backend (CUDA / ROCm)
+pip install "refract-llm[refract-sglang]>=0.3.4"       # + SGLang HTTP client backend
+pip install "refract-llm[full]>=0.3.4"                 # + all three backends
 ```
+
+The minimum version is intentional: 0.3.4 is the first release built from
+this repository's current package metadata. If your package index does not
+offer it yet, use the source installation below.
 
 After install, the `refract` CLI is on your PATH and the prompt set plus
 example reports ship in the wheel. REFRACT does not ship inference engines or

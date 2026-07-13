@@ -12,13 +12,13 @@ permissions:
 jobs:
   lint:
     name: Python style and documentation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.13"
 
@@ -47,26 +47,24 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.9"
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.10"
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.11"
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             python-version: "3.12"
-          - os: ubuntu-latest
+          - os: windows-2025
             python-version: "3.13"
-          - os: windows-latest
-            python-version: "3.13"
-          - os: macos-latest
+          - os: macos-15
             python-version: "3.13"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -87,15 +85,48 @@ jobs:
       - name: Run REFRACT tests
         run: uv run pytest components/refract/tests -v --tb=short
 
-  package:
-    name: Build and inspect distributions
-    runs-on: ubuntu-latest
+  coverage:
+    name: Coverage / Ubuntu / Python 3.13
+    runs-on: ubuntu-24.04
+    env:
+      UV_PYTHON: "3.13"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          version: "0.11.21"
+          enable-cache: true
+
+      - name: Sync workspace
+        run: uv sync --locked --all-packages
+
+      - name: Run tests with branch coverage
+        run: >-
+          uv run pytest
+          components/turboquant-reference/tests
+          components/refract/tests
+          --cov=turboquant
+          --cov=refract
+          --cov-report=term-missing
+          -v --tb=short
+
+  package:
+    name: Build and inspect distributions
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
 
@@ -124,3 +155,34 @@ jobs:
           uv pip install --python .smoke-venv/bin/python --force-reinstall dist/refract/*.whl dist/turboquant/*.whl
           .smoke-venv/bin/refract --help
           .smoke-venv/bin/python -c "import refract, turboquant; print(refract.__version__)"
+
+  ci-required:
+    name: CI required
+    if: ${{ always() }}
+    needs:
+      - lint
+      - test
+      - coverage
+      - package
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Verify required jobs succeeded
+        shell: bash
+        env:
+          LINT_RESULT: ${{ needs.lint.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          COVERAGE_RESULT: ${{ needs.coverage.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+        run: |
+          for result in \
+            "lint=${LINT_RESULT}" \
+            "test=${TEST_RESULT}" \
+            "coverage=${COVERAGE_RESULT}" \
+            "package=${PACKAGE_RESULT}"
+          do
+            if [[ "${result#*=}" != "success" ]]; then
+              echo "Required job did not succeed: ${result}"
+              exit 1
+            fi
+          done

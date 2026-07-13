@@ -109,7 +109,7 @@ def make_rniah_high_base(score: float = 100.0) -> RNIAHResult:
         cells=cells,
         skipped_cells=[],
         needle="Note: APRICOT-7-BLUE rare paint.",
-        password_keyword="APRICOT-7-BLUE",
+        needle_keyword="APRICOT-7-BLUE",
         notes=[],
     )
 
@@ -144,7 +144,7 @@ def make_rniah_low_base() -> RNIAHResult:
         cells=cells,
         skipped_cells=[(16384, 0.10)],
         needle="Note: X.",
-        password_keyword="X",
+        needle_keyword="X",
         notes=[],
     )
 

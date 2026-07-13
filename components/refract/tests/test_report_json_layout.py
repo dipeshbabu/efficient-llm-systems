@@ -89,9 +89,9 @@ def test_axes_block_present():
     assert rep["axes"]["gtm"]["mean_ref_length"] == 48.0
 
 
-def test_schema_is_v0_3_2():
+def test_schema_is_v0_3_3():
     rep = _build_minimal_report()
-    assert rep["schema"] == "refract.report.v0.3.2"
+    assert rep["schema"] == "refract.report.v0.3.3"
 
 
 def test_framework_version_present():

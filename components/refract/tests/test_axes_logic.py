@@ -23,7 +23,7 @@ from refract.axes.plad import (
 from refract.axes.rniah import (
     DEFAULT_NEEDLE,
     _build_prompt,
-    _extract_password_keyword,
+    _extract_needle_keyword,
     _nearest_sentence_boundary,
     _scored,
 )
@@ -235,23 +235,23 @@ def test_normalized_drift_capped_at_1(monkeypatch):
 # --- R-NIAH helpers -------------------------------------------------------
 
 
-def test_extract_password_keyword_default_needle():
-    kw = _extract_password_keyword(DEFAULT_NEEDLE)
+def test_extract_needle_keyword_default_needle():
+    kw = _extract_needle_keyword(DEFAULT_NEEDLE)
     assert kw == "APRICOT-7-BLUE"
 
 
-def test_extract_password_keyword_picks_longest():
-    kw = _extract_password_keyword("Code A-B and CODE-NAME-FOO")
+def test_extract_needle_keyword_picks_longest():
+    kw = _extract_needle_keyword("Code A-B and CODE-NAME-FOO")
     assert kw == "CODE-NAME-FOO"
 
 
-def test_extract_password_keyword_falls_back_to_last_word():
-    kw = _extract_password_keyword("plain words here")
+def test_extract_needle_keyword_falls_back_to_last_word():
+    kw = _extract_needle_keyword("plain words here")
     assert kw == "here"
 
 
-def test_extract_password_keyword_empty_returns_input():
-    assert _extract_password_keyword("") == ""
+def test_extract_needle_keyword_empty_returns_input():
+    assert _extract_needle_keyword("") == ""
 
 
 def test_nearest_sentence_boundary_at_zero():

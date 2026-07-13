@@ -24,7 +24,7 @@ For each (length, position) cell:
 
     4. Run ``n_trials`` greedy completions under both reference and
        candidate KV configs. Score = 1.0 if the completion contains the
-       password keyword (case-insensitive substring), else 0.0.
+       needle keyword (case-insensitive substring), else 0.0.
 
     5. Per-cell aggregate:
            base_acc[cell]    = mean(reference trial scores)
@@ -52,8 +52,8 @@ Implementation notes
     a v0.3 target; v0.2.0 ships with one phrasing.
   - Cost: O(n_lengths × n_positions × n_trials × 2) generations.
     A 5 × 3 × 1 × 2 = 30-call sweep at ~30 sec each ≈ 15 min per model.
-  - The needle's password keyword is auto-extracted as the longest
-    all-caps hyphenated token in ``needle`` unless ``password_keyword``
+  - The needle keyword is auto-extracted as the longest all-caps
+    hyphenated token in ``needle`` unless ``needle_keyword``
     is supplied explicitly.
 """
 
@@ -112,7 +112,7 @@ class RNIAHResult:
     cells: list[RNIAHCell]
     skipped_cells: list[tuple[int, float]]
     needle: str
-    password_keyword: str
+    needle_keyword: str
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -128,13 +128,13 @@ class RNIAHResult:
         return "ok" if self.base_accuracy >= 0.2 else "low"
 
 
-def _extract_password_keyword(needle: str) -> str:
-    """Pull the password token out of a needle phrase.
+def _extract_needle_keyword(needle: str) -> str:
+    """Pull the distinctive retrieval token out of a needle phrase.
 
     Picks the longest run of [A-Z0-9] characters with optional hyphens —
     e.g. ``"APRICOT-7-BLUE"`` from the default needle. Falls back to the
     last whitespace-token if no all-caps run exists. Users can override
-    via the ``password_keyword`` parameter on ``run_rniah``.
+    via the ``needle_keyword`` parameter on ``run_rniah``.
     """
     candidates = re.findall(r"[A-Z][A-Z0-9\-]{2,}", needle)
     if candidates:
@@ -203,9 +203,9 @@ def _build_prompt(
     return system_msg, question
 
 
-def _scored(text: str, password_keyword: str) -> int:
-    """1 if the completion contains the password keyword, else 0."""
-    return int(password_keyword.lower() in text.lower())
+def _scored(text: str, needle_keyword: str) -> int:
+    """1 if the completion contains the needle keyword, else 0."""
+    return int(needle_keyword.lower() in text.lower())
 
 
 def run_rniah(
@@ -219,7 +219,7 @@ def run_rniah(
     n_trials: int = DEFAULT_N_TRIALS,
     needle: str = DEFAULT_NEEDLE,
     question: str = DEFAULT_QUESTION,
-    password_keyword: Optional[str] = None,
+    needle_keyword: Optional[str] = None,
     # v0.2.1: bumped from 32 to 256. Modern instruct models (qwen3.5,
     # gemma-4) emit a thinking trace before the answer; 32 tokens runs
     # out before the answer lands. 256 gives space to think + answer.
@@ -239,8 +239,8 @@ def run_rniah(
     haystack_text = haystack_corpus.read_text(errors="replace")
     head = haystack_text[:_CHARS_PER_TOKEN_HEAD]
     chars_per_token = _estimate_chars_per_token(model, head)
-    if password_keyword is None:
-        password_keyword = _extract_password_keyword(needle)
+    if needle_keyword is None:
+        needle_keyword = _extract_needle_keyword(needle)
 
     cells: list[RNIAHCell] = []
     skipped: list[tuple[int, float]] = []
@@ -310,8 +310,8 @@ def run_rniah(
                     apply_chat_template=True,
                     system=system_msg,
                 )
-                base_hits += _scored(ref_text, password_keyword)
-                cand_hits += _scored(cand_text, password_keyword)
+                base_hits += _scored(ref_text, needle_keyword)
+                cand_hits += _scored(cand_text, needle_keyword)
 
             base_acc = base_hits / n_trials
             cand_acc = cand_hits / n_trials
@@ -346,6 +346,6 @@ def run_rniah(
         cells=cells,
         skipped_cells=skipped,
         needle=needle,
-        password_keyword=password_keyword,
+        needle_keyword=needle_keyword,
         notes=notes,
     )

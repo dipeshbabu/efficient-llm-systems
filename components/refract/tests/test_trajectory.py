@@ -223,20 +223,20 @@ def test_rniah_dataclass_shapes_stable():
         "skipped_cells",
         "needle",
         "notes",
-        "password_keyword",
+        "needle_keyword",
     } <= res_fields
 
 
-def test_rniah_extract_password_keyword_default():
+def test_rniah_extract_needle_keyword_default():
     assert (
-        rniah_mod._extract_password_keyword("The secret password is APRICOT-7-BLUE.")
+        rniah_mod._extract_needle_keyword("The marker is APRICOT-7-BLUE.")
         == "APRICOT-7-BLUE"
     )
 
 
-def test_rniah_extract_password_keyword_fallback():
+def test_rniah_extract_needle_keyword_fallback():
     # No all-caps token → fall back to the last whitespace-token.
-    assert rniah_mod._extract_password_keyword("the password is hunter2.") == "hunter2"
+    assert rniah_mod._extract_needle_keyword("the marker is amber.") == "amber"
 
 
 def test_rniah_nearest_sentence_boundary_finds_period():

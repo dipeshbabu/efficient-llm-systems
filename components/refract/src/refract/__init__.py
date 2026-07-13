@@ -17,5 +17,5 @@ See:
 from __future__ import annotations
 
 __version__ = "0.3.4"
-__report_schema__ = "refract.report.v0.3.2"
+__report_schema__ = "refract.report.v0.3.3"
 __all__ = ["__version__", "__report_schema__"]

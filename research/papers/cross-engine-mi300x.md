@@ -187,7 +187,7 @@ For axis C R-NIAH specifically, also bumped `REFRACT_VLLM_MAX_MODEL_LEN=33792` s
    - Phase cand: launch fp8 server, run same probes, dump to JSON, kill
    - Aggregate: load both JSONs, compute KLD per chunk, generate REFRACT-format scores
 
-   For axes C (R-NIAH) and D (PLAD), `refract_sglang_cd_collect.py` imports REFRACT's needle generator (`refract.axes.rniah._build_prompt`, `_extract_password_keyword`) and perturbation functions (`refract.axes.plad._PERTURBATION_FUNCS`) directly so the methodology is identical to native REFRACT. The aggregator uses HuggingFace's tokenizer for PLAD's edit distance to avoid shelling out to `llama-tokenize`.
+   For axes C (R-NIAH) and D (PLAD), `refract_sglang_cd_collect.py` imports REFRACT's needle generator (`refract.axes.rniah._build_prompt`, `_extract_needle_keyword`) and perturbation functions (`refract.axes.plad._PERTURBATION_FUNCS`) directly so the methodology is identical to native REFRACT. The aggregator uses HuggingFace's tokenizer for PLAD's edit distance to avoid shelling out to `llama-tokenize`.
 
 ### Total bring-up cost
 

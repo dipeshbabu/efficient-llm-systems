@@ -178,7 +178,7 @@ def test_run_score_full_flag_enables_rniah_and_plad(tmp_path, monkeypatch):
             ],
             skipped_cells=[],
             needle="X",
-            password_keyword="X",
+            needle_keyword="X",
         )
 
     def _plad(**kw):
@@ -225,7 +225,7 @@ def test_run_score_excludes_low_confidence_rniah_from_composite(tmp_path, monkey
             ],
             skipped_cells=[],
             needle="X",
-            password_keyword="X",
+            needle_keyword="X",
         ),
     )
     haystack = tmp_path / "haystack.raw"

@@ -121,6 +121,7 @@ def test_text_report_full_four_axis():
     )
     assert "harmonic mean of 4 axes" in out
     assert "R-NIAH diagnostics" in out
+    assert f"needle keyword             : {rniah.needle_keyword}" in out
     assert "PLAD diagnostics" in out
 
 
@@ -202,7 +203,7 @@ def test_json_report_schema_stamp():
         gtm=gtm,
         kld=kld,
     )
-    assert rep["schema"] == "refract.report.v0.3.2"
+    assert rep["schema"] == "refract.report.v0.3.3"
     assert "framework_version" in rep
     assert rep["score_direction"] == "higher_is_better"
     assert rep["score_range"] == [0, 100]
@@ -293,6 +294,8 @@ def test_json_report_rniah_confidence_ok_when_base_avg_high():
         rniah=rniah,
     )
     assert rep["axes"]["rniah"]["confidence"] == "ok"
+    assert rep["axes"]["rniah"]["needle_keyword"] == rniah.needle_keyword
+    assert "password_keyword" not in rep["axes"]["rniah"]
 
 
 def test_json_report_plad_partial_confidence_with_nan():

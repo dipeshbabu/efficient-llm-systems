@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import abc
 import math
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -56,6 +57,27 @@ class KLDResult:
     chunks: int = 0
     ctx: int = 0
     metadata: dict = field(default_factory=dict)
+
+
+def _full_token_chunks(
+    token_ids: Sequence[int], *, chunk_len: int, max_chunks: int
+) -> list[list[int]]:
+    """Return complete, non-overlapping token chunks up to ``max_chunks``.
+
+    A final partial chunk is deliberately ignored because backend KLD runs
+    compare fixed-size contexts. An input containing exactly ``chunk_len``
+    tokens therefore yields one chunk.
+    """
+    if chunk_len <= 0:
+        raise ValueError("chunk_len must be positive")
+    if max_chunks <= 0:
+        return []
+
+    stop = len(token_ids) - chunk_len + 1
+    return [
+        list(token_ids[start : start + chunk_len])
+        for start in range(0, stop, chunk_len)
+    ][:max_chunks]
 
 
 def approximate_topk_kl(

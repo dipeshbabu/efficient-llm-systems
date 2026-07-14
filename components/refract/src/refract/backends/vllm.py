@@ -33,6 +33,7 @@ from .base import (
     CompletionResult,
     KLDResult,
     TrajectoryResult,
+    _full_token_chunks,
     approximate_topk_kl,
 )
 
@@ -238,9 +239,7 @@ class VLLMBackend(Backend):
         tok = ref_llm.get_tokenizer()
         ids = tok.encode(text, add_special_tokens=False)
         chunk_len = ctx - 1
-        slices = [
-            ids[i : i + chunk_len] for i in range(0, len(ids) - chunk_len, chunk_len)
-        ][:chunks]
+        slices = _full_token_chunks(ids, chunk_len=chunk_len, max_chunks=chunks)
         if not slices:
             raise BackendCapabilityError(
                 f"corpus too short for ctx={ctx}, chunks={chunks} "

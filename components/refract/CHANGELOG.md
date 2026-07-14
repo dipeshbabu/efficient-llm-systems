@@ -7,6 +7,9 @@ matrix result that motivated or validated the change.
 
 ## Unreleased
 
+- Fixed vLLM and SGLang KLD corpus chunking so an exactly full final context is
+  evaluated instead of discarded. Both backends now share one full-chunk
+  policy: exact multiples are retained and only an incomplete tail is ignored.
 - Renamed R-NIAH's synthetic retrieval marker from `password_keyword` to
   `needle_keyword`. The old name incorrectly implied credential data and caused
   CodeQL to classify the harmless benchmark marker as a password flowing to CLI

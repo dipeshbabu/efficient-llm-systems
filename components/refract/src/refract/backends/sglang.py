@@ -46,6 +46,7 @@ from .base import (
     CompletionResult,
     KLDResult,
     TrajectoryResult,
+    _full_token_chunks,
     approximate_topk_kl,
 )
 
@@ -284,9 +285,7 @@ class SGLangBackend(Backend):
         ids = tok_j[0]["tokens"] if isinstance(tok_j, list) else tok_j.get("tokens", [])
         # SGLang reserves a few tokens internally; leave headroom on chunk_len
         chunk_len = ctx - 8
-        slices = [
-            ids[i : i + chunk_len] for i in range(0, len(ids) - chunk_len, chunk_len)
-        ][:chunks]
+        slices = _full_token_chunks(ids, chunk_len=chunk_len, max_chunks=chunks)
         if not slices:
             raise BackendCapabilityError(
                 f"corpus too short for ctx={ctx}, chunks={chunks} "

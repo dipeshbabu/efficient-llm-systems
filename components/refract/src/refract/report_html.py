@@ -176,13 +176,14 @@ def _hardware_metadata() -> dict:
     return info
 
 
-def _model_metadata(model_path: Path) -> dict:
-    info: dict = {"path": str(model_path), "name": model_path.name}
+def _model_metadata(model: str | Path) -> dict:
+    model_path = Path(model)
+    info: dict = {"path": str(model), "name": model_path.name}
     if not model_path.exists():
         return info
     if model_path.is_file():
         info["size_gb"] = round(model_path.stat().st_size / 1024**3, 2)
-        info["format"] = "gguf" if model_path.suffix == ".gguf" else "file"
+        info["format"] = "gguf" if model_path.suffix.lower() == ".gguf" else "file"
     elif model_path.is_dir():
         total = 0
         for ext in ("*.safetensors", "*.bin", "*.npz"):
@@ -1147,7 +1148,7 @@ def html_report(
     """Render the report as a self-contained HTML page (string)."""
     from . import __version__
 
-    model_meta = _model_metadata(Path(model))
+    model_meta = _model_metadata(model)
     hw_meta = _hardware_metadata()
     repro = _repro_command(
         raw_json=raw_json,

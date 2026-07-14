@@ -469,11 +469,7 @@ def json_report(
 
         bk = get_active_backend()
         if bk is not None:
-            from pathlib import Path as _P
-
-            env_meta = (
-                bk.model_metadata(model=_P(model)) if model else {"backend": bk.name}
-            )
+            env_meta = bk.model_metadata(model=model) if model else {"backend": bk.name}
     except Exception:
         pass
 

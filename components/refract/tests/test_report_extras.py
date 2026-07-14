@@ -124,6 +124,35 @@ def test_json_report_env_meta_swallows_backend_exception():
         set_active_backend(None)
 
 
+def test_json_report_preserves_hugging_face_id_for_backend_metadata():
+    seen = []
+
+    class _RecordingBackend:
+        name = "recording"
+
+        def model_metadata(self, *, model):
+            seen.append(model)
+            return {"backend": self.name, "model": str(model)}
+
+    set_active_backend(_RecordingBackend())
+    try:
+        gtm = make_gtm()
+        kld = make_kld()
+        comp = composite_score(95, 95)
+        rep = json_report(
+            model="Qwen/Qwen3",
+            reference_label="r",
+            candidate_label="c",
+            composite=comp,
+            gtm=gtm,
+            kld=kld,
+        )
+        assert seen == ["Qwen/Qwen3"]
+        assert rep["environment"]["model"] == "Qwen/Qwen3"
+    finally:
+        set_active_backend(None)
+
+
 def test_json_report_handles_bad_argv(monkeypatch):
     """If sys.argv is something weird that errors out, repro_command is ''."""
 
@@ -228,6 +257,37 @@ def test_model_metadata_directory_no_config(tmp_path):
     info = _model_metadata(d)
     assert info["format"] == "directory"
     assert "model_type" not in info  # no config.json present
+
+
+def test_model_metadata_preserves_hugging_face_id():
+    info = _model_metadata("Qwen/Qwen3")
+    assert info["path"] == "Qwen/Qwen3"
+    assert info["name"] == "Qwen3"
+
+
+def test_html_report_preserves_hugging_face_id(monkeypatch):
+    import refract.report_html as report_html_module
+
+    seen = []
+    original = report_html_module._model_metadata
+
+    def recording_model_metadata(model):
+        seen.append(model)
+        return original(model)
+
+    monkeypatch.setattr(report_html_module, "_model_metadata", recording_model_metadata)
+    gtm = make_gtm()
+    kld = make_kld()
+    comp = composite_score(95, 95)
+    html_report(
+        model="Qwen/Qwen3",
+        reference_label="r",
+        candidate_label="c",
+        composite=comp,
+        gtm=gtm,
+        kld=kld,
+    )
+    assert seen == ["Qwen/Qwen3"]
 
 
 # --- _highlight_repro edge case -----------------------------------------

@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
@@ -257,6 +258,46 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def _comma_separated_values(value: str, *, label: str) -> tuple[str, ...]:
+    """Split a required comma-separated CLI value without accepting gaps."""
+    values = tuple(item.strip() for item in value.split(","))
+    if not values or any(not item for item in values):
+        raise argparse.ArgumentTypeError(
+            f"{label} must be a non-empty comma-separated list"
+        )
+    return values
+
+
+def _positive_int_list(value: str) -> tuple[int, ...]:
+    """Argparse type for non-empty lists of positive integer lengths."""
+    items = _comma_separated_values(value, label="lengths")
+    try:
+        parsed = tuple(int(item) for item in items)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            "lengths must contain only comma-separated integers"
+        ) from e
+    if any(item < 1 for item in parsed):
+        raise argparse.ArgumentTypeError("lengths must all be at least 1")
+    return parsed
+
+
+def _position_list(value: str) -> tuple[float, ...]:
+    """Argparse type for finite R-NIAH positions in the closed unit interval."""
+    items = _comma_separated_values(value, label="positions")
+    try:
+        parsed = tuple(float(item) for item in items)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            "positions must contain only comma-separated numbers"
+        ) from e
+    if any(not math.isfinite(item) or not 0.0 <= item <= 1.0 for item in parsed):
+        raise argparse.ArgumentTypeError(
+            "positions must all be finite numbers between 0 and 1"
+        )
+    return parsed
+
+
 def _add_score_parser(sub):
     import argparse as _ap
 
@@ -270,7 +311,6 @@ def _add_score_parser(sub):
     p.add_argument(
         "--model",
         required=True,
-        type=Path,
         help="GGUF/MLX model path or Hugging Face model ID.",
     )
     p.add_argument(
@@ -284,19 +324,23 @@ def _add_score_parser(sub):
     p.add_argument("--no-auto-fetch", action="store_true", help=_NO_AUTO_FETCH_HELP)
     p.add_argument(
         "--chunks",
-        type=int,
+        type=_positive_int,
         default=32,
         help="--chunks for llama-perplexity (default: 32).",
     )
     p.add_argument(
-        "-c", "--ctx", type=int, default=512, help="Context size (default: 512)."
+        "-c",
+        "--ctx",
+        type=_positive_int,
+        default=512,
+        help="Context size (default: 512).",
     )
     p.add_argument(
         "-ngl", "--n-gpu-layers", type=int, default=99, help="-ngl flag (default: 99)."
     )
     p.add_argument(
         "--n-predict",
-        type=int,
+        type=_positive_int,
         default=128,
         help="Tokens to greedy-decode per GTM prompt (default: 128).",
     )
@@ -363,7 +407,7 @@ def _add_score_parser(sub):
     )
     p.add_argument(
         "--rniah-up-to",
-        type=int,
+        type=_positive_int,
         default=16384,
         help="R-NIAH max context length to test. Lengths are "
         "auto-generated as a doubling step-up starting at "
@@ -375,7 +419,7 @@ def _add_score_parser(sub):
     )
     p.add_argument(
         "--rniah-ctx-max",
-        type=int,
+        type=_positive_int,
         default=None,
         help="(Power-user) hard ceiling for R-NIAH cells. Cells "
         "longer than this are skipped. Defaults to "
@@ -384,7 +428,7 @@ def _add_score_parser(sub):
     )
     p.add_argument(
         "--rniah-lengths",
-        type=str,
+        type=_positive_int_list,
         default=None,
         help="(Power-user) comma-separated R-NIAH lengths, "
         "overrides --rniah-up-to. Default: synthesised "
@@ -392,13 +436,16 @@ def _add_score_parser(sub):
     )
     p.add_argument(
         "--rniah-positions",
-        type=str,
+        type=_position_list,
         default=None,
         help="Comma-separated R-NIAH needle positions as "
         "fractions of length. Default: 0.10,0.50,0.90.",
     )
     p.add_argument(
-        "--rniah-trials", type=int, default=1, help="Trials per cell. Default: 1."
+        "--rniah-trials",
+        type=_positive_int,
+        default=1,
+        help="Trials per cell. Default: 1.",
     )
     p.add_argument(
         "--axis-plad",
@@ -640,7 +687,7 @@ def _run_score(args) -> int:
         # from 4K) when --rniah-lengths isn't set. Default --rniah-ctx-max
         # to --rniah-up-to so the user only has one knob to think about.
         if args.rniah_lengths:
-            lengths = tuple(int(x) for x in args.rniah_lengths.split(","))
+            lengths = args.rniah_lengths
         else:
             up_to = args.rniah_up_to
             n = 4096
@@ -653,11 +700,7 @@ def _run_score(args) -> int:
             lengths = tuple(synth)
         if args.rniah_ctx_max is None:
             args.rniah_ctx_max = max(lengths)
-        positions = (
-            tuple(float(x) for x in args.rniah_positions.split(","))
-            if args.rniah_positions
-            else None
-        )
+        positions = args.rniah_positions
         kwargs: dict = {
             "model": args.model,
             "haystack_corpus": args.rniah_haystack,
@@ -848,7 +891,6 @@ def _add_selftest_parser(sub):
     )
     p.add_argument(
         "--model",
-        type=Path,
         default=None,
         help="Optional model to use for a real generation probe. "
         "Accepts local model paths and backend-supported model "
@@ -992,11 +1034,12 @@ def _run_selftest(args) -> int:
     # --- Model probe (optional) ---
     if args.model:
         requires_local_model = backend.name in {"llamacpp", "mlx"}
-        if requires_local_model and not args.model.exists():
+        local_model = Path(args.model)
+        if requires_local_model and not local_model.exists():
             print(f"  ✗ model not found: {args.model}")
             failures.append(f"model missing: {args.model}")
         else:
-            print(f"\nProbing model: {args.model.name}")
+            print(f"\nProbing model: {local_model.name}")
             gen_ok = False
             try:
                 result = backend.run_completion(
@@ -1176,7 +1219,7 @@ def _add_repeatability_parser(sub):
             "prompts and cached/auto-downloaded corpus defaults as score."
         ),
     )
-    p.add_argument("--model", required=True, type=Path)
+    p.add_argument("--model", required=True)
     p.add_argument("--candidate", required=True)
     p.add_argument("--reference", default="ctk=f16,ctv=f16")
     p.add_argument("--prompts", type=Path, default=None, help=_PROMPTS_HELP)
@@ -1188,9 +1231,9 @@ def _add_repeatability_parser(sub):
         default=4,
         help="Number of repeat runs (default: 4).",
     )
-    p.add_argument("--n-predict", type=int, default=50)
-    p.add_argument("--ctx", "-c", type=int, default=512)
-    p.add_argument("--chunks", type=int, default=32)
+    p.add_argument("--n-predict", type=_positive_int, default=50)
+    p.add_argument("--ctx", "-c", type=_positive_int, default=512)
+    p.add_argument("--chunks", type=_positive_int, default=32)
     p.add_argument("--n-gpu-layers", "-ngl", type=int, default=99)
     p.add_argument(
         "--seed",
@@ -1212,10 +1255,10 @@ def _add_repeatability_parser(sub):
         "paths use cached wiki.train.raw (downloaded when "
         "needed unless --no-auto-fetch is set).",
     )
-    p.add_argument("--rniah-ctx-max", type=int, default=None)
+    p.add_argument("--rniah-ctx-max", type=_positive_int, default=None)
     p.add_argument(
         "--rniah-up-to",
-        type=int,
+        type=_positive_int,
         default=16384,
         help="Maximum R-NIAH context when --full is used.",
     )

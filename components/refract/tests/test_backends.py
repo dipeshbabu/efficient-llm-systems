@@ -79,6 +79,13 @@ def test_auto_backend_gguf_picks_llamacpp(tmp_path, monkeypatch):
     assert bk.name == "llamacpp"
 
 
+def test_auto_backend_gguf_suffix_is_case_insensitive(tmp_path, monkeypatch):
+    monkeypatch.delenv("REFRACT_BACKEND", raising=False)
+    p = tmp_path / "MODEL.GGUF"
+    p.write_text("x")
+    assert auto_backend(str(p)).name == "llamacpp"
+
+
 def test_auto_backend_directory_with_config_picks_mlx(tmp_path, monkeypatch):
     monkeypatch.delenv("REFRACT_BACKEND", raising=False)
     d = tmp_path / "mlx_model"
@@ -91,12 +98,28 @@ def test_auto_backend_directory_with_config_picks_mlx(tmp_path, monkeypatch):
     assert bk.name == "mlx"
 
 
+def test_auto_backend_string_directory_with_config_picks_mlx(tmp_path, monkeypatch):
+    monkeypatch.delenv("REFRACT_BACKEND", raising=False)
+    d = tmp_path / "mlx_model"
+    d.mkdir()
+    (d / "config.json").write_text(
+        '{"quantization": {"bits": 4, "group_size": 64}}',
+        encoding="utf-8",
+    )
+    assert auto_backend(str(d)).name == "mlx"
+
+
 def test_auto_backend_plain_hf_directory_picks_vllm(tmp_path, monkeypatch):
     monkeypatch.delenv("REFRACT_BACKEND", raising=False)
     d = tmp_path / "hf_model"
     d.mkdir()
     (d / "config.json").write_text('{"model_type": "qwen2"}', encoding="utf-8")
     assert auto_backend(d).name == "vllm"
+
+
+def test_auto_backend_hugging_face_id_picks_vllm_without_rewriting(monkeypatch):
+    monkeypatch.delenv("REFRACT_BACKEND", raising=False)
+    assert auto_backend("Qwen/Qwen3").name == "vllm"
 
 
 def test_auto_backend_unknown_falls_back_to_vllm(tmp_path, monkeypatch):
@@ -212,6 +235,31 @@ def test_sglang_methods_present():
         "model_metadata",
     ):
         assert callable(getattr(bk, meth)), f"SGLangBackend missing {meth}"
+
+
+@pytest.mark.parametrize("model", ["Qwen/Qwen3", Path("Qwen/Qwen3")])
+def test_sglang_prompt_preserves_hugging_face_model_id(model, monkeypatch):
+    from refract.backends import sglang as module
+
+    seen = []
+
+    class _Tokenizer:
+        def apply_chat_template(self, messages, **kwargs):
+            return [1, 2, 3]
+
+    def fake_load_tokenizer(model_id):
+        seen.append(model_id)
+        return _Tokenizer()
+
+    monkeypatch.setattr(module, "_load_tokenizer", fake_load_tokenizer)
+    assert module._prompt_token_ids(
+        model,
+        "http://localhost:30000",
+        "hello",
+        system=None,
+        apply_template=True,
+    ) == [1, 2, 3]
+    assert seen == ["Qwen/Qwen3"]
 
 
 def test_sglang_completion_and_trajectory_share_prompt_ids(monkeypatch):

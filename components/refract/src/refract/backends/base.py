@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+ModelSpec = str | Path
+
 
 class BackendCapabilityError(RuntimeError):
     """Raised when a backend doesn't support a feature that an axis requires.
@@ -132,7 +134,7 @@ class Backend(abc.ABC):
     def run_completion(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -150,7 +152,7 @@ class Backend(abc.ABC):
     def run_completion_trajectory(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -167,7 +169,7 @@ class Backend(abc.ABC):
     def run_kld(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         corpus: Path,
         ref_kv_str: str,
         cand_kv_str: str,
@@ -180,7 +182,7 @@ class Backend(abc.ABC):
     def tokenize_to_ids(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         text: str,
         timeout: float = 120.0,
     ) -> list[int]: ...
@@ -188,7 +190,7 @@ class Backend(abc.ABC):
     def detect_thinking_mode(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         timeout: float = 30.0,
     ) -> tuple[bool, list[str]]:
         """Run a tiny probe and return ``(detected, markers_found)``.
@@ -226,7 +228,7 @@ class Backend(abc.ABC):
         hit = [m for m in markers if m in text]
         return bool(hit), hit
 
-    def model_metadata(self, *, model: Path) -> dict:
+    def model_metadata(self, *, model: ModelSpec) -> dict:
         """Return backend-specific metadata to embed in the JSON report.
 
         Default: backend name + model path basename. Overridable to capture
@@ -234,5 +236,5 @@ class Backend(abc.ABC):
         """
         return {
             "backend": self.name,
-            "model": model.as_posix(),
+            "model": model.as_posix() if isinstance(model, Path) else model,
         }

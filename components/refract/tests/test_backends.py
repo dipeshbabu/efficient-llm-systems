@@ -14,11 +14,42 @@ from refract.backends.base import (
     CompletionResult,
     KLDResult,
     TrajectoryResult,
+    _full_token_chunks,
     approximate_topk_kl,
 )
 from refract.backends.llamacpp import LlamaCppBackend
 from refract.backends.sglang import SGLangBackend, _validate_kv_str
 from refract.backends.vllm import VLLMBackend, _kv_str_to_vllm_dtype
+
+# --- shared KLD chunking --------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("token_ids", "chunk_len", "max_chunks", "expected"),
+    [
+        ([0, 1, 2], 4, 3, []),
+        ([0, 1, 2, 3], 4, 3, [[0, 1, 2, 3]]),
+        (list(range(8)), 4, 3, [list(range(4)), list(range(4, 8))]),
+        (list(range(10)), 4, 3, [list(range(4)), list(range(4, 8))]),
+        (list(range(12)), 4, 2, [list(range(4)), list(range(4, 8))]),
+    ],
+)
+def test_full_token_chunks(
+    token_ids: list[int],
+    chunk_len: int,
+    max_chunks: int,
+    expected: list[list[int]],
+):
+    assert (
+        _full_token_chunks(token_ids, chunk_len=chunk_len, max_chunks=max_chunks)
+        == expected
+    )
+
+
+def test_full_token_chunks_rejects_non_positive_chunk_length():
+    with pytest.raises(ValueError, match="chunk_len must be positive"):
+        _full_token_chunks([0], chunk_len=0, max_chunks=1)
+
 
 # --- registry -------------------------------------------------------------
 

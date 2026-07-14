@@ -45,6 +45,7 @@ from .base import (
     BackendCapabilityError,
     CompletionResult,
     KLDResult,
+    ModelSpec,
     TrajectoryResult,
     _full_token_chunks,
     approximate_topk_kl,
@@ -131,7 +132,7 @@ def _load_tokenizer(model_id: str):
 
 
 def _prompt_token_ids(
-    model: Path,
+    model: ModelSpec,
     url: str,
     prompt: str,
     *,
@@ -139,8 +140,9 @@ def _prompt_token_ids(
     apply_template: bool,
 ) -> list[int]:
     """Build the exact prompt IDs used by completion and trajectory paths."""
+    model_id = model.as_posix() if isinstance(model, Path) else model
     if apply_template:
-        tokenizer = _load_tokenizer(model.as_posix())
+        tokenizer = _load_tokenizer(model_id)
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
@@ -157,7 +159,7 @@ def _prompt_token_ids(
             ids = ids.tolist()
         return [int(token_id) for token_id in ids]
 
-    body = {"prompt": prompt, "model": _model_id(url) or model.as_posix()}
+    body = {"prompt": prompt, "model": _model_id(url) or model_id}
     response = _post(url, "/tokenize", body, timeout_s=120.0)
     ids = (
         response[0]["tokens"]
@@ -173,7 +175,7 @@ class SGLangBackend(Backend):
     def run_completion(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -211,7 +213,7 @@ class SGLangBackend(Backend):
     def run_completion_trajectory(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -254,7 +256,7 @@ class SGLangBackend(Backend):
     def run_kld(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         corpus: Path,
         ref_kv_str: str,
         cand_kv_str: str,
@@ -378,7 +380,7 @@ class SGLangBackend(Backend):
     def tokenize_to_ids(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         text: str,
         timeout: float = 120.0,
     ) -> list[int]:
@@ -389,7 +391,7 @@ class SGLangBackend(Backend):
             return j[0]["tokens"]
         return j.get("tokens", [])
 
-    def model_metadata(self, *, model: Path) -> dict:
+    def model_metadata(self, *, model: ModelSpec) -> dict:
         url = _url("REFRACT_SGLANG_URL")
         served = _model_id(url)
         return {

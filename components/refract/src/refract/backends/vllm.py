@@ -32,6 +32,7 @@ from .base import (
     BackendCapabilityError,
     CompletionResult,
     KLDResult,
+    ModelSpec,
     TrajectoryResult,
     _full_token_chunks,
     approximate_topk_kl,
@@ -78,7 +79,7 @@ def _max_model_len_default() -> int:
     return int(os.environ.get("REFRACT_VLLM_MAX_MODEL_LEN", "4096"))
 
 
-def _get_llm(model: Path, kv_dtype: str, max_model_len: int) -> Any:
+def _get_llm(model: ModelSpec, kv_dtype: str, max_model_len: int) -> Any:
     """Cache one LLM instance at a time (per process).
 
     Hybrid models like Qwen3.6-35B-A3B don't fit two simultaneous LLM
@@ -144,7 +145,7 @@ class VLLMBackend(Backend):
     def run_completion(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -180,7 +181,7 @@ class VLLMBackend(Backend):
     def run_completion_trajectory(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -214,7 +215,7 @@ class VLLMBackend(Backend):
     def run_kld(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         corpus: Path,
         ref_kv_str: str,
         cand_kv_str: str,
@@ -316,7 +317,7 @@ class VLLMBackend(Backend):
     def tokenize_to_ids(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         text: str,
         timeout: float = 120.0,
     ) -> list[int]:
@@ -324,7 +325,7 @@ class VLLMBackend(Backend):
         llm = _get_llm(model, "auto", max_len)
         return llm.get_tokenizer().encode(text, add_special_tokens=False)
 
-    def model_metadata(self, *, model: Path) -> dict:
+    def model_metadata(self, *, model: ModelSpec) -> dict:
         try:
             import vllm
 

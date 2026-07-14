@@ -7,6 +7,12 @@ matrix result that motivated or validated the change.
 
 ## Unreleased
 
+- Score and repeatability count options now reject zero and negative values
+  during argument parsing. R-NIAH length and position lists are validated as
+  non-empty, well-formed lists; positions must be finite and within `[0, 1]`.
+  Model arguments remain strings so Hugging Face IDs keep their forward slash
+  on Windows, while local GGUF/MLX paths still auto-detect correctly and GGUF
+  suffix matching is case-insensitive.
 - Fixed vLLM and SGLang KLD corpus chunking so an exactly full final context is
   evaluated instead of discarded. Both backends now share one full-chunk
   policy: exact multiples are retained and only an incomplete tail is ignored.

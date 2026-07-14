@@ -51,6 +51,7 @@ from .base import (
     BackendCapabilityError,
     CompletionResult,
     KLDResult,
+    ModelSpec,
     TrajectoryResult,
 )
 
@@ -136,7 +137,7 @@ def _translate_kv_to_mlx(kv_config_str: str) -> dict:
 _MODEL_CACHE: dict[str, tuple] = {}  # str(model_path) -> (model, tokenizer)
 
 
-def _load_model(model_path: Path):
+def _load_model(model_path: ModelSpec):
     """Load + cache a model. Re-load is the slow part for big GGUFs."""
     _require_mlx()
     import mlx_lm
@@ -167,7 +168,7 @@ class MLXBackend(Backend):
     def run_completion(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -213,7 +214,7 @@ class MLXBackend(Backend):
     def run_completion_trajectory(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -259,7 +260,7 @@ class MLXBackend(Backend):
     def run_kld(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         corpus: Path,
         ref_kv_str: str,
         cand_kv_str: str,
@@ -369,7 +370,7 @@ class MLXBackend(Backend):
     def tokenize_to_ids(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         text: str,
         timeout: float = 120.0,  # noqa: ARG002
     ) -> list[int]:
@@ -379,7 +380,7 @@ class MLXBackend(Backend):
         return list(tok.encode(text, add_special_tokens=False))
 
     # ---------------------------------------------------------------- model_metadata
-    def model_metadata(self, *, model: Path) -> dict:
+    def model_metadata(self, *, model: ModelSpec) -> dict:
         info: dict = {
             "backend": self.name,
             "model": str(model),

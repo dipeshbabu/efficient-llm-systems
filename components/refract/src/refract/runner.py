@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, cast
 
+from .backends.base import ModelSpec
+
 DEFAULT_BIN_DIR = Path(
     os.path.expanduser(
         os.environ.get(
@@ -221,7 +223,7 @@ def _strip_noise(text: str) -> str:
 
 
 def run_completion(
-    model: Path,
+    model: ModelSpec,
     prompt: str,
     kv: KVConfig,
     n_predict: int = 128,
@@ -357,7 +359,7 @@ _TOPP_RE = re.compile(r"Same\s+top[-\s]?p:\s*([0-9.]+)\s*%")
 
 
 def run_perplexity_kld_base(
-    model: Path,
+    model: ModelSpec,
     corpus: Path,
     kv: KVConfig,
     base_path: Path,
@@ -415,7 +417,7 @@ def run_perplexity_kld_base(
 
 
 def run_perplexity_kld(
-    model: Path,
+    model: ModelSpec,
     corpus: Path,
     kv: KVConfig,
     base_path: Path,
@@ -583,7 +585,7 @@ def assert_corpus_matches(base_path: Path, corpus: Path) -> None:
 
 
 def run_completion_trajectory(
-    model: Path,
+    model: ModelSpec,
     prompt: str,
     kv: KVConfig,
     n_predict: int = 128,
@@ -722,7 +724,7 @@ def run_completion_trajectory(
 
 
 def tokenize_to_ids(
-    model: Path,
+    model: ModelSpec,
     text: str,
     timeout: float = 120.0,
 ) -> list[int]:

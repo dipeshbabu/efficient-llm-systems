@@ -43,7 +43,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from .base import Backend, BackendCapabilityError
+from .base import Backend, BackendCapabilityError, ModelSpec
 
 
 def get_backend(name: str) -> Backend:
@@ -70,7 +70,7 @@ def get_backend(name: str) -> Backend:
     )
 
 
-def auto_backend(model: Path) -> Backend:
+def auto_backend(model: ModelSpec) -> Backend:
     """Pick the backend by inspecting the model path + REFRACT_BACKEND env.
 
     Resolution order:
@@ -82,13 +82,14 @@ def auto_backend(model: Path) -> Backend:
     env = os.environ.get("REFRACT_BACKEND")
     if env:
         return get_backend(env)
-    if model.suffix == ".gguf":
+    model_path = Path(model)
+    if model_path.suffix.lower() == ".gguf":
         return get_backend("llamacpp")
-    if model.is_dir():
+    if model_path.is_dir():
         # MLX-LM converted models normally carry a top-level ``quantization``
         # block with ``bits`` and ``group_size``. A plain Hugging Face
         # ``config.json`` is ambiguous and must not silently route to MLX.
-        config_path = model / "config.json"
+        config_path = model_path / "config.json"
         if config_path.exists():
             try:
                 config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -97,7 +98,7 @@ def auto_backend(model: Path) -> Backend:
                     return get_backend("mlx")
             except (OSError, UnicodeError, json.JSONDecodeError):
                 pass
-        if any(model.glob("*.npz")):
+        if any(model_path.glob("*.npz")):
             return get_backend("mlx")
     return get_backend("vllm")
 
@@ -105,6 +106,7 @@ def auto_backend(model: Path) -> Backend:
 __all__ = [
     "Backend",
     "BackendCapabilityError",
+    "ModelSpec",
     "get_backend",
     "auto_backend",
 ]

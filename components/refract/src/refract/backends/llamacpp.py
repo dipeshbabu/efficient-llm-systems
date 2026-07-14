@@ -23,7 +23,7 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-from .base import Backend, CompletionResult, KLDResult, TrajectoryResult
+from .base import Backend, CompletionResult, KLDResult, ModelSpec, TrajectoryResult
 
 
 class LlamaCppBackend(Backend):
@@ -33,7 +33,7 @@ class LlamaCppBackend(Backend):
     def run_completion(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -70,7 +70,7 @@ class LlamaCppBackend(Backend):
     def run_completion_trajectory(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         prompt: str,
         kv_config_str: str,
         n_predict: int = 128,
@@ -105,7 +105,7 @@ class LlamaCppBackend(Backend):
     def run_kld(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         corpus: Path,
         ref_kv_str: str,
         cand_kv_str: str,
@@ -171,7 +171,7 @@ class LlamaCppBackend(Backend):
     def tokenize_to_ids(
         self,
         *,
-        model: Path,
+        model: ModelSpec,
         text: str,
         timeout: float = 120.0,
     ) -> list[int]:
@@ -180,7 +180,7 @@ class LlamaCppBackend(Backend):
         return _tti(model=model, text=text, timeout=timeout)
 
     # ---------------------------------------------------------------- model_metadata
-    def model_metadata(self, *, model: Path) -> dict:
+    def model_metadata(self, *, model: ModelSpec) -> dict:
         from ..runner import DEFAULT_BIN_DIR
 
         commit = None

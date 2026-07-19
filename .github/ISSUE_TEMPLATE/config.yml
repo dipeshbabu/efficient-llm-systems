@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/dipeshbabu/efficient-llm-systems/security/advisories/new
+    about: Report vulnerabilities privately; do not include sensitive details in a public issue.
+  - name: Code of Conduct concern
+    url: https://github.com/dipeshbabu/efficient-llm-systems/blob/main/CODE_OF_CONDUCT.md#enforcement
+    about: Read the private reporting instructions for conduct concerns.
+  - name: Documentation index
+    url: https://github.com/dipeshbabu/efficient-llm-systems/blob/main/docs/index.md
+    about: Check maintained guides and component documentation before filing an issue.

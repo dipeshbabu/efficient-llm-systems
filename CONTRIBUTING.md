@@ -106,6 +106,19 @@ Trusted Publishing. Follow the [release procedure](docs/guides/releasing.md)
 for the required configuration and validation steps. The
 `turboquant-reference` package is not included in that publishing workflow.
 
+## Citation metadata
+
+The root [`CITATION.cff`](CITATION.cff) is the machine-readable citation for
+the repository. Update it when the credited authorship, project URL, license,
+or other repository-level citation facts change. Add a version and release
+date only when they identify an actual citable repository release; do not use a
+component package version as the version of the entire monorepo.
+
+Individual research reports remain the authoritative source for specific
+experimental claims. A change to authorship or publication metadata for a
+report should update that report as well as `CITATION.cff` when it affects the
+repository-wide citation.
+
 ## Research and artifact policy
 
 - Keep negative results; label them clearly instead of rewriting history.

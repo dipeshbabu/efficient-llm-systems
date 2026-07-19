@@ -44,6 +44,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: citation-cff
+        name: validate citation metadata
+        entry: uv run --locked --script tools/maintenance/validate_citation.py
+        language: system
+        files: ^(CITATION\.cff|tools/maintenance/validate_citation\.py(\.lock)?)$
+        pass_filenames: false
+
       - id: mypy
         name: check Python types
         entry: uv run --locked mypy

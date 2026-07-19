@@ -63,6 +63,8 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 # Optional engine stacks are intentionally absent from the default workspace.
 module = [
+    "cffconvert",
+    "cffconvert.*",
     "mlx",
     "mlx.*",
     "mlx_lm",

@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: >-
+  If you use this repository, cite Efficient LLM Systems and cite the specific
+  research report that supports any claim you rely on.
+title: Efficient LLM Systems
+type: software
+authors:
+  - family-names: Mahato
+    given-names: Dipesh Tharu
+    alias: dipeshbabu
+repository-code: https://github.com/dipeshbabu/efficient-llm-systems
+url: https://github.com/dipeshbabu/efficient-llm-systems
+license: Apache-2.0
+abstract: >-
+  Research, reference implementations, evaluation tools, and reproducible
+  evidence for improving large-language-model inference efficiency while
+  preserving behavioral fidelity.
+keywords:
+  - large language models
+  - inference
+  - KV cache
+  - quantization
+  - compression
+  - evaluation
+  - reproducible research

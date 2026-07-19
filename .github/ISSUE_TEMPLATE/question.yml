@@ -1,0 +1,51 @@
+name: Usage question
+description: Ask for help using a documented component or workflow.
+title: "[Question]: "
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Area
+      options:
+        - REFRACT
+        - TurboQuant reference
+        - Diagnostics
+        - Validation or benchmark tools
+        - Documentation or research record
+        - Development or packaging
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: State the result you are trying to achieve and where you are blocked.
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Link the documentation you followed and include relevant sanitized commands or output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include versions, OS, engine/backend, and hardware when they affect the question.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I checked the documentation and searched open and closed issues.
+          required: true
+        - label: This is not a vulnerability report or Code of Conduct concern.
+          required: true
+        - label: I removed secrets, personal information, and restricted data.
+          required: true

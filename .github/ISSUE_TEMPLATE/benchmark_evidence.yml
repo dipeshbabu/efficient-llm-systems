@@ -1,0 +1,95 @@
+name: Benchmark or research evidence
+description: Share a benchmark, reproduction, controlled negative result, or correction.
+title: "[Evidence]: "
+body:
+  - type: dropdown
+    id: evidence_type
+    attributes:
+      label: Evidence type
+      options:
+        - Benchmark result
+        - Reproduction of an existing result
+        - Controlled negative result
+        - Research correction
+        - Hardware diagnostic result
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Result summary
+      description: State the measured result and its limits without generalizing beyond the tested matrix.
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: Code revision
+      description: Provide the exact repository commit and any external engine commit or immutable version.
+      placeholder: efficient-llm-systems abc1234; llama.cpp def5678
+    validations:
+      required: true
+
+  - type: textarea
+    id: model
+    attributes:
+      label: Model and data
+      description: Include public identifiers, revisions, quantization, corpus/input identity, and licenses or access constraints.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Hardware and software environment
+      description: Include OS, accelerator, memory, drivers/runtime, Python, engine versions, and relevant system settings.
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Experimental configuration
+      description: Include baseline and candidate settings, context, seeds, warmups, trials, and measurement method.
+    validations:
+      required: true
+
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact commands
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: results
+    attributes:
+      label: Raw results and uncertainty
+      description: Attach or link raw output and report variance, uncertainty, failed runs, and anomalies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: interpretation
+    attributes:
+      label: Interpretation and limitations
+      description: Separate observations from hypotheses and list known threats to comparability.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Evidence checks
+      options:
+        - label: The report identifies the exact model, engine, configuration, hardware, command, and date.
+          required: true
+        - label: I included baselines or explained why a baseline is unavailable.
+          required: true
+        - label: I removed private paths, personal information, secrets, and restricted model data.
+          required: true
+        - label: I clearly marked predictions, estimates, and unverified claims.
+          required: true

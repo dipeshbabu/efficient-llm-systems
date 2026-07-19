@@ -1,0 +1,62 @@
+name: Feature request
+description: Propose a scoped capability or project improvement.
+title: "[Feature]: "
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target area
+      options:
+        - REFRACT
+        - TurboQuant reference
+        - Diagnostics
+        - Validation or benchmark tools
+        - Packaging, CI, or release automation
+        - Documentation or research record
+        - Repository-wide
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem to solve
+      description: Describe the user, research, or maintenance problem independently of a preferred implementation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the observable behavior, interface, or documentation that would address the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and use cases
+      description: Link representative examples, measurements, specifications, or prior discussion.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Include workarounds and explain why they are insufficient.
+
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and scope
+      description: Note affected platforms, engines, public APIs, report schemas, or research claims.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues and did not find the same proposal.
+          required: true
+        - label: I separated the problem statement from the proposed implementation.
+          required: true

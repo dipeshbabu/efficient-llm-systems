@@ -1,0 +1,89 @@
+name: Bug report
+description: Report a reproducible defect in a supported component or tool.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Efficient LLM Systems. For vulnerabilities,
+        use [private vulnerability reporting](https://github.com/dipeshbabu/efficient-llm-systems/security/advisories/new) instead of this form.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected area
+      options:
+        - REFRACT
+        - TurboQuant reference
+        - Diagnostics
+        - Validation or benchmark tools
+        - Packaging, CI, or release automation
+        - Documentation or research record
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide the package version or exact git commit SHA.
+      placeholder: refract-llm 0.3.4 or commit abc1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, Python, engine, accelerator, model identifier, and relevant dependency versions.
+      placeholder: |
+        OS: Ubuntu 24.04
+        Python: 3.12.4
+        Backend/engine: llama.cpp commit ...
+        Hardware: ...
+        Model: public identifier and quantization, without uploading weights
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include the smallest complete command and any minimal input needed to reproduce the defect.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the complete error and explain whether the result is deterministic.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs or artifacts
+      description: Remove secrets, private paths, usernames, hostnames, and restricted model data.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched open and closed issues for this problem.
+          required: true
+        - label: I removed secrets, personal information, and restricted data from this report.
+          required: true
+        - label: I can share enough information for another contributor to reproduce the problem.
+          required: true

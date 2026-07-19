@@ -164,6 +164,13 @@ uv run python -m build components/turboquant-reference
 The root is deliberately not a publishable Python distribution. Each
 component owns its dependencies, tests, package data, and release lifecycle.
 
+## Citing this work
+
+Use the repository's [citation metadata](CITATION.cff) when software or the
+repository as a whole supports your work. When relying on a result or claim
+from `research/`, also cite the specific report so readers can recover its
+model, engine, hardware, configuration, and date.
+
 ## License
 
 Apache License 2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

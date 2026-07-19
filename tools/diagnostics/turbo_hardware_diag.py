@@ -80,6 +80,10 @@ class UnsupportedDiagnosticPlatform(RuntimeError):
     """Raised when a host/backend combination cannot produce valid evidence."""
 
 
+class InconclusiveBackendProbe(RuntimeError):
+    """Raised when the runtime probe cannot identify an active backend."""
+
+
 # ---------------------------------------------------------------------------
 # Utilities
 # ---------------------------------------------------------------------------
@@ -820,6 +824,10 @@ def get_platform_support(
             "reason": reason,
             "action": action,
             "monitoring": monitoring,
+            "backend_probe": {
+                "status": "not-run",
+                "returncode": None,
+            },
             "gpu_backends": {
                 "supported": supported_backends,
                 "degraded": degraded_backends,
@@ -1002,6 +1010,41 @@ def assess_runtime_backend(
         probe_returncode=probe_returncode,
     )
     result["detected_gpu_backend"] = backend
+    probe_status = "successful"
+    if probe_returncode != 0:
+        probe_status = "failed"
+    elif backend == "unknown":
+        probe_status = "inconclusive"
+    result["backend_probe"] = {
+        "status": probe_status,
+        "returncode": probe_returncode,
+    }
+
+    if probe_status != "successful":
+        result["status"] = "inconclusive"
+        if probe_status == "failed":
+            result["reason"] = (
+                "The llama.cpp backend probe failed with exit status "
+                f"{probe_returncode}; platform support could not be assessed."
+            )
+        else:
+            result["reason"] = (
+                "The llama.cpp backend probe completed without an explicit "
+                "CUDA, ROCm, Metal, Vulkan, or CPU marker."
+            )
+        result["action"] = (
+            "Review section 4 output, verify the llama-cli build, and rerun "
+            "before benchmarking."
+        )
+        for section in range(5, 14):
+            for state in ("supported", "degraded", "skipped"):
+                if section in result["sections"][state]:
+                    result["sections"][state].remove(section)
+            if section not in result["sections"]["unavailable"]:
+                result["sections"]["unavailable"].append(section)
+        result["sections"]["unavailable"].sort()
+        return result
+
     backend_contract = result["gpu_backends"]
     if backend in backend_contract["supported"]:
         return result
@@ -1034,10 +1077,12 @@ def assess_runtime_backend(
 def log_platform_support(log: DiagLog, support: dict) -> None:
     """Write stable human-readable platform support tags."""
     backend = support.get("detected_gpu_backend", "not-yet-detected")
+    probe_status = support.get("backend_probe", {}).get("status", "not-run")
     log.write(
         "[PLATFORM_SUPPORT] "
         f"environment={support['environment']} status={support['status']} "
-        f"monitoring={support['monitoring']} backend={backend}"
+        f"monitoring={support['monitoring']} backend={backend} "
+        f"probe={probe_status}"
     )
     log.write(f"[PLATFORM_SUPPORT] reason={support['reason']}")
     log.write(f"[PLATFORM_SUPPORT] action={support['action']}")
@@ -3044,6 +3089,8 @@ def main() -> int:
             hw,
             probe_returncode=gpu_probe_returncode,
         )
+        if platform_support["status"] == "inconclusive":
+            raise InconclusiveBackendProbe(platform_support["reason"])
         if platform_support["status"] == "unsupported":
             raise UnsupportedDiagnosticPlatform(platform_support["reason"])
 
@@ -3085,6 +3132,12 @@ def main() -> int:
         # Section 13: Summary
         section_13_summary(log, anomaly_detector, platform_support)
 
+    except InconclusiveBackendProbe as e:
+        _had_error = True
+        log.section("DIAGNOSTIC STOPPED: BACKEND PROBE INCONCLUSIVE")
+        log.write(f"[ERROR] {e}")
+        log_platform_support(log, platform_support)
+        log.write("TURBO_DIAG_COMPLETE=false")
     except UnsupportedDiagnosticPlatform as e:
         _had_error = True
         _unsupported = True

@@ -392,6 +392,10 @@ class TestPlatformSupportContract:
         assert support["schema"] == thd.PLATFORM_SUPPORT_SCHEMA
         assert support["environment"] == "macos-apple-silicon"
         assert support["status"] == "supported"
+        assert support["backend_probe"] == {
+            "status": "not-run",
+            "returncode": None,
+        }
         assert support["gpu_backends"]["supported"] == ["metal"]
         assert support["sections"]["supported"] == list(range(1, 14))
 
@@ -503,7 +507,12 @@ class TestPlatformSupportContract:
         )
 
         assert support["detected_gpu_backend"] == "unknown"
-        assert support["status"] == "unsupported"
+        expected_probe_status = "failed" if returncode else "inconclusive"
+        assert support["backend_probe"] == {
+            "status": expected_probe_status,
+            "returncode": returncode,
+        }
+        assert support["status"] == "inconclusive"
         assert all(
             section in support["sections"]["unavailable"] for section in range(5, 14)
         )
@@ -530,6 +539,7 @@ class TestPlatformSupportContract:
         content = (tmp_path / "test.txt").read_text()
         assert "[PLATFORM_SUPPORT] environment=linux status=supported" in content
         assert "backend=cuda" in content
+        assert "probe=successful" in content
         assert "[PLATFORM_SECTIONS] unavailable=none" in content
 
     def test_launcher_bounds_optional_rich_install(self):
@@ -3024,7 +3034,10 @@ class TestMainFunction:
             extra_patches={
                 "turbo_hardware_diag.section_4_gpu_capabilities": {
                     "return_value": ("Metal device MTL0", 0)
-                }
+                },
+                "turbo_hardware_diag.section_5_build_validation": {
+                    "side_effect": AssertionError("later sections must not run")
+                },
             },
         )
 
@@ -3056,7 +3069,7 @@ class TestMainFunction:
             },
         )
 
-        assert rc == 2
+        assert rc == 1
 
     def test_main_exception_in_sections(self, tmp_path):
         llama_dir = _setup_llama_dir(tmp_path)

@@ -36,6 +36,11 @@ status, monitoring status, and supported/degraded/skipped/unavailable section
 lists. `--skip-stress` and `--skip-ppl` are reflected as skipped sections 8 and
 10 rather than being confused with platform limitations.
 
+If the runtime backend probe fails or completes without an explicit backend
+marker, the report records an `inconclusive` status and the command exits with
+status 1 before benchmarks. This is distinct from a conclusively unsupported
+platform/backend combination, which exits with status 2.
+
 The Bash launcher optionally installs Rich for the terminal UI with bounded
 retries and timeouts. If installation is unavailable, the diagnostic continues
 with its tested ASCII display. Running the Python script directly never

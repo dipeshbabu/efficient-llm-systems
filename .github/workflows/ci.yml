@@ -49,14 +49,29 @@ jobs:
         include:
           - os: ubuntu-24.04
             python-version: "3.10"
+            expected_platform: Linux
+            expected_environment: linux
+            expected_status: supported
           - os: ubuntu-24.04
             python-version: "3.11"
+            expected_platform: Linux
+            expected_environment: linux
+            expected_status: supported
           - os: ubuntu-24.04
             python-version: "3.12"
+            expected_platform: Linux
+            expected_environment: linux
+            expected_status: supported
           - os: windows-2025
             python-version: "3.13"
+            expected_platform: Windows
+            expected_environment: windows-native
+            expected_status: unsupported
           - os: macos-15
             python-version: "3.13"
+            expected_platform: Darwin
+            expected_environment: macos-apple-silicon
+            expected_status: supported
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -77,8 +92,17 @@ jobs:
 
       - name: Inspect diagnostic platform contract
         run: >-
-          uv run python tools/diagnostics/turbo_hardware_diag.py
-          --platform-support
+          uv run python -c "import json, subprocess, sys;
+          contract = json.loads(subprocess.check_output(
+          [sys.executable, 'tools/diagnostics/turbo_hardware_diag.py',
+          '--platform-support'], text=True));
+          expected = {'platform': '${{ matrix.expected_platform }}',
+          'environment': '${{ matrix.expected_environment }}',
+          'status': '${{ matrix.expected_status }}'};
+          print(json.dumps(contract, indent=2));
+          mismatches = {key: {'expected': value, 'actual': contract.get(key)}
+          for key, value in expected.items() if contract.get(key) != value};
+          assert not mismatches, mismatches"
 
       - name: Run TurboQuant reference tests
         run: >-

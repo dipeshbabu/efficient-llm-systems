@@ -47,6 +47,8 @@ contracts remain unchanged:
 - [Benchmark reference](docs/reference/benchmarks.md)
 - [REFRACT quick start](components/refract/QUICKSTART.md)
 - [Repository contribution guide](CONTRIBUTING.md)
+- [Support routes](SUPPORT.md)
+- [Governance and maintainers](GOVERNANCE.md)
 
 ## Development setup
 

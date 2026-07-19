@@ -24,6 +24,12 @@ Systems. Dated experiments and historical conclusions live under
 - [REFRACT](../components/refract/README.md)
 - [TurboQuant reference](../components/turboquant-reference/README.md)
 
+## Maintainers
+
+- [Project governance](../GOVERNANCE.md)
+- [Maintainers and component ownership](../MAINTAINERS.md)
+- [Repository settings baseline](maintainers/repository-settings.md)
+
 When documents disagree, prefer current guidance backed by the newer
 controlled experiment. Preserve older results as dated evidence rather than
 rewriting them to match the latest recommendation.

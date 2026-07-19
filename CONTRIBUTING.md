@@ -19,6 +19,14 @@ clearly separated.
 Do not present a dated experiment or raw artifact as current guidance. Update
 the relevant guide separately and link it to the supporting evidence.
 
+## Governance and ownership
+
+Project decisions, review expectations, compatibility policy, and maintainer
+lifecycle are defined in [GOVERNANCE.md](GOVERNANCE.md). Current component
+ownership is recorded in [MAINTAINERS.md](MAINTAINERS.md). Open a design issue
+before implementing changes to public contracts, scoring methodology,
+dependencies, security or release policy, governance, or published claims.
+
 ## Development setup
 
 Use Python 3.10 or newer and `uv` 0.11.8 or newer, then create the shared

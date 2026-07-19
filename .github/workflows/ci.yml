@@ -75,6 +75,11 @@ jobs:
       - name: Sync workspace
         run: uv sync --locked --all-packages
 
+      - name: Inspect diagnostic platform contract
+        run: >-
+          uv run python tools/diagnostics/turbo_hardware_diag.py
+          --platform-support
+
       - name: Run TurboQuant reference tests
         run: >-
           uv run pytest components/turboquant-reference/tests

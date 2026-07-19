@@ -2,7 +2,8 @@
 """TurboQuant Hardware Diagnostic v5 — Python rewrite.
 
 Comprehensive benchmark + device profiling + load monitoring.
-Run on ANY hardware (macOS Metal, Linux NVIDIA/AMD). Send the output zip back.
+Supported on Apple Silicon/macOS and native Linux. WSL runs with degraded host
+telemetry; native Windows and Intel macOS fail before benchmarking.
 
 NO PII collected — only hardware specs, load stats, and benchmark numbers.
 
@@ -20,6 +21,7 @@ Output: turbo-diag-<date>.zip containing:
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import os
@@ -70,6 +72,12 @@ CACHE_TYPES = ["q8_0", "turbo3"]
 MODE2_ENV = "TURBO_LAYER_ADAPTIVE=2"
 
 MONITOR_POLL_INTERVAL = 10  # seconds
+PLATFORM_SUPPORT_SCHEMA = "turbo_diag.platform_support.v1"
+ALL_DIAGNOSTIC_SECTIONS = tuple(range(1, 14))
+
+
+class UnsupportedDiagnosticPlatform(RuntimeError):
+    """Raised when a host/backend combination cannot produce valid evidence."""
 
 
 # ---------------------------------------------------------------------------
@@ -757,10 +765,264 @@ class AnomalyDetector:
 
 
 # ---------------------------------------------------------------------------
-# Platform detection — every probe wrapped in try/except
+# Platform support contract and detection
 # ---------------------------------------------------------------------------
 def detect_platform() -> str:
     return platform.system()
+
+
+def get_platform_support(
+    *,
+    system: Optional[str] = None,
+    release: Optional[str] = None,
+    machine: Optional[str] = None,
+    environ: Optional[dict[str, str]] = None,
+) -> dict:
+    """Return the declared support contract for a host environment.
+
+    Optional inputs make the policy independently testable without impersonating
+    platform modules. The returned dictionary is embedded in diagnostic JSON.
+    """
+    detected_system = system if system is not None else detect_platform()
+    detected_release = release if release is not None else platform.release()
+    detected_machine = machine if machine is not None else platform.machine()
+    detected_environ = os.environ if environ is None else environ
+    release_lower = detected_release.lower()
+    machine_lower = detected_machine.lower()
+    is_wsl = detected_system == "Linux" and (
+        "microsoft" in release_lower
+        or "wsl" in release_lower
+        or bool(detected_environ.get("WSL_INTEROP"))
+        or bool(detected_environ.get("WSL_DISTRO_NAME"))
+    )
+
+    def contract(
+        *,
+        environment: str,
+        status: str,
+        reason: str,
+        action: str,
+        monitoring: str,
+        supported_backends: list[str],
+        degraded_backends: list[str],
+        unavailable_backends: list[str],
+        supported_sections: list[int],
+        degraded_sections: list[int],
+        unavailable_sections: list[int],
+    ) -> dict:
+        return {
+            "schema": PLATFORM_SUPPORT_SCHEMA,
+            "platform": detected_system,
+            "release": detected_release,
+            "machine": detected_machine,
+            "environment": environment,
+            "status": status,
+            "reason": reason,
+            "action": action,
+            "monitoring": monitoring,
+            "gpu_backends": {
+                "supported": supported_backends,
+                "degraded": degraded_backends,
+                "unavailable": unavailable_backends,
+            },
+            "sections": {
+                "supported": supported_sections,
+                "degraded": degraded_sections,
+                "skipped": [],
+                "unavailable": unavailable_sections,
+            },
+        }
+
+    all_sections = list(ALL_DIAGNOSTIC_SECTIONS)
+    if detected_system == "Darwin" and machine_lower in {"arm64", "aarch64"}:
+        return contract(
+            environment="macos-apple-silicon",
+            status="supported",
+            reason="Apple Silicon hardware and Metal telemetry are supported.",
+            action="Run the Bash launcher or the Python diagnostic directly.",
+            monitoring="supported",
+            supported_backends=["metal"],
+            degraded_backends=[],
+            unavailable_backends=["cuda", "rocm", "vulkan", "cpu"],
+            supported_sections=all_sections,
+            degraded_sections=[],
+            unavailable_sections=[],
+        )
+    if detected_system == "Darwin":
+        return contract(
+            environment="macos-intel",
+            status="unsupported",
+            reason="The macOS diagnostic contract covers Apple Silicon only.",
+            action="Use a supported Apple Silicon or native Linux host.",
+            monitoring="unavailable",
+            supported_backends=[],
+            degraded_backends=[],
+            unavailable_backends=["metal", "cuda", "rocm", "vulkan", "cpu"],
+            supported_sections=[],
+            degraded_sections=[],
+            unavailable_sections=all_sections,
+        )
+    if is_wsl:
+        return contract(
+            environment="wsl",
+            status="degraded",
+            reason=(
+                "WSL can run Linux llama.cpp binaries, but host thermal, power, "
+                "storage, and GPU-topology telemetry is incomplete."
+            ),
+            action=(
+                "Use a WSL CUDA build and treat hardware/load sections as "
+                "partial evidence."
+            ),
+            monitoring="degraded",
+            supported_backends=["cuda"],
+            degraded_backends=[],
+            unavailable_backends=["metal", "rocm", "vulkan", "cpu"],
+            supported_sections=[3, 5, 6, 7, 8, 9, 10, 11, 13],
+            degraded_sections=[1, 2, 4, 12],
+            unavailable_sections=[],
+        )
+    if detected_system == "Linux":
+        return contract(
+            environment="linux",
+            status="supported",
+            reason="Native Linux diagnostic and monitoring probes are supported.",
+            action="Use a matching Linux llama.cpp build for the selected backend.",
+            monitoring="supported",
+            supported_backends=["cuda"],
+            degraded_backends=["rocm", "vulkan", "cpu"],
+            unavailable_backends=["metal"],
+            supported_sections=all_sections,
+            degraded_sections=[],
+            unavailable_sections=[],
+        )
+    if detected_system == "Windows":
+        return contract(
+            environment="windows-native",
+            status="unsupported",
+            reason=(
+                "Native Windows lacks the Linux/macOS telemetry contract and "
+                "the supported Bash launcher."
+            ),
+            action=(
+                "Run the diagnostic inside WSL with Linux llama.cpp binaries, "
+                "or use a native Linux/macOS host."
+            ),
+            monitoring="unavailable",
+            supported_backends=[],
+            degraded_backends=[],
+            unavailable_backends=["metal", "cuda", "rocm", "vulkan", "cpu"],
+            supported_sections=[],
+            degraded_sections=[],
+            unavailable_sections=all_sections,
+        )
+    return contract(
+        environment="unknown",
+        status="unsupported",
+        reason=f"No diagnostic support contract exists for {detected_system!r}.",
+        action="Use a supported Apple Silicon/macOS or native Linux host.",
+        monitoring="unavailable",
+        supported_backends=[],
+        degraded_backends=[],
+        unavailable_backends=["metal", "cuda", "rocm", "vulkan", "cpu"],
+        supported_sections=[],
+        degraded_sections=[],
+        unavailable_sections=all_sections,
+    )
+
+
+def apply_runtime_skips(support: dict, *, skip_stress: bool, skip_ppl: bool) -> dict:
+    """Record CLI-requested section skips in a support contract copy."""
+    result = copy.deepcopy(support)
+    skipped: list[int] = []
+    if skip_stress:
+        skipped.append(8)
+    if skip_ppl:
+        skipped.append(10)
+    for section in skipped:
+        for state in ("supported", "degraded", "unavailable"):
+            if section in result["sections"][state]:
+                result["sections"][state].remove(section)
+        if section not in result["sections"]["skipped"]:
+            result["sections"]["skipped"].append(section)
+    result["sections"]["skipped"].sort()
+    return result
+
+
+def detect_runtime_backend(support: dict, gpu_init: str, hw: dict) -> str:
+    """Infer the active llama.cpp backend from initialization evidence."""
+    init_lower = gpu_init.lower()
+    if re.search(r"\brocm\b|\bhip\b", init_lower):
+        return "rocm"
+    if "cuda" in init_lower or "cublas" in init_lower:
+        return "cuda"
+    if "metal" in init_lower:
+        return "metal"
+    if "vulkan" in init_lower:
+        return "vulkan"
+
+    hardware_backend = str(hw.get("gpu_backend", "")).lower()
+    if hardware_backend == "cuda":
+        return "cuda"
+    if hardware_backend in {"rocm", "hip"}:
+        return "rocm"
+    if hardware_backend == "vulkan_or_other":
+        return "vulkan"
+    if support["environment"] == "macos-apple-silicon":
+        return "metal"
+    if "cpu" in init_lower or gpu_init.strip():
+        return "cpu"
+    return "unknown"
+
+
+def assess_runtime_backend(support: dict, gpu_init: str, hw: dict) -> dict:
+    """Refine host support with the backend detected before long benchmarks."""
+    result = copy.deepcopy(support)
+    backend = detect_runtime_backend(result, gpu_init, hw)
+    result["detected_gpu_backend"] = backend
+    backend_contract = result["gpu_backends"]
+    if backend in backend_contract["supported"]:
+        return result
+    if backend in backend_contract["degraded"]:
+        result["status"] = "degraded"
+        result["reason"] = (
+            f"{result['reason']} Backend {backend!r} is experimental in this "
+            "diagnostic and may have partial telemetry."
+        )
+        return result
+
+    result["status"] = "unsupported"
+    result["reason"] = (
+        f"Detected backend {backend!r} is unavailable for environment "
+        f"{result['environment']!r}."
+    )
+    available = backend_contract["supported"] + backend_contract["degraded"]
+    if available:
+        result["action"] = "Use one of the declared backends: " + ", ".join(available)
+    for section in range(5, 14):
+        for state in ("supported", "degraded", "skipped"):
+            if section in result["sections"][state]:
+                result["sections"][state].remove(section)
+        if section not in result["sections"]["unavailable"]:
+            result["sections"]["unavailable"].append(section)
+    result["sections"]["unavailable"].sort()
+    return result
+
+
+def log_platform_support(log: DiagLog, support: dict) -> None:
+    """Write stable human-readable platform support tags."""
+    backend = support.get("detected_gpu_backend", "not-yet-detected")
+    log.write(
+        "[PLATFORM_SUPPORT] "
+        f"environment={support['environment']} status={support['status']} "
+        f"monitoring={support['monitoring']} backend={backend}"
+    )
+    log.write(f"[PLATFORM_SUPPORT] reason={support['reason']}")
+    log.write(f"[PLATFORM_SUPPORT] action={support['action']}")
+    for state in ("supported", "degraded", "skipped", "unavailable"):
+        values = support["sections"][state]
+        rendered = ",".join(str(value) for value in values) if values else "none"
+        log.write(f"[PLATFORM_SECTIONS] {state}={rendered}")
 
 
 def detect_hardware(log: DiagLog) -> dict:
@@ -2295,9 +2557,14 @@ def section_12_post_load(log: DiagLog) -> None:
 def section_13_summary(
     log: DiagLog,
     anomaly_detector: AnomalyDetector,
+    platform_support: Optional[dict] = None,
 ) -> None:
     """Section 13: Diagnostic summary."""
     log.section("13. DIAGNOSTIC SUMMARY")
+
+    if platform_support is not None:
+        log_platform_support(log, platform_support)
+        log.write("")
 
     log.write("TURBO_DIAG_COMPLETE=true")
     log.write(f"TURBO_DIAG_END_TIMESTAMP={_utc_now()}")
@@ -2381,9 +2648,11 @@ def build_json_profile(
     model: str,
     gpu_init: str,
     date_str: str,
+    platform_support: Optional[dict] = None,
 ) -> dict:
     """Build the machine-readable hardware profile JSON."""
-    plat = detect_platform()
+    support = platform_support or get_platform_support()
+    plat = support["platform"]
 
     # Extract GPU family from init output
     gpu_family = "N/A"
@@ -2402,6 +2671,7 @@ def build_json_profile(
         "arch": platform.machine(),
         "model_file": os.path.basename(model),
         "model_size_bytes": 0,
+        "platform_support": support,
         "hardware": {
             "cpu_brand": hw.get("cpu_brand", "unknown"),
             "ram_gb": hw.get("ram_total_gb", 0),
@@ -2575,8 +2845,32 @@ def main() -> int:
         default=".",
         help="Output directory for diagnostic files (default: current directory)",
     )
+    parser.add_argument(
+        "--platform-support",
+        action="store_true",
+        help="Print the current platform support contract as JSON and exit",
+    )
 
     args = parser.parse_args()
+
+    platform_support = get_platform_support()
+    if args.platform_support:
+        print(json.dumps(platform_support, indent=2))
+        return 0
+    if platform_support["status"] == "unsupported":
+        print(
+            "ERROR: TurboQuant diagnostic is not supported on "
+            f"{platform_support['environment']}."
+        )
+        print(f"Reason: {platform_support['reason']}")
+        print(f"Next step: {platform_support['action']}")
+        print("Inspect the contract with: turbo_hardware_diag.py --platform-support")
+        return 2
+    platform_support = apply_runtime_skips(
+        platform_support,
+        skip_stress=args.skip_stress,
+        skip_ppl=args.skip_ppl,
+    )
 
     # Resolve paths
     llama_dir = args.llama_dir_flag or args.llama_dir or os.getcwd()
@@ -2669,6 +2963,9 @@ def main() -> int:
     log.write(f"TURBO_DIAG_VERSION={DIAG_VERSION}")
     log.write(f"TURBO_DIAG_TIMESTAMP={_utc_now()}")
     log.write(f"TURBO_DIAG_MODEL={os.path.basename(model)}")
+    log.write(f"TURBO_DIAG_PLATFORM_ENVIRONMENT={platform_support['environment']}")
+    log.write(f"TURBO_DIAG_PLATFORM_STATUS={platform_support['status']}")
+    log_platform_support(log, platform_support)
     try:
         model_size = os.path.getsize(model)
         # Human-readable size
@@ -2698,6 +2995,7 @@ def main() -> int:
 
     hw: dict = {}
     gpu_init: str = ""
+    _unsupported = False
 
     try:
         # Section 1: Hardware inventory
@@ -2715,6 +3013,9 @@ def main() -> int:
 
         # Section 4: GPU capabilities
         gpu_init = section_4_gpu_capabilities(log, cli_bin, model)
+        platform_support = assess_runtime_backend(platform_support, gpu_init, hw)
+        if platform_support["status"] == "unsupported":
+            raise UnsupportedDiagnosticPlatform(platform_support["reason"])
 
         # Section 5: Build validation
         section_5_build_validation(log, bench_bin, cli_bin, model, llama_dir)
@@ -2752,8 +3053,15 @@ def main() -> int:
         section_12_post_load(log)
 
         # Section 13: Summary
-        section_13_summary(log, anomaly_detector)
+        section_13_summary(log, anomaly_detector, platform_support)
 
+    except UnsupportedDiagnosticPlatform as e:
+        _had_error = True
+        _unsupported = True
+        log.section("DIAGNOSTIC STOPPED: UNSUPPORTED BACKEND")
+        log.write(f"[ERROR] {e}")
+        log_platform_support(log, platform_support)
+        log.write("TURBO_DIAG_COMPLETE=false")
     except Exception as e:
         _had_error = True
         log.write(f"\n[ERROR] Unhandled exception: {e}")
@@ -2775,13 +3083,21 @@ def main() -> int:
                 log.warning(f"Could not write monitor summary: {e}")
 
     # Build JSON profile
-    profile_json = build_json_profile(hw, model, gpu_init, date_str)
+    profile_json = build_json_profile(
+        hw,
+        model,
+        gpu_init,
+        date_str,
+        platform_support,
+    )
 
     # Package results
     package_results(log, monitor, profile_json, date_str, output_dir)
 
     log.close()
 
+    if _unsupported:
+        return 2
     return 1 if _had_error else 0
 
 

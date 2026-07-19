@@ -1,7 +1,7 @@
 """Tests for turbo_hardware_diag.py — the Python hardware diagnostic tool.
 
 100% line coverage target with NO real subprocess calls, GPU, or llama.cpp binaries.
-All platform-specific probes are mocked. Tests pass on macOS AND Linux.
+All platform-specific probes are mocked. Tests pass on macOS, Linux, and Windows.
 """
 
 from __future__ import annotations
@@ -33,6 +33,17 @@ import turbo_hardware_diag as thd  # noqa: E402
 # The component is installed in editable mode for tests, so import the replay
 # helpers through the package instead of reaching into the source tree.
 from turboquant.hw_replay import HardwareProfile, parse_diag_output  # noqa: E402
+
+
+def _supported_linux_contract() -> dict:
+    """Return a fresh deterministic support contract for main() tests."""
+    return thd.get_platform_support(
+        system="Linux",
+        release="6.8.0",
+        machine="x86_64",
+        environ={},
+    )
+
 
 # ---------------------------------------------------------------------------
 # Shared mock data
@@ -368,6 +379,137 @@ class TestPlatformDetection:
     @patch("platform.system", return_value="Linux")
     def test_linux_detection(self, mock_sys):
         assert thd.detect_platform() == "Linux"
+
+
+class TestPlatformSupportContract:
+    """Declared host, backend, and section behavior is explicit and stable."""
+
+    def test_apple_silicon_is_supported(self):
+        support = thd.get_platform_support(
+            system="Darwin", release="25.3.0", machine="arm64", environ={}
+        )
+
+        assert support["schema"] == thd.PLATFORM_SUPPORT_SCHEMA
+        assert support["environment"] == "macos-apple-silicon"
+        assert support["status"] == "supported"
+        assert support["gpu_backends"]["supported"] == ["metal"]
+        assert support["sections"]["supported"] == list(range(1, 14))
+
+    def test_intel_macos_is_unsupported(self):
+        support = thd.get_platform_support(
+            system="Darwin", release="24.6.0", machine="x86_64", environ={}
+        )
+
+        assert support["environment"] == "macos-intel"
+        assert support["status"] == "unsupported"
+        assert support["sections"]["unavailable"] == list(range(1, 14))
+
+    def test_native_linux_declares_backend_tiers(self):
+        support = _supported_linux_contract()
+
+        assert support["environment"] == "linux"
+        assert support["status"] == "supported"
+        assert support["gpu_backends"]["supported"] == ["cuda"]
+        assert support["gpu_backends"]["degraded"] == ["rocm", "vulkan", "cpu"]
+        assert support["gpu_backends"]["unavailable"] == ["metal"]
+
+    @pytest.mark.parametrize(
+        ("release", "environ"),
+        [
+            ("5.15.153.1-microsoft-standard-WSL2", {}),
+            ("6.8.0", {"WSL_DISTRO_NAME": "Ubuntu"}),
+        ],
+    )
+    def test_wsl_is_degraded(self, release, environ):
+        support = thd.get_platform_support(
+            system="Linux", release=release, machine="x86_64", environ=environ
+        )
+
+        assert support["environment"] == "wsl"
+        assert support["status"] == "degraded"
+        assert support["monitoring"] == "degraded"
+        assert support["gpu_backends"]["supported"] == ["cuda"]
+        assert support["sections"]["degraded"] == [1, 2, 4, 12]
+
+    def test_native_windows_is_unsupported_with_wsl_action(self):
+        support = thd.get_platform_support(
+            system="Windows", release="11", machine="AMD64", environ={}
+        )
+
+        assert support["environment"] == "windows-native"
+        assert support["status"] == "unsupported"
+        assert support["sections"]["unavailable"] == list(range(1, 14))
+        assert "WSL" in support["action"]
+
+    def test_unknown_platform_is_unsupported(self):
+        support = thd.get_platform_support(
+            system="FreeBSD", release="14.1", machine="amd64", environ={}
+        )
+
+        assert support["environment"] == "unknown"
+        assert support["status"] == "unsupported"
+
+    def test_runtime_skips_are_distinct_from_unavailable_sections(self):
+        support = thd.apply_runtime_skips(
+            _supported_linux_contract(), skip_stress=True, skip_ppl=True
+        )
+
+        assert support["sections"]["skipped"] == [8, 10]
+        assert 8 not in support["sections"]["supported"]
+        assert 10 not in support["sections"]["supported"]
+        assert support["sections"]["unavailable"] == []
+
+    def test_supported_cuda_backend_preserves_status(self):
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(), "ggml_cuda_init: found device", {}
+        )
+
+        assert support["detected_gpu_backend"] == "cuda"
+        assert support["status"] == "supported"
+
+    def test_experimental_rocm_backend_degrades_status(self):
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(), "ggml_rocm_init: HIP device 0", {}
+        )
+
+        assert support["detected_gpu_backend"] == "rocm"
+        assert support["status"] == "degraded"
+        assert "experimental" in support["reason"]
+
+    def test_unavailable_backend_stops_benchmark_sections(self):
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(), "ggml_metal_init: MTL0", {}
+        )
+
+        assert support["detected_gpu_backend"] == "metal"
+        assert support["status"] == "unsupported"
+        assert all(
+            section in support["sections"]["unavailable"] for section in range(5, 14)
+        )
+
+    def test_human_log_has_stable_support_tags(self, tmp_path):
+        log = _make_log(tmp_path)
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(), "CUDA device 0", {}
+        )
+        thd.log_platform_support(log, support)
+        log.close()
+
+        content = (tmp_path / "test.txt").read_text()
+        assert "[PLATFORM_SUPPORT] environment=linux status=supported" in content
+        assert "backend=cuda" in content
+        assert "[PLATFORM_SECTIONS] unavailable=none" in content
+
+    def test_launcher_bounds_optional_rich_install(self):
+        launcher = (Path(TOOLS_DIR) / "turbo-diag").read_text()
+
+        assert "--retries 1" in launcher
+        assert "--timeout 15" in launcher
+        assert "Using plain text output" in launcher
+
+
+class TestPlatformHardwareCollection:
+    """Platform-specific hardware collection remains defensive."""
 
     @patch("turbo_hardware_diag._run_cmd")
     @patch("turbo_hardware_diag.detect_platform", return_value="Darwin")
@@ -1269,6 +1411,8 @@ class TestJSONProfile:
             )
         assert "diag_version" in profile
         assert "platform" in profile
+        assert profile["platform_support"]["environment"] == "macos-apple-silicon"
+        assert profile["platform_support"]["status"] == "supported"
         assert "hardware" in profile
         assert "model_file" in profile
 
@@ -1487,6 +1631,10 @@ class TestGracefulDegradation:
         """main() with empty model path gives clean error, not a traceback."""
         with (
             patch("sys.argv", ["prog", "/nonexistent/dir"]),
+            patch(
+                "turbo_hardware_diag.get_platform_support",
+                return_value=_supported_linux_contract(),
+            ),
             patch("turbo_hardware_diag._find_model", return_value=None),
             patch("builtins.print") as mock_print,
         ):
@@ -2677,10 +2825,15 @@ def _run_main_with_patches(argv, extra_patches=None):
     from contextlib import ExitStack
 
     section_patches = {
+        "turbo_hardware_diag.get_platform_support": {
+            "return_value": _supported_linux_contract()
+        },
         "turbo_hardware_diag.section_1_hardware_inventory": {"return_value": {}},
         "turbo_hardware_diag.section_2_system_load_pre": {},
         "turbo_hardware_diag.section_3_model_info": {},
-        "turbo_hardware_diag.section_4_gpu_capabilities": {"return_value": ""},
+        "turbo_hardware_diag.section_4_gpu_capabilities": {
+            "return_value": "CUDA device 0"
+        },
         "turbo_hardware_diag.section_5_build_validation": {},
         "turbo_hardware_diag.section_6_prefill": {},
         "turbo_hardware_diag.section_7_decode": {},
@@ -2723,17 +2876,29 @@ class TestMainFunction:
     """main() integration path with everything mocked."""
 
     def test_main_model_not_found(self, tmp_path):
-        with patch("sys.argv", ["prog", str(tmp_path), "/nonexistent/model.gguf"]):
-            with patch("builtins.print"):
-                rc = thd.main()
+        with (
+            patch("sys.argv", ["prog", str(tmp_path), "/nonexistent/model.gguf"]),
+            patch(
+                "turbo_hardware_diag.get_platform_support",
+                return_value=_supported_linux_contract(),
+            ),
+            patch("builtins.print"),
+        ):
+            rc = thd.main()
         assert rc == 1
 
     def test_main_tools_not_found(self, tmp_path):
         model = tmp_path / "model.gguf"
         model.write_text("fake")
-        with patch("sys.argv", ["prog", str(tmp_path), str(model)]):
-            with patch("builtins.print") as mock_print:
-                rc = thd.main()
+        with (
+            patch("sys.argv", ["prog", str(tmp_path), str(model)]),
+            patch(
+                "turbo_hardware_diag.get_platform_support",
+                return_value=_supported_linux_contract(),
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            rc = thd.main()
         assert rc == 1
         printed = " ".join(str(c) for c in mock_print.call_args_list)
         assert "not found" in printed
@@ -2753,6 +2918,80 @@ class TestMainFunction:
         ]
         rc = _run_main_with_patches(argv)
         assert rc == 0
+
+    def test_platform_support_mode_needs_no_model(self, capsys):
+        windows = thd.get_platform_support(
+            system="Windows", release="11", machine="AMD64", environ={}
+        )
+        with (
+            patch("sys.argv", ["prog", "--platform-support"]),
+            patch("turbo_hardware_diag.get_platform_support", return_value=windows),
+        ):
+            rc = thd.main()
+
+        report = json.loads(capsys.readouterr().out)
+        assert rc == 0
+        assert report["environment"] == "windows-native"
+        assert report["status"] == "unsupported"
+
+    def test_native_windows_fails_before_path_validation(self, capsys):
+        windows = thd.get_platform_support(
+            system="Windows", release="11", machine="AMD64", environ={}
+        )
+        with (
+            patch("sys.argv", ["prog", "missing-llama", "missing-model.gguf"]),
+            patch("turbo_hardware_diag.get_platform_support", return_value=windows),
+        ):
+            rc = thd.main()
+
+        output = capsys.readouterr().out
+        assert rc == 2
+        assert "not supported" in output
+        assert "WSL" in output
+        assert "Build llama.cpp first" not in output
+
+    def test_paths_with_spaces(self, tmp_path):
+        workspace = tmp_path / "workspace with spaces"
+        workspace.mkdir()
+        llama_dir = _setup_llama_dir(workspace)
+        model = workspace / "model with spaces.gguf"
+        model.write_text("fake model data")
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(workspace / "diagnostic output"),
+        ]
+
+        assert _run_main_with_patches(argv) == 0
+
+    def test_unsupported_backend_stops_before_benchmarks(self, tmp_path):
+        llama_dir = _setup_llama_dir(tmp_path)
+        model = tmp_path / "model.gguf"
+        model.write_text("fake")
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "turbo_hardware_diag.section_4_gpu_capabilities": {
+                    "return_value": "Metal device MTL0"
+                }
+            },
+        )
+
+        assert rc == 2
 
     def test_main_exception_in_sections(self, tmp_path):
         llama_dir = _setup_llama_dir(tmp_path)
@@ -3791,7 +4030,14 @@ class TestCoverageGapClosers:
             "-o",
             str(tmp_path / "output"),
         ]
-        with patch("sys.argv", argv), patch("builtins.print"):
+        with (
+            patch("sys.argv", argv),
+            patch(
+                "turbo_hardware_diag.get_platform_support",
+                return_value=_supported_linux_contract(),
+            ),
+            patch("builtins.print"),
+        ):
             rc = thd.main()
         assert rc == 1
 
@@ -3814,10 +4060,15 @@ class TestCoverageGapClosers:
         from contextlib import ExitStack
 
         section_patches = {
+            "turbo_hardware_diag.get_platform_support": {
+                "return_value": _supported_linux_contract()
+            },
             "turbo_hardware_diag.section_1_hardware_inventory": {"return_value": {}},
             "turbo_hardware_diag.section_2_system_load_pre": {},
             "turbo_hardware_diag.section_3_model_info": {},
-            "turbo_hardware_diag.section_4_gpu_capabilities": {"return_value": ""},
+            "turbo_hardware_diag.section_4_gpu_capabilities": {
+                "return_value": "CUDA device 0"
+            },
             "turbo_hardware_diag.section_5_build_validation": {},
             "turbo_hardware_diag.section_6_prefill": {},
             "turbo_hardware_diag.section_7_decode": {},
@@ -3877,10 +4128,15 @@ class TestCoverageGapClosers:
         from contextlib import ExitStack
 
         section_patches = {
+            "turbo_hardware_diag.get_platform_support": {
+                "return_value": _supported_linux_contract()
+            },
             "turbo_hardware_diag.section_1_hardware_inventory": {"return_value": {}},
             "turbo_hardware_diag.section_2_system_load_pre": {},
             "turbo_hardware_diag.section_3_model_info": {},
-            "turbo_hardware_diag.section_4_gpu_capabilities": {"return_value": ""},
+            "turbo_hardware_diag.section_4_gpu_capabilities": {
+                "return_value": "CUDA device 0"
+            },
             "turbo_hardware_diag.section_5_build_validation": {},
             "turbo_hardware_diag.section_6_prefill": {},
             "turbo_hardware_diag.section_7_decode": {},

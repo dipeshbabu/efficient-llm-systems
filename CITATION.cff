@@ -5,8 +5,8 @@ message: >-
 title: Efficient LLM Systems
 type: software
 authors:
-  - family-names: Mahato
-    given-names: Dipesh Tharu
+  - family-names: Tharu Mahato
+    given-names: Dipesh
     alias: dipeshbabu
 repository-code: https://github.com/dipeshbabu/efficient-llm-systems
 url: https://github.com/dipeshbabu/efficient-llm-systems

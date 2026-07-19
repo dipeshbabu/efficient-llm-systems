@@ -36,6 +36,11 @@ integrity, and corrections to published evidence. Experimental scripts and
 third-party inference engines may require a minimal reproduction against a
 documented supported version before they can be investigated.
 
+Project decisions and escalation follow [GOVERNANCE.md](GOVERNANCE.md), and
+current component ownership is listed in [MAINTAINERS.md](MAINTAINERS.md).
+GitHub Discussions are intentionally disabled while structured issue forms
+provide the environment and reproducibility details needed for support.
+
 The response targets in [SECURITY.md](SECURITY.md) apply only to private
 security reports. Public questions and feature requests are handled on a
 best-effort basis; opening an issue does not guarantee an implementation date.

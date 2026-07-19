@@ -949,8 +949,23 @@ def apply_runtime_skips(support: dict, *, skip_stress: bool, skip_ppl: bool) -> 
     return result
 
 
-def detect_runtime_backend(support: dict, gpu_init: str, hw: dict) -> str:
-    """Infer the active llama.cpp backend from initialization evidence."""
+def detect_runtime_backend(
+    support: dict,
+    gpu_init: str,
+    hw: dict,
+    *,
+    probe_returncode: int = 0,
+) -> str:
+    """Infer the active llama.cpp backend from successful runtime evidence.
+
+    Hardware inventory is intentionally not authoritative: an installed GPU can
+    coexist with a CPU-only llama.cpp build. A failed probe or output without a
+    positive backend marker must remain unknown so the diagnostic stops early.
+    """
+    del support, hw  # Backend identity comes from the runtime probe, not the host.
+    if probe_returncode != 0:
+        return "unknown"
+
     init_lower = gpu_init.lower()
     if re.search(r"\brocm\b|\bhip\b", init_lower):
         return "rocm"
@@ -960,25 +975,32 @@ def detect_runtime_backend(support: dict, gpu_init: str, hw: dict) -> str:
         return "metal"
     if "vulkan" in init_lower:
         return "vulkan"
-
-    hardware_backend = str(hw.get("gpu_backend", "")).lower()
-    if hardware_backend == "cuda":
-        return "cuda"
-    if hardware_backend in {"rocm", "hip"}:
-        return "rocm"
-    if hardware_backend == "vulkan_or_other":
-        return "vulkan"
-    if support["environment"] == "macos-apple-silicon":
-        return "metal"
-    if "cpu" in init_lower or gpu_init.strip():
+    cpu_markers = (
+        r"\bcpu\b",
+        r"\bn_threads(?:_batch)?\s*=",
+        r"\bavx(?:2|512)?\s*=",
+        r"\bneon\s*=",
+    )
+    if any(re.search(marker, init_lower) for marker in cpu_markers):
         return "cpu"
     return "unknown"
 
 
-def assess_runtime_backend(support: dict, gpu_init: str, hw: dict) -> dict:
+def assess_runtime_backend(
+    support: dict,
+    gpu_init: str,
+    hw: dict,
+    *,
+    probe_returncode: int = 0,
+) -> dict:
     """Refine host support with the backend detected before long benchmarks."""
     result = copy.deepcopy(support)
-    backend = detect_runtime_backend(result, gpu_init, hw)
+    backend = detect_runtime_backend(
+        result,
+        gpu_init,
+        hw,
+        probe_returncode=probe_returncode,
+    )
     result["detected_gpu_backend"] = backend
     backend_contract = result["gpu_backends"]
     if backend in backend_contract["supported"]:
@@ -1902,13 +1924,14 @@ def section_4_gpu_capabilities(
     log: DiagLog,
     cli_bin: str,
     model: str,
-) -> str:
-    """Section 4: GPU device capabilities. Returns raw GPU init output."""
+) -> tuple[str, int]:
+    """Section 4: GPU capabilities. Return raw init output and process status."""
     log.section("4. GPU DEVICE CAPABILITIES")
     log.write("Extracting GPU info from llama.cpp init...")
     log.write("")
 
     gpu_init = ""
+    probe_returncode = -1
     cmd = [
         cli_bin,
         "-m",
@@ -1937,6 +1960,7 @@ def section_4_gpu_capabilities(
             timeout=60,
         )
         gpu_init = result.stdout + result.stderr
+        probe_returncode = result.returncode
         keywords = [
             "build:",
             "GPU name",
@@ -2004,7 +2028,7 @@ def section_4_gpu_capabilities(
         else:
             log.write("[CUDA] nvidia-smi not found \u2014 CUDA may not be available")
 
-    return gpu_init
+    return gpu_init, probe_returncode
 
 
 def section_5_build_validation(
@@ -2995,6 +3019,7 @@ def main() -> int:
 
     hw: dict = {}
     gpu_init: str = ""
+    gpu_probe_returncode = -1
     _unsupported = False
 
     try:
@@ -3012,8 +3037,13 @@ def main() -> int:
         section_3_model_info(log, cli_bin, model)
 
         # Section 4: GPU capabilities
-        gpu_init = section_4_gpu_capabilities(log, cli_bin, model)
-        platform_support = assess_runtime_backend(platform_support, gpu_init, hw)
+        gpu_init, gpu_probe_returncode = section_4_gpu_capabilities(log, cli_bin, model)
+        platform_support = assess_runtime_backend(
+            platform_support,
+            gpu_init,
+            hw,
+            probe_returncode=gpu_probe_returncode,
+        )
         if platform_support["status"] == "unsupported":
             raise UnsupportedDiagnosticPlatform(platform_support["reason"])
 

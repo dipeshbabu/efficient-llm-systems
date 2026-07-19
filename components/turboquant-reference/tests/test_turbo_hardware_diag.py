@@ -476,6 +476,38 @@ class TestPlatformSupportContract:
         assert support["status"] == "degraded"
         assert "experimental" in support["reason"]
 
+    def test_explicit_cpu_runtime_wins_over_installed_gpu(self):
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(),
+            "system_info: n_threads = 16 | AVX2 = 1",
+            {"gpu_backend": "cuda"},
+        )
+
+        assert support["detected_gpu_backend"] == "cpu"
+        assert support["status"] == "degraded"
+
+    @pytest.mark.parametrize(
+        ("gpu_init", "hw", "returncode"),
+        [
+            ("CUDA initialization failed", {"gpu_backend": "cuda"}, 1),
+            ("error: model load failed", {}, 0),
+            ("", {"apple_silicon": True}, 0),
+        ],
+    )
+    def test_failed_or_inconclusive_probe_is_unknown(self, gpu_init, hw, returncode):
+        support = thd.assess_runtime_backend(
+            _supported_linux_contract(),
+            gpu_init,
+            hw,
+            probe_returncode=returncode,
+        )
+
+        assert support["detected_gpu_backend"] == "unknown"
+        assert support["status"] == "unsupported"
+        assert all(
+            section in support["sections"]["unavailable"] for section in range(5, 14)
+        )
+
     def test_unavailable_backend_stops_benchmark_sections(self):
         support = thd.assess_runtime_backend(
             _supported_linux_contract(), "ggml_metal_init: MTL0", {}
@@ -1108,13 +1140,14 @@ class TestSections:
             mock_run.return_value = _make_completed_process(
                 stdout=MOCK_CLI_OUTPUT, stderr=""
             )
-            gpu_init = thd.section_4_gpu_capabilities(
+            gpu_init, returncode = thd.section_4_gpu_capabilities(
                 log, "/fake/cli", "/fake/model.gguf"
             )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[GPU]" in content
         assert "MTL0" in gpu_init
+        assert returncode == 0
 
     def test_section_5_build_validation(self, tmp_path):
         log = _make_log(tmp_path)
@@ -2544,10 +2577,14 @@ class TestSectionsExtended:
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("shutil.which", return_value=None),
         ):
-            thd.section_4_gpu_capabilities(log, "/fake/cli", "/fake/model.gguf")
+            gpu_init, returncode = thd.section_4_gpu_capabilities(
+                log, "/fake/cli", "/fake/model.gguf"
+            )
         log.close()
         content = (tmp_path / "test.txt").read_text()
         assert "[WARNING]" in content
+        assert gpu_init == ""
+        assert returncode == -1
 
     def test_section_5_turbo3_failure(self, tmp_path):
         log = _make_log(tmp_path)
@@ -2832,7 +2869,7 @@ def _run_main_with_patches(argv, extra_patches=None):
         "turbo_hardware_diag.section_2_system_load_pre": {},
         "turbo_hardware_diag.section_3_model_info": {},
         "turbo_hardware_diag.section_4_gpu_capabilities": {
-            "return_value": "CUDA device 0"
+            "return_value": ("CUDA device 0", 0)
         },
         "turbo_hardware_diag.section_5_build_validation": {},
         "turbo_hardware_diag.section_6_prefill": {},
@@ -2986,8 +3023,36 @@ class TestMainFunction:
             argv,
             extra_patches={
                 "turbo_hardware_diag.section_4_gpu_capabilities": {
-                    "return_value": "Metal device MTL0"
+                    "return_value": ("Metal device MTL0", 0)
                 }
+            },
+        )
+
+        assert rc == 2
+
+    def test_failed_backend_probe_stops_before_benchmarks(self, tmp_path):
+        llama_dir = _setup_llama_dir(tmp_path)
+        model = tmp_path / "model.gguf"
+        model.write_text("fake")
+        argv = [
+            "prog",
+            str(llama_dir),
+            str(model),
+            "--skip-ppl",
+            "--skip-stress",
+            "-o",
+            str(tmp_path / "output"),
+        ]
+
+        rc = _run_main_with_patches(
+            argv,
+            extra_patches={
+                "turbo_hardware_diag.section_4_gpu_capabilities": {
+                    "return_value": ("CUDA initialization failed", 1)
+                },
+                "turbo_hardware_diag.section_5_build_validation": {
+                    "side_effect": AssertionError("benchmark section must not run")
+                },
             },
         )
 
@@ -4067,7 +4132,7 @@ class TestCoverageGapClosers:
             "turbo_hardware_diag.section_2_system_load_pre": {},
             "turbo_hardware_diag.section_3_model_info": {},
             "turbo_hardware_diag.section_4_gpu_capabilities": {
-                "return_value": "CUDA device 0"
+                "return_value": ("CUDA device 0", 0)
             },
             "turbo_hardware_diag.section_5_build_validation": {},
             "turbo_hardware_diag.section_6_prefill": {},
@@ -4135,7 +4200,7 @@ class TestCoverageGapClosers:
             "turbo_hardware_diag.section_2_system_load_pre": {},
             "turbo_hardware_diag.section_3_model_info": {},
             "turbo_hardware_diag.section_4_gpu_capabilities": {
-                "return_value": "CUDA device 0"
+                "return_value": ("CUDA device 0", 0)
             },
             "turbo_hardware_diag.section_5_build_validation": {},
             "turbo_hardware_diag.section_6_prefill": {},

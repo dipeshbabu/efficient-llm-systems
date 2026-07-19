@@ -131,4 +131,4 @@ if __name__ == "__main__":
     demo_single_vector()
     demo_kv_cache()
     demo_inner_product()
-    print("\n✅ All demos complete.")
+    print("\nAll demos complete.")

@@ -153,6 +153,8 @@ jobs:
           uv pip install --python .smoke-venv/bin/python --force-reinstall dist/refract/*.whl dist/turboquant/*.whl
           .smoke-venv/bin/refract --help
           .smoke-venv/bin/python -c "import refract, turboquant; print(refract.__version__)"
+          .smoke-venv/bin/python components/turboquant-reference/benchmarks/examples/demo.py
+          .smoke-venv/bin/python tools/diagnostics/turbo_hardware_diag.py --help
 
   ci-required:
     name: CI required

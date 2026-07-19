@@ -31,7 +31,8 @@ Use [SUPPORT.md](SUPPORT.md) for public support routes,
 The lead maintainer currently holds repository administration, merge, release,
 security-coordination, and package-publishing responsibility. Permissions are
 granted by scope and should follow least privilege. PyPI publication remains
-behind the protected `pypi` environment and Trusted Publishing workflow.
+behind protected package-specific environments and Trusted Publishing
+workflows.
 
 There is currently one active maintainer, so the repository does not use a
 `CODEOWNERS` file or require an approval the author cannot independently give.

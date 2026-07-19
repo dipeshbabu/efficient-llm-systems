@@ -7,6 +7,13 @@ matrix result that motivated or validated the change.
 
 ## Unreleased
 
+- Raised the repository-wide PyTorch floor to 2.13.0, the first release that
+  fixes GHSA-rrmf-rvhw-rf47. The managed vLLM extra is temporarily withdrawn
+  because vLLM 0.25.1 still pins vulnerable PyTorch 2.11.0; the adapter code
+  remains available for existing audited environments. Python support is now
+  explicitly bounded to 3.10 through 3.14 so universal dependency resolution
+  does not attempt unsupported Python 3.15 combinations. The transitive
+  setuptools floor is also raised to 83.0.0 to fix PYSEC-2026-3447.
 - Score and repeatability count options now reject zero and negative values
   during argument parsing. R-NIAH length and position lists are validated as
   non-empty, well-formed lists; positions must be finite and within `[0, 1]`.

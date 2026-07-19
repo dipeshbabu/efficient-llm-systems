@@ -5,7 +5,7 @@ description = "REFRACT — Reference-anchored Robust Acid-test for Compressed Tr
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.15"
 authors = [
     { name = "Dipesh Tharu Mahato (dipeshbabu)" },
 ]
@@ -34,6 +34,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
@@ -46,9 +47,6 @@ refract-mlx = [
     "mlx>=0.29.4; sys_platform == 'darwin'",
     "mlx-lm>=0.31; sys_platform == 'darwin'",
 ]
-refract-vllm = [
-    "vllm>=0.24",
-]
 refract-sglang = [
     "requests>=2.33",
     "transformers>=5.3",
@@ -56,7 +54,6 @@ refract-sglang = [
 full = [
     "mlx>=0.29.4; sys_platform == 'darwin'",
     "mlx-lm>=0.31; sys_platform == 'darwin'",
-    "vllm>=0.24",
     "requests>=2.33",
     "transformers>=5.3",
 ]
@@ -67,7 +64,7 @@ research = [
 benchmarks = [
     "numpy>=1.23",
     "scipy>=1.10",
-    "torch>=2.10",
+    "torch>=2.13",
     "transformers>=5.3",
     "accelerate>=0.28",
 ]

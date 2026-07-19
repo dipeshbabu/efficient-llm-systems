@@ -51,19 +51,23 @@ Metal, fail-loud (any single broken axis tanks the composite). Replaces
 # Apple Silicon
 pip install 'refract-llm[refract-mlx]>=0.3.4'
 
-# CUDA / ROCm (vLLM in-process)
-pip install 'refract-llm[refract-vllm]>=0.3.4'
-
 # SGLang HTTP client (you run the SGLang server separately, e.g. via Docker)
 pip install 'refract-llm[refract-sglang]>=0.3.4'
 
-# All three backends in one shot
+# All currently managed backend dependencies
 pip install 'refract-llm[full]>=0.3.4'
 ```
 
 The version floor prevents an older package-index build from being installed
 silently. If 0.3.4 is not available from your index yet, use the source
 installation below.
+
+> **vLLM installs are temporarily paused.** The latest published vLLM release
+> pins PyTorch 2.11.0, which is affected by
+> [GHSA-rrmf-rvhw-rf47](https://github.com/advisories/GHSA-rrmf-rvhw-rf47).
+> The adapter remains implemented for existing audited environments, but do
+> not force a PyTorch override: vLLM's compiled extensions require a matching
+> build. Use another backend until vLLM supports PyTorch 2.13 or newer.
 
 After install, the `refract` CLI is on your PATH and the v0.1 prompt set plus
 example reports ship inside the wheel. Inference engines and the
@@ -83,7 +87,6 @@ cd efficient-llm-systems/components/refract
 
 pip install -e .                   # editable install, base
 pip install -e .[refract-mlx]      # editable + MLX backend
-pip install -e .[refract-vllm]     # editable + vLLM backend
 pip install -e .[refract-sglang]   # editable + SGLang backend
 pip install -e .[dev]              # editable + pytest + coverage + build tooling
 ```
@@ -96,8 +99,9 @@ The llamacpp backend needs compatible patched binaries on `PATH` /
 used for the cited TurboQuant experiments is a
 [historical fork whose public URL is unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks).
 
-For the standard vLLM backend on CUDA / ROCm, install upstream `vllm` with
-`pip install vllm`. Fork-specific TurboQuant schemes require the
+The standard vLLM adapter runs on CUDA / ROCm, but new installations are
+paused until upstream publishes a build compatible with patched PyTorch.
+Fork-specific TurboQuant schemes require the
 [historical vLLM implementation](../../docs/reference/historical-forks.md#vllm-experimental-forks),
 which does not currently have a public source URL.
 
@@ -110,16 +114,16 @@ for the in-container patches that image needs).
 
 Once REFRACT is installed and you're inside `components/refract/`, you need:
 
-  - Python 3.10+
+  - Python 3.10 through 3.14
   - One of:
     - **llama.cpp build** with `--jinja` support and the REFRACT v0.1.4
       patch in `tools/completion/completion.cpp`. (Patch emits per-token
       JSONL when `REFRACT_TRAJECTORY` env var is set.)
     - **mlx-lm** (`pip install mlx mlx-lm`). MLX backend is native
       Python; no patches needed.
-    - **vllm** (`pip install vllm` or `pip install -e .[refract-vllm]`).
-      Working backend as of v0.3.2. Caches one LLM at a time, evicts
-      on KV-config change. Tunable via `REFRACT_VLLM_*` env knobs.
+    - **vLLM** in an existing environment that has been audited for
+      GHSA-rrmf-rvhw-rf47. The adapter caches one LLM at a time, evicts on
+      KV-config change, and is tunable via `REFRACT_VLLM_*` environment knobs.
     - **SGLang server** (Docker recommended; `pip install -e
       .[refract-sglang]` for the HTTP client). Backend posts to a
       pre-launched SGLang server. KV dtype is fixed at server launch,

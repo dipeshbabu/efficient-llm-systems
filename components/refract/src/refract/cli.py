@@ -1016,7 +1016,10 @@ def _run_selftest(args) -> int:
                 f"  ✓ vllm importable (version: {getattr(vllm, '__version__', 'unknown')})"
             )
         except ImportError:
-            print("  ✗ vllm not importable; pip install vllm")
+            print(
+                "  ✗ vllm not importable; managed installs are paused pending "
+                "a vLLM build for PyTorch 2.13+"
+            )
             failures.append("vllm not importable")
     elif backend.name == "sglang":
         try:

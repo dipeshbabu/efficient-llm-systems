@@ -9,6 +9,43 @@ for Efficient LLM Systems. Tools are grouped by purpose:
 - `conversion/` — model-conversion helpers
 - `maintenance/` — repository integrity checks
 
+## Diagnostic platform support
+
+The hardware diagnostic has an explicit host/backend contract. Inspect the
+contract detected on the current machine without a model or engine build:
+
+```bash
+python tools/diagnostics/turbo_hardware_diag.py --platform-support
+```
+
+| Host environment | Status | Backend contract | Section behavior | Entry point |
+|---|---|---|---|---|
+| Apple Silicon / macOS | Supported | Metal | Sections 1–13 supported | Bash launcher or Python script |
+| Native Linux | Supported | CUDA supported; ROCm, Vulkan, and CPU experimental | Sections 1–13 run; experimental backends may have partial GPU telemetry | Bash launcher or Python script |
+| WSL | Degraded | CUDA only | Sections 1, 2, 4, and 12 have partial host telemetry; sections 3, 5–11, and 13 run normally | Bash launcher inside WSL with Linux binaries |
+| Native Windows | Unsupported | None | Sections 1–13 unavailable; the command exits before benchmarking | Use WSL or a native Linux/macOS host |
+| Intel macOS | Unsupported | None | Sections 1–13 unavailable; the command exits before benchmarking | Use Apple Silicon or native Linux |
+
+Native Windows branches in the Python source are defensive fallbacks, not a
+supported execution path. A full native-Windows invocation exits with status 2
+and an actionable WSL message instead of producing a partial profile. WSL runs
+must use Linux llama.cpp binaries; do not point them at a Windows build.
+
+Generated JSON records the environment, detected backend, overall support
+status, monitoring status, and supported/degraded/skipped/unavailable section
+lists. `--skip-stress` and `--skip-ppl` are reflected as skipped sections 8 and
+10 rather than being confused with platform limitations.
+
+If the runtime backend probe fails or completes without an explicit backend
+marker, the report records an `inconclusive` status and the command exits with
+status 1 before benchmarks. This is distinct from a conclusively unsupported
+platform/backend combination, which exits with status 2.
+
+The Bash launcher optionally installs Rich for the terminal UI with bounded
+retries and timeouts. If installation is unavailable, the diagnostic continues
+with its tested ASCII display. Running the Python script directly never
+installs optional dependencies.
+
 ---
 
 ## Quality & Speed At A Glance

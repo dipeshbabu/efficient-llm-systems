@@ -43,7 +43,12 @@ if [ ! -d "$VENV_DIR" ]; then
 
     # Install optional deps for rich terminal UI
     echo "Installing optional dependencies (rich)..."
-    "${VENV_DIR}/bin/pip" install --quiet rich 2>&1 || {
+    "${VENV_DIR}/bin/pip" install \
+        --quiet \
+        --disable-pip-version-check \
+        --retries 1 \
+        --timeout 15 \
+        rich 2>&1 || {
         echo "WARNING: Could not install 'rich'. Using plain text output."
     }
     echo "Venv ready."

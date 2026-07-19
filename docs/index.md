@@ -7,7 +7,7 @@ Systems. Dated experiments and historical conclusions live under
 
 ## Guides
 
-- [Getting started](guides/getting-started.md)
+- [Historical TurboQuant+ engine setup](guides/getting-started.md)
 - [TurboQuant configuration recommendations](guides/turboquant-recommendations.md)
 - [MLX port](guides/mlx-port.md)
 - [Windows and AMD RDNA 4 setup](guides/windows-rdna4-setup.md)

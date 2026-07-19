@@ -11,6 +11,42 @@ Production engine integrations live in their respective upstream projects;
 this repository keeps the portable Python components, experimental tools,
 current guidance, and the evidence behind the recommendations.
 
+## Choose your path
+
+The repository root is not a Python distribution. Do not run
+`pip install efficient-llm-systems`; choose the component or workflow that
+matches your goal. Commands below assume a cloned repository and run from its
+root unless the linked guide says otherwise.
+
+- **Evaluate a KV-cache configuration** — inference engineers can install the
+  REFRACT beta CLI with
+  `python -m pip install "./components/refract"`, then verify the command
+  with `refract --help`. The real workflow produces JSON and self-contained
+  HTML fidelity reports. Continue with the
+  [REFRACT quick start](components/refract/QUICKSTART.md) to select a backend,
+  run `selftest`, and score a model.
+- **Experiment with TurboQuant algorithms** — researchers can install the
+  alpha reference library with
+  `python -m pip install "./components/turboquant-reference"`, then run
+  `python components/turboquant-reference/benchmarks/examples/demo.py`.
+  The demo prints reconstruction, compression, and inner-product metrics. See
+  the [TurboQuant Reference README](components/turboquant-reference/README.md)
+  for the public Python API and benchmark extras.
+- **Diagnose or benchmark an engine build** — systems and kernel developers can
+  start with `python tools/diagnostics/turbo_hardware_diag.py --help`. Full
+  runs produce a shareable diagnostic archive containing text, JSON, and CSV
+  evidence. These tools have mixed stability and external engine/hardware
+  requirements; follow the [tools guide](tools/README.md) before a long run.
+- **Integrate TurboQuant into production** — application developers should use
+  a supported inference-engine integration. This monorepo does not install
+  production kernels or expose a drop-in serving runtime. Start with the
+  [production ecosystem](#production-ecosystem) and the selected engine's
+  documentation.
+- **Contribute to the monorepo** — contributors can run `uv sync --all-packages`
+  followed by `uv run pytest`. The expected output is a synchronized workspace
+  and passing component tests. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+  complete validation and evidence requirements.
+
 ## Components
 
 | Component | Purpose | Stability |
@@ -24,8 +60,9 @@ current guidance, and the evidence behind the recommendations.
 The repository name is the umbrella identity. Existing public component
 contracts remain unchanged:
 
-- PyPI distribution: `refract-llm`
+- REFRACT distribution: `refract-llm`
 - REFRACT import and command: `refract`
+- TurboQuant reference distribution: `turboquant-reference`
 - TurboQuant reference import: `turboquant`
 
 ## Research areas
@@ -42,7 +79,7 @@ contracts remain unchanged:
 ## Start here
 
 - [Documentation index](docs/index.md)
-- [Getting started](docs/guides/getting-started.md)
+- [Historical TurboQuant+ engine setup](docs/guides/getting-started.md)
 - [TurboQuant configuration recommendations](docs/guides/turboquant-recommendations.md)
 - [Benchmark reference](docs/reference/benchmarks.md)
 - [REFRACT quick start](components/refract/QUICKSTART.md)

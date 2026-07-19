@@ -42,6 +42,7 @@ dependencies = [
 Homepage = "https://github.com/dipeshbabu/efficient-llm-systems/tree/main/components/turboquant-reference"
 Repository = "https://github.com/dipeshbabu/efficient-llm-systems"
 Issues = "https://github.com/dipeshbabu/efficient-llm-systems/issues"
+Changelog = "https://github.com/dipeshbabu/efficient-llm-systems/blob/main/components/turboquant-reference/CHANGELOG.md"
 
 [project.optional-dependencies]
 dev = [

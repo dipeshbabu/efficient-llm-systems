@@ -109,10 +109,12 @@ and `NOTICE` are present in the built artifacts.
 ## Releases
 
 Publishing is restricted to maintainers. `refract-llm` releases use a
-`refract-v<VERSION>` tag, the protected `pypi` GitHub environment, and PyPI
-Trusted Publishing. Follow the [release procedure](docs/guides/releasing.md)
-for the required configuration and validation steps. The
-`turboquant-reference` package is not included in that publishing workflow.
+`refract-v<VERSION>` tag and the protected `pypi` environment;
+`turboquant-reference` releases use a `turboquant-reference-v<VERSION>` tag and
+the protected `pypi-turboquant-reference` environment. Each package has a
+separate PyPI Trusted Publisher and workflow. Follow the
+[release procedure](docs/guides/releasing.md) for the required configuration,
+clean-wheel validation, and release steps.
 
 ## Citation metadata
 

@@ -58,6 +58,11 @@ Dependabot security updates, secret scanning, and secret-scanning push
 protection are enabled. Release environment and publishing controls are
 documented in [the release guide](../guides/releasing.md).
 
+The expected protected publishing environments are `pypi` for tags matching
+`refract-v*` and `pypi-turboquant-reference` for tags matching
+`turboquant-reference-v*`. Both require review, prevent administrator bypass,
+and map to separate PyPI Trusted Publishers.
+
 ## Audit procedure
 
 Maintainers can inspect the live baseline with read-only commands:

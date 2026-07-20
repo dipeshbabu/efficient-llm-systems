@@ -45,12 +45,13 @@ only the extra needed for the backend under test; for example:
 
 ```bash
 uv sync --all-packages --extra refract-mlx
-uv sync --all-packages --extra refract-vllm
 uv sync --all-packages --extra refract-sglang
 ```
 
 Do not use `--all-extras` for routine development because the backend stacks
-have different platform and hardware requirements.
+have different platform and hardware requirements. The vLLM adapter can still
+be tested in an existing audited environment, but its managed extra is paused
+until upstream vLLM supports PyTorch 2.13 or newer.
 
 ## Python style
 

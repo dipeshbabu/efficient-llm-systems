@@ -105,12 +105,16 @@ for the backend under test:
 
 ```bash
 uv sync --all-packages --extra refract-mlx
-uv sync --all-packages --extra refract-vllm
 uv sync --all-packages --extra refract-sglang
 ```
 
 Avoid `--all-extras`: the backend stacks have different platform and hardware
-requirements.
+requirements. The vLLM adapter remains in the source tree, but its managed
+extra is temporarily unavailable: the latest published vLLM release pins
+PyTorch 2.11.0, which is affected by
+[GHSA-rrmf-rvhw-rf47](https://github.com/advisories/GHSA-rrmf-rvhw-rf47).
+Do not override that pin; use an existing audited environment or another
+backend until vLLM publishes support for PyTorch 2.13 or newer.
 
 Python code follows PEP 8. Ruff enforces linting and import order and formats
 the codebase using the repository's Python 3.10 target and 88 character line

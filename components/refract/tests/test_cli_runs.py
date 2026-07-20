@@ -362,7 +362,9 @@ def test_run_selftest_vllm_backend_when_unavailable(monkeypatch, capsys):
     args = argparse.Namespace(backend="vllm", model=None)
     rc = cli._run_selftest(args)
     assert rc == 2
-    assert "vllm not importable" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "vllm not importable" in output
+    assert "managed installs are paused" in output
 
 
 def test_run_selftest_model_missing_fails(tmp_path, monkeypatch, capsys):

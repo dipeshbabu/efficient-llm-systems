@@ -18,6 +18,12 @@ dev = [
 
 [tool.uv]
 required-version = ">=0.11.8"
+constraint-dependencies = [
+    # GHSA-rrmf-rvhw-rf47 is fixed in PyTorch 2.13.0.
+    "torch>=2.13",
+    # PYSEC-2026-3447 is fixed in setuptools 83.0.0.
+    "setuptools>=83",
+]
 
 [tool.uv.workspace]
 members = [

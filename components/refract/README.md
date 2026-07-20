@@ -14,14 +14,20 @@
 ```bash
 pip install "refract-llm>=0.3.4"                       # base — zero non-stdlib deps
 pip install "refract-llm[refract-mlx]>=0.3.4"          # + MLX backend (Apple Silicon)
-pip install "refract-llm[refract-vllm]>=0.3.4"         # + vLLM backend (CUDA / ROCm)
 pip install "refract-llm[refract-sglang]>=0.3.4"       # + SGLang HTTP client backend
-pip install "refract-llm[full]>=0.3.4"                 # + all three backends
+pip install "refract-llm[full]>=0.3.4"                 # + all managed backend dependencies
 ```
 
 The minimum version is intentional: 0.3.4 is the first release built from
 this repository's current package metadata. If your package index does not
 offer it yet, use the source installation below.
+
+The vLLM adapter remains implemented, but the `refract-vllm` dependency extra
+is temporarily unavailable. vLLM 0.25.1 pins PyTorch 2.11.0, which is affected
+by [GHSA-rrmf-rvhw-rf47](https://github.com/advisories/GHSA-rrmf-rvhw-rf47).
+Do not force a PyTorch override because vLLM's compiled extensions require a
+matching build. Use an existing audited environment or another backend until
+vLLM publishes support for PyTorch 2.13 or newer.
 
 After install, the `refract` CLI is on your PATH and the prompt set plus
 example reports ship in the wheel. REFRACT does not ship inference engines or
@@ -34,13 +40,12 @@ git clone https://github.com/dipeshbabu/efficient-llm-systems.git
 cd efficient-llm-systems/components/refract
 pip install -e .                              # editable install, base
 pip install -e .[refract-mlx]                 # editable + MLX backend
-pip install -e .[refract-vllm]                # editable + vLLM backend
 pip install -e .[refract-sglang]              # editable + SGLang backend
 pip install -e .[dev]                         # editable + pytest + coverage + build tooling
 ```
 
 The base install gives you the `refract` CLI with no third-party
-dependencies. Backends are extras you opt into.
+dependencies. Supported backend dependencies are extras you opt into.
 
 ## Platform support
 

@@ -6,12 +6,12 @@
 [dependency-groups]
 dev = [
     "build>=1.0",
-    "coverage>=7.0",
+    "coverage>=7.15.2",
     "mypy==2.3.0",
     "pre-commit>=4.6.0",
     "pytest>=9.0.3",
     "pytest-cov>=4.0",
-    "ruff>=0.15.0",
+    "ruff>=0.15.22",
     "twine>=5.0",
     "types-requests>=2.28",
 ]

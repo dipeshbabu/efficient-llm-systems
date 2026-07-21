@@ -73,7 +73,7 @@ dev = [
     "scipy>=1.10",
     "pytest>=9.0.3",
     "pytest-cov>=4.0",
-    "coverage>=7.0",
+    "coverage>=7.15.2",
     "build>=1.0",
     "twine>=5.0",
 ]

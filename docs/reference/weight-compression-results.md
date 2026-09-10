@@ -6,7 +6,7 @@ Post-training weight compression for llama.cpp. No retraining, no calibration da
 ([public source URL unavailable](historical-forks.md#llamacpp-experimental-forks)).
 Historical `PR #45` contained the full testing log.
 **Paper:** [weight-compression-tq4.md](../../research/papers/weight-compression-tq4.md)
-**Getting Started:** [getting-started.md](../guides/getting-started.md#weight-compression-tq4_1s--experimental)
+**Historical engine setup:** [archived guide](../../research/archive/turboquant-engine-setup.md#weight-compression-tq4_1s--experimental)
 
 ## At a Glance
 
@@ -320,7 +320,7 @@ Zero regressions on uncompressed models across all tested hardware.
 ## How to Contribute
 
 Test on your hardware and post results in the
-[current issue tracker](https://github.com/dipeshbabu/efficient-llm-systems/issues).
+[current issue tracker](https://github.com/dipeshbabu/metria/issues).
 
 ```
 Model:

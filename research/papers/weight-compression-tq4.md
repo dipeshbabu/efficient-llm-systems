@@ -5,7 +5,7 @@ Independent Researcher
 GitHub: [@dipeshbabu](https://github.com/dipeshbabu)
 
 **Code:** [historical llama.cpp TurboQuant fork; public URL unavailable](../../docs/reference/historical-forks.md#llamacpp-experimental-forks), branch `feature/turboquant-kv-cache` — reported as merged to main (Metal + CUDA). Historical `PR #45` contained the full testing log.
-**Getting started:** [getting-started.md](../../docs/guides/getting-started.md)
+**Getting started:** [getting-started.md](../archive/turboquant-engine-setup.md)
 
 ---
 
@@ -368,7 +368,7 @@ Based on testing across 5 models and 3 model families:
 - Do NOT use TQ4_1S for FFN on Llama — 6-8× worse error amplification vs Qwen/Phi
 - Q5_K for FFN gate/up recovers 60% of the quality gap vs Q4_K (one extra bit makes a massive difference on Llama)
 
-**Other architectures (Gemma, DeepSeek, etc.):** Untested. A theoretical compatibility matrix based on code analysis of `convert_hf_to_gguf.py` is available in the [getting started guide](../../docs/guides/getting-started.md#model-compatibility-matrix). Models that use the LlamaModel converter class with `undo_permute=True` are predicted to need Hybrid. Models extending TextModel directly are predicted to work with Config I. Community validation on untested models is welcome.
+**Other architectures (Gemma, DeepSeek, etc.):** Untested. A theoretical compatibility matrix based on code analysis of `convert_hf_to_gguf.py` is available in the [getting started guide](../archive/turboquant-engine-setup.md#model-compatibility-matrix). Models that use the LlamaModel converter class with `undo_permute=True` are predicted to need Hybrid. Models extending TextModel directly are predicted to work with Config I. Community validation on untested models is welcome.
 
 ---
 
@@ -468,7 +468,7 @@ for i in range(4, n_layers - 4):
 Implementation: historical `PR #45` on branch `pr/tq4-weight-compression`
 ([public endpoint unavailable](../../docs/reference/historical-forks.md#archived-identifiers)).
 Metal backend only — CUDA port needed before merge. See
-[getting started](../../docs/guides/getting-started.md) for usage.
+[getting started](../archive/turboquant-engine-setup.md) for usage.
 
 ---
 

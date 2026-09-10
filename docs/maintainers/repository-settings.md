@@ -13,7 +13,7 @@ Release controls last reviewed: 2026-09-10.
 | Visibility | Public |
 | Default branch | `main` |
 | Description | Research, reference implementations, and evaluation tools for efficient LLM inference, KV-cache compression, quantization, and behavioral fidelity. |
-| Homepage | `https://github.com/dipeshbabu/efficient-llm-systems/blob/main/docs/index.md` |
+| Homepage | Not set |
 | Topics | `llm`, `inference`, `quantization`, `kv-cache`, `compression`, `evaluation`, `reproducible-research`, `machine-learning`, `llama-cpp`, `mlx`, `vllm`, `sglang` |
 
 The project uses GitHub's default repository card rather than a custom social
@@ -102,11 +102,11 @@ control was set through the REST API and verified by reading it back.
 Maintainers can inspect the live baseline with read-only commands:
 
 ```bash
-gh repo view dipeshbabu/efficient-llm-systems \
+gh repo view dipeshbabu/metria \
   --json description,homepageUrl,repositoryTopics,hasDiscussionsEnabled,hasWikiEnabled
-gh api repos/dipeshbabu/efficient-llm-systems/community/profile
-gh api repos/dipeshbabu/efficient-llm-systems/branches/main/protection
-gh api repos/dipeshbabu/efficient-llm-systems/actions/permissions
+gh api repos/dipeshbabu/metria/community/profile
+gh api repos/dipeshbabu/metria/branches/main/protection
+gh api repos/dipeshbabu/metria/actions/permissions
 ```
 
 When a non-file setting changes, update this page in the same issue or pull

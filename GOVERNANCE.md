@@ -1,6 +1,6 @@
 # Project governance
 
-Efficient LLM Systems is a maintainer-led open-source research monorepo. This
+Metria is a maintainer-led open-source inference research monorepo. This
 document explains how decisions are made, how responsibilities are assigned,
 and how contributors can propose changes or challenge a decision.
 
@@ -8,8 +8,8 @@ and how contributors can propose changes or challenge a decision.
 
 The project maintains four kinds of material with different stability needs:
 
-- published software, currently KV Fidelity;
-- portable research reference implementations, currently TurboQuant;
+- the published Metria evidence framework and independently versioned KV Fidelity;
+- portable research reference implementations, including TurboQuant;
 - diagnostics, validation, benchmark, and conversion tools; and
 - research reports and retained experimental evidence.
 

@@ -1,11 +1,12 @@
-# Contributing to Efficient LLM Systems
+# Contributing to Metria
 
-Efficient LLM Systems is a research monorepo. Changes should keep the
+Metria is an inference experimentation and evidence monorepo. Changes should keep the
 published components, reproducible research record, and generated evidence
 clearly separated.
 
 ## Repository boundaries
 
+- `src/metria/` contains the root `metria` package; `metria_tests/` tests its contracts.
 - `components/kv-fidelity/` contains the publishable `kv-fidelity` package.
 - `components/turboquant-reference/` contains the NumPy/SciPy TurboQuant
   reference implementation.
@@ -29,7 +30,7 @@ dependencies, security or release policy, governance, or published claims.
 
 ## Development setup
 
-Use Python 3.10 or newer and `uv` 0.11.8 or newer, then create the shared
+Use Python 3.10–3.14 and `uv` 0.11.8 or newer, then create the shared
 workspace environment from the repository root:
 
 ```bash
@@ -38,7 +39,7 @@ uv run pre-commit install
 uv run pytest
 ```
 
-`uv` creates `.venv`, installs both workspace packages, and uses the shared
+`uv` creates `.venv`, installs all three workspace packages, and uses the shared
 lockfile. The install command registers the repository's fast checks as a Git
 pre-commit hook. Backend-specific KV Fidelity dependencies remain optional. Add
 only the extra needed for the backend under test; for example:
@@ -58,7 +59,7 @@ until upstream vLLM supports PyTorch 2.13 or newer.
 Python code follows PEP 8. Ruff is the repository's formatter, linter, and
 import sorter. The root configuration targets Python 3.10 and uses an 88
 character line length. `E501` is intentionally left to the formatter instead
-of being reported as a separate lint error. Mypy checks the two package source
+of being reported as a separate lint error. Mypy checks all three package source
 trees and repository tools using Python 3.10 language assumptions. It is
 pinned to 2.3.1 so local and CI results use the same checker release.
 
@@ -99,7 +100,9 @@ Before submitting a change:
 
 ```bash
 uv run pre-commit run --all-files
+uv run --all-packages pytest metria_tests -q
 uv run pytest components/turboquant-reference/tests components/kv-fidelity/tests --cov=turboquant --cov=kv_fidelity --cov-report=term-missing -v --tb=short
+uv run python -m build --outdir dist/metria .
 uv run python -m build components/kv-fidelity
 uv run python -m build components/turboquant-reference
 ```
@@ -146,6 +149,7 @@ repository-wide citation.
 The repository name is an umbrella. Preserve the public component contracts
 unless a deliberate breaking release is planned:
 
+- root distribution, import, and command: `metria`;
 - distribution: `kv-fidelity`
 - import: `kv_fidelity`
 - command: `kv-fidelity`

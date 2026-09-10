@@ -89,7 +89,7 @@ turbo4 beats q8_0 on retrieval (31/33 vs 30/33). Shared failure at 8K/100% is a 
 
 turbo3 prefill is faster than q8_0 at 32K on both models (70B: 80.8 vs 75.2 t/s, 104B: 64.5 vs 62.3 t/s). Smaller KV cache = less memory bandwidth during attention.
 
-104B at 128K requires raising macOS GPU memory cap: `sudo sysctl iogpu.wired_limit_mb=117964` (90% of 128GB). Without this, Metal stalls at ~49K context on 70B+ models. See [Getting Started Guide](../guides/getting-started.md) for per-RAM values.
+104B at 128K requires raising macOS GPU memory cap: `sudo sysctl iogpu.wired_limit_mb=117964` (90% of 128GB). Without this, Metal stalls at ~49K context on 70B+ models. See [archived engine setup](../../research/archive/turboquant-engine-setup.md) for per-RAM values.
 
 See [M5 Max stress test](../../research/papers/m5-max-stress-test.md) for the full data.
 

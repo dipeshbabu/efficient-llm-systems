@@ -5,14 +5,15 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve Efficient LLM Systems. For vulnerabilities,
-        use [private vulnerability reporting](https://github.com/dipeshbabu/efficient-llm-systems/security/advisories/new) instead of this form.
+        Thanks for helping improve Metria. For vulnerabilities,
+        use [private vulnerability reporting](https://github.com/dipeshbabu/metria/security/advisories/new) instead of this form.
 
   - type: dropdown
     id: component
     attributes:
       label: Affected area
       options:
+        - Metria core or CLI
         - KV Fidelity
         - TurboQuant reference
         - Diagnostics

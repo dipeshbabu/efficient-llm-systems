@@ -28,7 +28,7 @@ body:
     attributes:
       label: Code revision
       description: Provide the exact repository commit and any external engine commit or immutable version.
-      placeholder: efficient-llm-systems abc1234; llama.cpp def5678
+      placeholder: metria abc1234; llama.cpp def5678
     validations:
       required: true
 

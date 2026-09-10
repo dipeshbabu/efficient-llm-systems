@@ -1,7 +1,6 @@
 # Research record
 
-This directory preserves the evidence and reasoning behind Efficient LLM
-Systems. Documents are dated snapshots: they may describe failed approaches,
+This directory preserves the evidence and reasoning behind Metria. Documents are dated snapshots: they may describe failed approaches,
 superseded implementations, or conclusions that apply only to a specific
 model and hardware matrix.
 

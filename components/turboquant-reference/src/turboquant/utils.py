@@ -126,8 +126,10 @@ def memory_footprint_bytes(n_vectors: int, d: int, bit_width: int) -> dict:
     mse_bits = bit_width - 1  # PolarQuant uses b-1 bits
     qjl_bits = 1
 
-    mse_bytes = int(np.ceil(n_vectors * d * mse_bits / 8))
-    qjl_bytes = int(np.ceil(n_vectors * d * qjl_bits / 8))
+    # Each vector is packed separately, including its own final-byte padding.
+    # Keep byte arithmetic integral so large counts do not lose precision.
+    mse_bytes = n_vectors * ((d * mse_bits + 7) // 8)
+    qjl_bytes = n_vectors * ((d * qjl_bits + 7) // 8)
     # Full TurboQuant stores the original vector norm and QJL residual norm.
     norm_bytes = n_vectors * 8  # two float32 values per vector
     total = mse_bytes + qjl_bytes + norm_bytes

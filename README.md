@@ -1,5 +1,6 @@
 # Metria
 
+[![PyPI](https://img.shields.io/pypi/v/metria)](https://pypi.org/project/metria/)
 [![CI](https://github.com/dipeshbabu/metria/actions/workflows/ci.yml/badge.svg)](https://github.com/dipeshbabu/metria/actions/workflows/ci.yml)
 [![Metria core](https://github.com/dipeshbabu/metria/actions/workflows/metria-core.yml/badge.svg)](https://github.com/dipeshbabu/metria/actions/workflows/metria-core.yml)
 [![Root package](https://github.com/dipeshbabu/metria/actions/workflows/root-package.yml/badge.svg)](https://github.com/dipeshbabu/metria/actions/workflows/root-package.yml)
@@ -20,13 +21,14 @@ as vLLM, llama.cpp, SGLang, MLX, TensorRT-LLM, torchao, LLM Compressor, and
 custom research code remain responsible for execution; Metria provides the
 study, provenance, measurement, and comparison layer around them.
 
-> **Status:** `0.1.0` is the first Alpha release. Public APIs remain provisional.
-> Release files are prepared; PyPI publication is a separate maintainer step.
+> **Status:** [Metria 0.1.0 is available on PyPI](https://pypi.org/project/metria/0.1.0/).
+> This first release is Alpha; public APIs remain provisional.
 
 The first complete CLI workflow verifies a **local llama.cpp CPU thread-count
 change** using a pinned model and qualified capture provider. It checks what ran,
 compares sampled token trajectories, and saves a report with both run records.
-See the [0.1.0 release notes](CHANGELOG.md) for the supported scope and limits.
+See the [0.1.0 release notes and downloads](https://github.com/dipeshbabu/metria/releases/tag/metria-v0.1.0)
+for the supported scope, source archive, wheel, and checksums.
 
 ## Why Metria
 
@@ -76,7 +78,7 @@ of first-party runtime adapters already exposed by the Metria core.
 
 ### 1. Install Metria
 
-Use Python 3.10–3.14. Once the maintainer publishes the release:
+Use Python 3.10–3.14:
 
 ```bash
 python -m pip install metria==0.1.0
@@ -84,8 +86,7 @@ metria --version
 metria verify --help
 ```
 
-Before publication, install the prepared wheel from the GitHub release, or
-install from source:
+For development, install the current source checkout:
 
 ```bash
 git clone https://github.com/dipeshbabu/metria.git
@@ -96,19 +97,18 @@ metria --version
 metria --help
 ```
 
-The root package deliberately does **not** install vLLM, llama.cpp, or other
-inference engines. Runtime stacks remain optional and user-managed.
+The root package has no runtime dependencies. Install the native inference
+runtime and model separately; the guide below provides a pinned CPU example.
 
 ### 2. Verify a local CPU thread change
 
-Follow the [local verification guide](https://github.com/dipeshbabu/metria/blob/main/docs/guides/metria-verify.md) to build the
-pinned capture provider and prepare the small example model. Then run:
+On Linux or Ubuntu WSL, follow the
+[local verification guide](https://github.com/dipeshbabu/metria/blob/main/docs/guides/metria-verify.md)
+to obtain the setup helpers from the source archive, build the pinned llama.cpp
+capture provider, and prepare the small model and `study.json`. Git, a C++17
+compiler, CMake, and curl are needed for that setup. Then run:
 
 ```bash
-python tools/qualification/prepare_cpu_verification.py \
-  --bin-dir /path/to/qualified/build/bin \
-  --model /path/to/stories260K.gguf \
-  --output study.json
 metria verify study.json --output verification
 ```
 
@@ -116,6 +116,11 @@ The output contains `manifest.json`, `report.md`, `reference.run.json`, and
 `candidate.run.json`. The command distinguishes completed comparisons,
 insufficient evidence, invalid comparisons, and execution failures. It reports
 behavioral observations; it does not apply a universal quality threshold.
+
+Use a new output directory for each run. `VERIFIED` means the comparison has
+sufficient evidence and its analysis completed; it does not certify quality,
+a speedup, or deployment acceptance. GPU settings, quantization, runtime upgrades,
+chat templates, and repeated-trial policies are outside this first CLI scope.
 
 ## Supporting recipe and comparison tools
 

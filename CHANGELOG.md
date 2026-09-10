@@ -5,7 +5,7 @@ TurboQuant reference packages have independent versions and release notes.
 
 ## 0.1.0
 
-First Alpha release, prepared for maintainer publication.
+First Alpha release, published on 2026-09-10.
 
 ### Local llama.cpp verification
 

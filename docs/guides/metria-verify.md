@@ -15,7 +15,7 @@ policies. General study execution remains available through the Python APIs.
 Use Linux or Ubuntu WSL for the pinned example below. You need Git, a C++17
 compiler, CMake, Python 3.10-3.14, and curl. Inference stays on the local CPU.
 
-Install the root package in a Python virtual environment. After publication:
+Install the published root package in a Python virtual environment:
 
 ```bash
 python -m venv .venv
@@ -23,13 +23,18 @@ python -m venv .venv
 python -m pip install metria==0.1.0
 ```
 
-Before publication, replace the last command with
-`python -m pip install /path/to/metria-0.1.0-py3-none-any.whl`.
+The Python package does not bundle the native runtime or model. The source
+archive contains the setup helpers. Download and extract it from PyPI:
 
-The Python package does not bundle the native runtime or model. Download and
-extract `metria-0.1.0.tar.gz` from the release assets (or, after publication,
-`python -m pip download --no-deps --no-binary=:all: metria==0.1.0`).
-From the extracted `metria-0.1.0` directory, prepare the pinned local example:
+```bash
+python -m pip download --no-deps --no-binary=:all: metria==0.1.0
+tar -xzf metria-0.1.0.tar.gz
+cd metria-0.1.0
+```
+
+The archive and checksums are also available in the
+[GitHub release](https://github.com/dipeshbabu/metria/releases/tag/metria-v0.1.0).
+From the extracted directory, prepare the pinned local example:
 
 ```bash
 sh tools/qualification/build_llamacpp_cpu.sh /var/tmp/metria-example-build
@@ -83,10 +88,11 @@ timeouts, incomplete observation, and interruption are retained as evidence.
 Writes use temporary files, and the manifest is published last. A filesystem
 failure leaves completed records intact and does not produce a success manifest.
 
-Prompt text and generated text are excluded from these artifacts. Prompt IDs,
-fingerprints, sampled token IDs, requested configuration, and local artifact paths
-are retained. The plain-completion workflow rejects system prompts and expert
-runtime flags instead of silently ignoring them.
+The report omits workload prompt text and generated text. Run records retain
+prompt IDs, fingerprints, sampled token IDs, requested configuration, and local
+artifact paths. Review configuration and paths before sharing the records.
+The plain-completion workflow rejects system prompts and expert runtime flags
+instead of silently ignoring them.
 
 ## Read the outcome
 

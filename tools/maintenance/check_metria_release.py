@@ -85,6 +85,34 @@ def _json_api(endpoint: str) -> Any:
     )
 
 
+def _commit_checks(repository: str, sha: str) -> list[dict[str, Any]]:
+    pages = _json_api(
+        f"repos/{repository}/commits/{sha}/check-runs?per_page=100&filter=latest"
+    )
+    return [check for page in pages for check in page["check_runs"]]
+
+
+def validate_commit_checks(repository: str, sha: str) -> None:
+    # GitHub's aggregate CodeQL check is attached to the PR head, not the main
+    # commit. Its analysis jobs still run on main and must succeed there.
+    main_checks = [r for r in REQUIRED_CHECKS if r["context"] != "CodeQL"]
+    validate_checks(main_checks, _commit_checks(repository, sha))
+    pages = _json_api(f"repos/{repository}/commits/{sha}/pulls")
+    merged = [
+        pr
+        for page in pages
+        for pr in page
+        if pr.get("merged_at") is not None
+        and pr["base"]["ref"] == "main"
+        and pr["merge_commit_sha"] == sha
+    ]
+    if len(merged) != 1:
+        raise ValueError("release commit must be the exact merge of one PR into main")
+    validate_checks(
+        REQUIRED_CHECKS, _commit_checks(repository, merged[0]["head"]["sha"])
+    )
+
+
 def validate_publish_ref(version: str) -> None:
     if os.environ.get("GITHUB_EVENT_NAME") != "workflow_dispatch":
         raise ValueError("publication requires an explicit workflow dispatch")
@@ -99,10 +127,7 @@ def validate_publish_ref(version: str) -> None:
     subprocess.run(
         ["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True
     )
-    pages = _json_api(
-        f"repos/{repository}/commits/{sha}/check-runs?per_page=100&filter=latest"
-    )
-    validate_checks(REQUIRED_CHECKS, [c for p in pages for c in p["check_runs"]])
+    validate_commit_checks(repository, sha)
 
 
 def main() -> int:

@@ -115,6 +115,66 @@ def test_required_checks_need_latest_success_from_expected_app():
 
 
 @pytest.mark.parametrize(
+    "problem",
+    [
+        None,
+        "unmerged",
+        "different_merge",
+        "different_base",
+        "missing_pr",
+        "codeql_failed",
+        "codeql_wrong_app",
+        "main_failed",
+    ],
+)
+def test_tag_checks_require_main_ci_and_the_exact_merged_pr(monkeypatch, problem):
+    main_checks = [
+        _check(name=r["context"], app={"id": r["app_id"]})
+        for r in release.REQUIRED_CHECKS
+        if r["context"] != "CodeQL"
+    ]
+    pr_checks = [
+        _check(name=r["context"], app={"id": r["app_id"]})
+        for r in release.REQUIRED_CHECKS
+    ]
+    pr = {
+        "merged_at": "2026-09-10T00:00:00Z",
+        "merge_commit_sha": "release-commit",
+        "base": {"ref": "main"},
+        "head": {"sha": "pr-head"},
+    }
+    if problem == "unmerged":
+        pr["merged_at"] = None
+    elif problem == "different_merge":
+        pr["merge_commit_sha"] = "other-commit"
+    elif problem == "different_base":
+        pr["base"] = {"ref": "other-branch"}
+    elif problem == "codeql_failed":
+        pr_checks[-1]["conclusion"] = "failure"
+    elif problem == "codeql_wrong_app":
+        pr_checks[-1]["app"] = {"id": 15368}
+    elif problem == "main_failed":
+        main_checks[0]["conclusion"] = "failure"
+    responses = {
+        "repos/owner/repo/commits/release-commit/check-runs?per_page=100&filter=latest": [
+            {"check_runs": main_checks}
+        ],
+        "repos/owner/repo/commits/release-commit/pulls": [
+            [] if problem == "missing_pr" else [pr]
+        ],
+        "repos/owner/repo/commits/pr-head/check-runs?per_page=100&filter=latest": [
+            {"check_runs": pr_checks}
+        ],
+    }
+    monkeypatch.setattr(release, "_json_api", responses.__getitem__)
+    if problem is None:
+        release.validate_commit_checks("owner/repo", "release-commit")
+    else:
+        with pytest.raises(ValueError):
+            release.validate_commit_checks("owner/repo", "release-commit")
+
+
+@pytest.mark.parametrize(
     ("event", "ref_type", "ref_name"),
     [
         ("pull_request", "tag", "metria-v0.1.0"),

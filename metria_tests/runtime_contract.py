@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from metria import RunSpec, SupportLevel
+from metria.capture_support import probe_capture_support
 from metria.protocols import (
     CaptureRequest,
     InferenceBatch,
@@ -16,6 +17,7 @@ from metria.protocols import (
     RuntimeAdapter,
     RuntimeSession,
     SupportReport,
+    normalize_capture_requests,
 )
 
 
@@ -56,7 +58,7 @@ def _assert_runtime_identity(observed: Mapping[str, Any], expected: str) -> None
 
 
 def exercise_runtime_contract(case: RuntimeContractCase) -> None:
-    """Exercise the lifecycle/evidence contract shared by supported adapters.
+    """Exercise lifecycle, capture negotiation, and evidence invariants.
 
     Engine-specific semantics such as CLI flags, tokenizer behavior, kernel
     selection, and specialized captures remain in adapter-specific tests. This
@@ -65,10 +67,23 @@ def exercise_runtime_contract(case: RuntimeContractCase) -> None:
 
     adapter = case.adapter
     assert isinstance(adapter.name, str) and adapter.name.strip()
+    capture = normalize_capture_requests(
+        case.capture, source="runtime contract capture"
+    )
 
     support = adapter.probe(case.spec, case.environment)
     _assert_supported(support)
     _assert_no_sensitive_text(support.evidence, case.privacy_terms)
+
+    capture_support = probe_capture_support(
+        adapter=adapter,
+        runtime_support=support,
+        spec=case.spec,
+        environment=case.environment,
+        capture=capture,
+    )
+    _assert_supported(capture_support)
+    _assert_no_sensitive_text(capture_support.evidence, case.privacy_terms)
 
     first_resolved = adapter.resolve(case.spec, case.environment)
     second_resolved = adapter.resolve(case.spec, case.environment)
@@ -78,7 +93,7 @@ def exercise_runtime_contract(case: RuntimeContractCase) -> None:
 
     session: RuntimeSession = adapter.launch(first_resolved, case.environment)
     try:
-        batch = session.infer(case.requests, case.capture)
+        batch = session.infer(case.requests, capture)
         assert isinstance(batch, InferenceBatch)
         assert len(batch.outputs) == len(case.requests)
         _assert_no_sensitive_text(batch.metadata, case.privacy_terms)
@@ -100,4 +115,4 @@ def exercise_runtime_contract(case: RuntimeContractCase) -> None:
     # silently execute another inference request.
     session.close()
     with pytest.raises(RuntimeError):
-        session.infer(case.requests, case.capture)
+        session.infer(case.requests, capture)

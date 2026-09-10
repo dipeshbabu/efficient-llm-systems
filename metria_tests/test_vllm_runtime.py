@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -327,6 +328,7 @@ def test_execute_run_with_vllm_and_trajectory_protocol(
     assert record.status is RunStatus.COMPLETED
     assert record.observed["runtime"]["name"] == "vllm"
     assert record.metrics["trajectory_mean_steps"].value == 2.0
+    assert record.provenance["preflight"]["captures"]["status"] == "supported"
     evidence = record.evidence["measurements"][protocol.name]
     assert evidence["prompts"][0]["token_ids"] == (10, 20)
     assert "private one" not in repr(evidence)
@@ -378,7 +380,10 @@ def test_same_trajectory_protocol_compares_llamacpp_and_vllm_runs(
         adapter=LlamaCppAdapter(),
         measurement=protocol,
         measurement_config=measurement_config,
-        environment={"hardware_class": "fake-gpu"},
+        environment={
+            "hardware_class": "fake-gpu",
+            "llama_cpp_token_ids_capture_sha256": hashlib.sha256(b"fake").hexdigest(),
+        },
     )
     vllm_record = execute_run(
         study_name="cross-runtime",
@@ -400,4 +405,5 @@ def test_same_trajectory_protocol_compares_llamacpp_and_vllm_runs(
 
     assert llama_record.status is RunStatus.COMPLETED
     assert vllm_record.status is RunStatus.COMPLETED
+    assert llama_record.provenance["preflight"]["captures"]["status"] == "supported"
     assert comparison.metrics["trajectory_agreement_score"].value == 100.0

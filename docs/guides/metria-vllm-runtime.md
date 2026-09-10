@@ -78,7 +78,16 @@ native output token IDs through:
 CaptureRequest(kind="token_ids")
 ```
 
-This is enough for the same `TokenTrajectoryProtocol` used with llama.cpp.
+`TokenTrajectoryProtocol.requirements()` declares this capture before runtime
+launch. Once the ordinary vLLM probe is supported, its
+`token_ids_capture=native_output_token_ids` evidence satisfies that requirement,
+and `execute_run()` retains the conclusion under
+`provenance.preflight.captures` before resolving or constructing `vllm.LLM`.
+
+An unrecognized capture kind is never inferred to be available. It remains
+`unknown` during preflight and therefore blocks verification before launch.
+Capture options are currently reserved and rejected rather than silently
+ignored.
 
 Raw prompt and system text are not retained in invocation evidence. Metria
 stores SHA-256 fingerprints for the original prompt, rendered prompt, and system
@@ -119,12 +128,12 @@ allocator teardown.
 
 ## Cross-runtime trajectory studies
 
-With this adapter and the llama.cpp adapter, the same trajectory measurement can
-now be executed independently on two different runtimes:
+With this adapter and a capture-qualified llama.cpp adapter, the same trajectory
+measurement can be executed independently on two different runtimes:
 
 ```text
-RunSpec -> llama.cpp -> TokenTrajectoryProtocol -> RunRecord
-RunSpec -> vLLM      -> TokenTrajectoryProtocol -> RunRecord
+RunSpec -> capture preflight -> llama.cpp -> TokenTrajectoryProtocol -> RunRecord
+RunSpec -> capture preflight -> vLLM      -> TokenTrajectoryProtocol -> RunRecord
 
 RunRecord evidence pair -> compare_trajectory_results()
 ```

@@ -63,7 +63,10 @@ class TokenAdapter:
     ) -> SupportReport:
         del spec, environment
         self.calls.append("probe")
-        return SupportReport(status="supported")
+        return SupportReport(
+            status="supported",
+            evidence={"token_ids_capture": "native_output_token_ids"},
+        )
 
     def resolve(
         self,

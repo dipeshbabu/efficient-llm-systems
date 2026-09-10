@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from ._freeze import freeze_mapping, freeze_typed_mapping
 from .identity import SupportLevel
@@ -43,9 +43,52 @@ class CaptureRequest:
     options: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        """Freeze capture options so measurement requirements stay stable."""
+        """Validate and freeze capture semantics before runtime negotiation."""
 
+        if not isinstance(self.kind, str):
+            raise TypeError("capture kind must be a string")
+        kind = self.kind.strip()
+        if not kind:
+            raise ValueError("capture kind must not be empty")
+        if not isinstance(self.options, Mapping):
+            raise TypeError("capture options must be a mapping")
+        if self.options:
+            raise ValueError(
+                "capture options are reserved until option-aware runtime negotiation exists"
+            )
+        object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "options", freeze_mapping(self.options))
+
+
+def normalize_capture_requests(
+    value: Any,
+    *,
+    source: str = "capture requests",
+) -> tuple[CaptureRequest, ...]:
+    """Validate one capture set and reject ambiguous duplicate kinds.
+
+    Capture outputs are keyed by semantic kind in :class:`InferenceBatch`, so a
+    runtime cannot faithfully represent two requests for the same kind. Duplicate
+    kinds therefore fail before execution instead of being silently collapsed.
+    """
+
+    if isinstance(value, (str, bytes, bytearray)) or not isinstance(value, Sequence):
+        raise TypeError(f"{source} must be a sequence of CaptureRequest objects")
+    captures = tuple(value)
+    seen: set[str] = set()
+    duplicates: set[str] = set()
+    for index, capture in enumerate(captures):
+        if not isinstance(capture, CaptureRequest):
+            raise TypeError(f"{source}[{index}] must be a CaptureRequest")
+        if capture.kind in seen:
+            duplicates.add(capture.kind)
+        seen.add(capture.kind)
+    if duplicates:
+        raise ValueError(
+            f"{source} contain duplicate capture kinds: "
+            + ", ".join(sorted(duplicates))
+        )
+    return captures
 
 
 @dataclass(frozen=True)
@@ -155,6 +198,20 @@ class RuntimeAdapter(Protocol):
 
     def observe(self, session: RuntimeSession) -> Mapping[str, Any]:
         """Collect post-launch evidence of what the runtime actually applied."""
+        ...
+
+
+@runtime_checkable
+class CaptureSupportProbe(Protocol):
+    """Optional runtime contract for first-class pre-launch capture negotiation."""
+
+    def probe_captures(
+        self,
+        spec: RunSpec,
+        environment: Mapping[str, Any],
+        capture: Sequence[CaptureRequest],
+    ) -> SupportReport:
+        """Report whether every requested capture can be produced faithfully."""
         ...
 
 

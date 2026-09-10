@@ -41,13 +41,28 @@ The contributor journey is:
 
 ## Protection and automation
 
-The `main` branch is protected with strict required checks, linear history,
-resolved conversations, administrator enforcement, and disabled force-pushes
-and deletion. The expected required checks are:
+The `main` branch requires pull requests, strict required checks, linear history,
+and resolved conversations. Protections apply to administrators, and force-pushes
+and deletion are disabled. PR branches must be up to date with `main` before
+merging. The expected required checks are:
 
 - `CI required`;
-- `Analyze (actions)`; and
-- `Analyze (python)`.
+- `Core / ubuntu-24.04 / Python 3.10`;
+- `Core / windows-2025 / Python 3.13`;
+- `Core / macos-15 / Python 3.13`;
+- `Root Metria distribution`;
+- `Analyze (actions)`;
+- `Analyze (python)`; and
+- `CodeQL`.
+
+The CI and analysis jobs are bound to the GitHub Actions app; the `CodeQL`
+result is bound to GitHub Advanced Security. `CI required` also gates component
+tests, coverage, lint, and component distribution validation.
+
+Only squash merges are enabled. Merge commits and rebase merges are disabled.
+The approving-review count remains zero under the single-maintainer policy in
+[GOVERNANCE.md](../../GOVERNANCE.md); a PR and the required checks are still
+mandatory.
 
 Automatic deletion of merged pull request branches is enabled
 (`delete_branch_on_merge: true`). GitHub deletes the head branch after a pull

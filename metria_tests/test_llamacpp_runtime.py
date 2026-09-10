@@ -96,7 +96,9 @@ def test_probe_is_fail_loud_for_missing_model_or_cli(tmp_path: Path) -> None:
 
     assert report.status == "unsupported"
     assert any("model file not found" in reason for reason in report.reasons)
-    assert any("llama-cli not found" in reason for reason in report.reasons)
+    assert any(
+        "llama-cli or llama-completion not found" in reason for reason in report.reasons
+    )
 
 
 def test_resolve_records_binary_hash_and_requested_model_identity(

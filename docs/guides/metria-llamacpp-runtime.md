@@ -10,7 +10,7 @@ evidence model before Metria adds more engines.
 
 - local `llama-cli` text generation;
 - local GGUF model paths;
-- explicit `n_gpu_layers`, flash-attention, and expert `extra_args`;
+- explicit `n_gpu_layers`, flash-attention, `threads`, `threads_batch`, and expert `extra_args`;
 - one runtime treatment: `llamacpp.kv_cache`;
 - requested → resolved → observed runtime evidence;
 - content hashing for llama.cpp binaries;
@@ -161,11 +161,19 @@ Keep pinned model files immutable throughout execution; this is local content
 verification, not a guarantee against concurrent filesystem tampering. Download
 resolution, split model artifacts, and broader provenance remain tracked by #16.
 
-Likewise, the current llama.cpp CLI path does not independently expose the
-embedded tokenizer or active chat-template identity, so both stay `unknown`.
-After an invocation, the applied identity component becomes `partial` because
-Metria can prove the exact command it issued but cannot claim that command-line
-intent is authoritative readback of llama.cpp internal state.
+Legacy token-only providers leave the embedded tokenizer and active chat-template
+identity `unknown`. Their command invocations remain partial applied evidence.
+
+The pinned provider under [local qualification tools](../../tools/qualification/README.md)
+also writes a validated runtime sidecar. Metria retains actual context size,
+thread counts, vocabulary size, and chat-template mode from that provider. A
+reported disabled template is verified as disabled. Applied identity remains
+partial because those fields do not cover every internal runtime setting.
+Inconsistent runtime readback across requests is marked as a mismatch.
+
+`llama-completion` alone is sufficient in the binary directory for this provider.
+Both token and runtime sidecars are removed after each invocation. Malformed
+capture data is rejected rather than coerced into plausible token IDs.
 
 This asymmetry is intentional. `partial` and `unknown` are useful evidence; they
 are safer than presenting requested values as facts.

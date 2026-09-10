@@ -9,7 +9,6 @@ session owns its resolved configuration and invocation evidence.
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import re
 import subprocess
@@ -28,6 +27,7 @@ from ..protocols import (
     RuntimeSession,
     SupportReport,
 )
+from .llamacpp_capture import read_runtime_capture, read_token_trajectory
 from .llamacpp_identity import inspect_llamacpp_identity
 
 _DEFAULT_BIN_DIR = Path(
@@ -65,6 +65,10 @@ _MANAGED_EXTRA_FLAGS = frozenset(
         "--system-prompt",
         "-rea",
         "-no-cnv",
+        "-t",
+        "--threads",
+        "-tb",
+        "--threads-batch",
     }
 )
 
@@ -290,11 +294,20 @@ def _runtime_config(spec: RunSpec) -> dict[str, Any]:
     flash_attention = spec.runtime.get("flash_attention", True)
     if not isinstance(flash_attention, bool):
         raise TypeError("runtime.flash_attention must be a boolean")
+    threads = {}
+    for key in ("threads", "threads_batch"):
+        value = spec.runtime.get(key)
+        if value is not None and (
+            isinstance(value, bool) or not isinstance(value, int) or value <= 0
+        ):
+            raise ValueError(f"runtime.{key} must be a positive integer")
+        threads[key] = value
     return {
         "name": "llamacpp",
         "n_gpu_layers": n_gpu_layers,
         "flash_attention": flash_attention,
         "extra_args": _extra_args(spec.runtime),
+        **threads,
     }
 
 
@@ -564,6 +577,9 @@ class LlamaCppSession:
             if generation["system"]:
                 argv.extend(["-sys", str(generation["system"])])
         argv.extend(_kv_args(kv))
+        for key, flag in (("threads", "-t"), ("threads_batch", "-tb")):
+            if runtime.get(key) is not None:
+                argv.extend([flag, str(runtime[key])])
         argv.extend(runtime["extra_args"])
 
         process_env = os.environ.copy()
@@ -610,41 +626,40 @@ class LlamaCppSession:
                 if trajectory_path is not None
                 else []
             )
+            runtime_capture = (
+                read_runtime_capture(Path(trajectory_path + ".runtime.json"))
+                if trajectory_path is not None
+                else None
+            )
             evidence = {
                 "binary": str(executable),
                 "argv": _redacted_argv(argv),
                 "prompt_sha256": _text_hash(request.prompt),
                 "system_sha256": _text_hash(generation["system"]),
+                "generation": {
+                    key: value for key, value in generation.items() if key != "system"
+                },
                 "managed_env": managed_env,
                 "returncode": completed.returncode,
                 "duration_seconds": duration,
                 "capture": "token_ids" if token_capture else "text",
                 "token_capture_observed": bool(token_ids) if token_capture else None,
+                "runtime_capture": runtime_capture,
             }
             return _extract_completion(completed.stdout), token_ids, evidence
         finally:
             if trajectory_path is not None:
-                try:
-                    os.unlink(trajectory_path)
-                except OSError:
-                    pass
+                for path in (trajectory_path, trajectory_path + ".runtime.json"):
+                    try:
+                        os.unlink(path)
+                    except OSError:
+                        pass
 
 
 def _read_trajectory(path: Path) -> list[int]:
     """Read token IDs emitted by the existing patched llama-completion ABI."""
 
-    token_ids: list[int] = []
-    try:
-        with path.open(encoding="utf-8") as stream:
-            for line in stream:
-                line = line.strip()
-                if not line:
-                    continue
-                record = json.loads(line)
-                token_ids.append(int(record["token_id"]))
-    except FileNotFoundError:
-        return []
-    return token_ids
+    return read_token_trajectory(path)
 
 
 class LlamaCppAdapter:
@@ -672,12 +687,12 @@ class LlamaCppAdapter:
                 status="unsupported", reasons=(str(exc),), evidence=evidence
             )
 
-        cli = _find_binary(bin_dir, "llama-cli")
         completion = _find_binary(bin_dir, "llama-completion")
+        cli = _find_binary(bin_dir, "llama-cli") or completion
         if not model.is_file():
             reasons.append(f"model file not found: {model}")
         if cli is None:
-            reasons.append(f"llama-cli not found in {bin_dir}")
+            reasons.append(f"llama-cli or llama-completion not found in {bin_dir}")
         evidence.update(
             {
                 "bin_dir": str(bin_dir),
@@ -711,7 +726,9 @@ class LlamaCppAdapter:
         runtime = _runtime_config(spec)
         model_path = _model_path(spec)
         bin_dir = _bin_dir(spec, environment)
-        cli = _find_binary(bin_dir, "llama-cli")
+        cli = _find_binary(bin_dir, "llama-cli") or _find_binary(
+            bin_dir, "llama-completion"
+        )
         if cli is None:  # probe guarantees this, keep fail-loud for races
             raise FileNotFoundError(f"llama-cli disappeared from {bin_dir}")
         completion = _find_binary(bin_dir, "llama-completion")

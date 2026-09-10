@@ -106,10 +106,11 @@ def inspect_llamacpp_identity(
         "status": template_status.value,
         "source": "embedded_in_model_uninspected",
     }
-    template_reasons = (
+    template_reasons: tuple[str, ...] = (
         "llama.cpp chat-template identity is not independently inspected",
     )
 
+    applied_identity: dict[str, Any]
     if invocations:
         applied_status = IdentityStatus.PARTIAL
         applied_identity = {
@@ -120,6 +121,29 @@ def inspect_llamacpp_identity(
         applied_reasons = (
             "recorded llama.cpp command flags do not prove runtime-applied internal state",
         )
+        captures = [row.get("runtime_capture") for row in invocations]
+        if all(isinstance(capture, Mapping) for capture in captures):
+            first = captures[0]
+            assert isinstance(first, Mapping)
+            fields = {key: value for key, value in first.items() if key != "schema"}
+            if all(capture == first for capture in captures):
+                applied_identity["fields"] = fields
+                applied_identity["source"] = "qualified_runtime_capture"
+                applied_reasons = (
+                    "only context, thread counts, vocabulary size and template mode were read back",
+                )
+                if first.get("chat_template_applied") is False:
+                    template_status = IdentityStatus.VERIFIED
+                    template_identity = {
+                        "status": template_status.value,
+                        "mode": "disabled",
+                        "source": "qualified_runtime_capture",
+                    }
+                    template_reasons = ()
+            else:
+                applied_status = IdentityStatus.MISMATCH
+                applied_identity["status"] = applied_status.value
+                applied_reasons = ("runtime capture facts changed between requests",)
     else:
         applied_status = IdentityStatus.UNKNOWN
         applied_identity = {

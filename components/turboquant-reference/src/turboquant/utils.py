@@ -28,25 +28,8 @@ def pack_bits(signs: np.ndarray) -> np.ndarray:
     Returns:
         uint8 array of shape (ceil(d/8),) or (batch, ceil(d/8)).
     """
-    # Convert {+1, -1} → {1, 0}
-    bits = (signs > 0).astype(np.uint8)
-
-    if bits.ndim == 1:
-        # Pad to multiple of 8
-        padded_len = (len(bits) + 7) // 8 * 8
-        padded = np.zeros(padded_len, dtype=np.uint8)
-        padded[: len(bits)] = bits
-        # Pack 8 bits into each byte
-        packed = np.packbits(padded)
-        return packed
-    else:
-        batch, d = bits.shape
-        padded_len = (d + 7) // 8 * 8
-        padded = np.zeros((batch, padded_len), dtype=np.uint8)
-        padded[:, :d] = bits
-        # packbits works on last axis
-        packed = np.packbits(padded, axis=1)
-        return packed
+    # NumPy packs boolean values directly and pads the final byte per row.
+    return np.packbits(signs > 0, axis=-1)
 
 
 def unpack_bits(packed: np.ndarray, d: int) -> np.ndarray:
@@ -92,6 +75,9 @@ def pack_indices(indices: np.ndarray, bit_width: int) -> np.ndarray:
         raise ValueError(f"indices do not fit in {bit_width} bits")
 
     values = values.astype(np.uint8, copy=False)
+    if bit_width == 8 and values.ndim:
+        # Each index already occupies one whole byte. Preserve owned output.
+        return values.copy()
     shifts = np.arange(bit_width - 1, -1, -1, dtype=np.uint8)
     bits = ((values[..., np.newaxis] >> shifts) & 1).reshape(
         *values.shape[:-1], values.shape[-1] * bit_width
@@ -119,6 +105,8 @@ def unpack_indices(
     available_bits = packed.shape[-1] * 8 if packed.ndim else 0
     if available_bits < needed_bits:
         raise ValueError(f"packed input has {available_bits} bits, need {needed_bits}")
+    if bit_width == 8 and packed.ndim:
+        return packed[..., :n_indices].copy()
     bits = np.unpackbits(packed, axis=-1)[..., :needed_bits]
     if n_indices == 0:
         return np.empty((*packed.shape[:-1], 0), dtype=np.uint8)

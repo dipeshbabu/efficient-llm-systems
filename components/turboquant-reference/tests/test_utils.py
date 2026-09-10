@@ -1,6 +1,7 @@
 """Tests for bit packing and memory utilities (Issue #8)."""
 
 import numpy as np
+import pytest
 
 from turboquant.utils import (
     memory_footprint_bytes,
@@ -12,6 +13,45 @@ from turboquant.utils import (
 
 
 class TestBitPacking:
+    @pytest.mark.parametrize(
+        "shape", [(0,), (1,), (7,), (8,), (9,), (2, 0), (0, 9), (3, 9)]
+    )
+    def test_sign_packing_matches_byte_layout_for_strided_inputs(self, shape):
+        rng = np.random.default_rng(42)
+        storage = (
+            rng.integers(0, 2, size=(*shape[:-1], shape[-1] * 2), dtype=np.int8) * 2 - 1
+        )
+        signs = storage[..., ::2]
+        expected = np.zeros((*shape[:-1], (shape[-1] + 7) // 8), dtype=np.uint8)
+        for index in np.ndindex(shape):
+            if signs[index] > 0:
+                byte_index = (*index[:-1], index[-1] // 8)
+                expected[byte_index] |= 1 << (7 - index[-1] % 8)
+
+        packed = pack_bits(signs)
+
+        np.testing.assert_array_equal(packed, expected)
+        np.testing.assert_array_equal(unpack_bits(packed, shape[-1]), signs)
+
+    @pytest.mark.parametrize("shape", [(0,), (5,), (0, 5), (2, 0), (2, 7)])
+    @pytest.mark.parametrize("dtype", [np.uint8, np.uint16])
+    def test_8bit_packing_preserves_strided_rows_and_owned_output(self, shape, dtype):
+        rng = np.random.default_rng(42)
+        storage = rng.integers(0, 256, size=(*shape[:-1], shape[-1] * 2), dtype=dtype)
+        indices = storage[..., ::2]
+
+        packed = pack_indices(indices, 8)
+        np.testing.assert_array_equal(packed, indices)
+        assert packed.dtype == np.uint8
+        assert not np.shares_memory(packed, indices)
+
+        extra = np.full((*shape[:-1], 1), 255, dtype=np.uint8)
+        padded = np.concatenate((packed, extra), axis=-1)
+        unpacked = unpack_indices(padded, 8, shape[-1])
+        np.testing.assert_array_equal(unpacked, indices)
+        assert unpacked.dtype == np.uint8
+        assert not np.shares_memory(unpacked, padded)
+
     def test_pack_unpack_round_trip(self):
         signs = np.array([1, -1, 1, -1, 1, 1, -1, 1], dtype=np.int8)
         packed = pack_bits(signs)

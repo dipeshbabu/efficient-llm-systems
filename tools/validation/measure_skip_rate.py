@@ -33,10 +33,9 @@ def measure_skip_rates(
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         torch_dtype=torch.float16,
-        device_map=device,
         trust_remote_code=True,
         attn_implementation="eager",  # need full attention weights, not flash
-    )
+    ).to(device)
     model.eval()
 
     # Generate a long input (repeated text to fill context)

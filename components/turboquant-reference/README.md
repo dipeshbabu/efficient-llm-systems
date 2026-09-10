@@ -41,6 +41,13 @@ Use the editable benchmark extra when changing real-model experiments:
 python -m pip install -e "./components/turboquant-reference[bench]"
 ```
 
+The benchmark extra uses PyTorch and Transformers without Accelerate. Real-model
+examples load into host memory and then move to their selected device; the model
+must fit host memory and that device. Automatic dispatch and offload are not
+supported by these examples. When updating an existing benchmark environment,
+`uv sync --all-packages --extra bench` removes the now-unused Accelerate package;
+pip users can uninstall it if no other installed project requires it.
+
 ## Verify
 
 ```bash

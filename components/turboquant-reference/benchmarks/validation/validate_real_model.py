@@ -6,7 +6,7 @@ compresses them with TurboQuant, and measures quality degradation.
 Usage:
     python components/turboquant-reference/benchmarks/validation/validate_real_model.py
 
-Requires: pip install transformers torch accelerate
+Requires: pip install "torch>=2.13" "transformers>=5.14.1"
 """
 
 import time
@@ -28,9 +28,8 @@ def load_model():
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         dtype=torch.float32,  # fp32 for accuracy baseline
-        device_map="cpu",  # CPU is fine for validation
         trust_remote_code=True,
-    )
+    ).to("cpu")  # CPU is fine for validation; no Accelerate dispatch is needed.
     model.eval()
     print(f"  Loaded: {sum(p.numel() for p in model.parameters()) / 1e6:.0f}M params")
     return model, tokenizer

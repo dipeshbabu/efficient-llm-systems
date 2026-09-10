@@ -13,6 +13,11 @@ milestones. The first planned `kv-fidelity` release is 0.3.5.
 
 ## Unreleased
 
+- Removed the unnecessary Accelerate dependency from the optional benchmark
+  stack to address GHSA-4j2p-28q2-5m79, which has no patched release.
+  Single-device research loaders now use ordinary Transformers loading and
+  explicit PyTorch placement. Models must fit host memory and the chosen device.
+
 - Renamed the full component identity from the legacy name to KV Fidelity:
   distribution and command `kv-fidelity`, import package `kv_fidelity`,
   environment prefix `KV_FIDELITY_`, component path

@@ -73,6 +73,58 @@ def _record(
     )
 
 
+@pytest.mark.parametrize("role", ["undeclared", "vary", "control", "waiver"])
+def test_dotted_path_collisions_cannot_hide_comparison_differences(role: str) -> None:
+    left = replace(
+        _record(),
+        observed={"settings": {"cache": {"dtype": "fp16"}, "cache.dtype": "same"}},
+    )
+    right = replace(
+        left,
+        observed={"settings": {"cache": {"dtype": "fp8"}, "cache.dtype": "same"}},
+    )
+    dimension = "observed.settings.cache.dtype"
+    plans = {
+        "undeclared": ComparisonPlan(),
+        "vary": ComparisonPlan(vary=frozenset({dimension})),
+        "control": ComparisonPlan(control=frozenset({dimension})),
+        "waiver": ComparisonPlan(waivers={dimension: "intentional difference"}),
+    }
+
+    for first, second in ((left, right), (right, left)):
+        report = compare_runs(first, second, plans[role])
+
+        assert not report.compatible
+        assert any("ambiguous" in issue.reason for issue in report.issues)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"cache": {"dtype": "fp16"}, "cache.dtype": "fp8"},
+        {"cache": {}, "cache.scale": 1.0},
+        {"cache": {}, "cache-extra": 1, "cache.scale": 1.0},
+        {"cache.dtype": "fp16", "cache.dtype.format": "fp8"},
+    ],
+)
+def test_ambiguous_top_level_evidence_is_not_comparable_even_to_itself(fields) -> None:
+    record = replace(_record(), observed=fields)
+
+    report = compare_runs(record, record, ComparisonPlan())
+
+    assert not report.compatible
+    assert any("ambiguous" in issue.reason for issue in report.issues)
+
+
+def test_distinct_dotted_evidence_keys_remain_comparable() -> None:
+    record = replace(
+        _record(),
+        observed={"cache.dtype": "fp16", "cache.scale": 1.0},
+    )
+
+    assert compare_runs(record, record, ComparisonPlan()).compatible
+
+
 def _verification_record(
     *,
     run_id: str = "reference",

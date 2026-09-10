@@ -17,6 +17,15 @@ from .models import (
 _MISSING = object()
 _MISSING_LABEL = "<missing>"
 
+
+class _AmbiguousPathError(ValueError):
+    """Evidence fields overlap in the comparison's dotted path namespace."""
+
+    def __init__(self, path: str) -> None:
+        self.path = path
+        super().__init__(f"ambiguous comparison path {path!r}")
+
+
 _REQUESTED_DIMENSIONS = (
     "model",
     "runtime",
@@ -181,7 +190,13 @@ def _flatten(value: Any, path: str) -> dict[str, Any]:
             return {path: value}
         flattened: dict[str, Any] = {}
         for key in sorted(value):
-            flattened.update(_flatten(value[key], f"{path}.{key}"))
+            segments = key.split(".")
+            for index in range(1, len(segments)):
+                prefix = ".".join(segments[:index])
+                if prefix in value:
+                    raise _AmbiguousPathError(f"{path}.{prefix}" if path else prefix)
+            child_path = f"{path}.{key}" if path else key
+            flattened.update(_flatten(value[key], child_path))
         return flattened
 
     if is_dataclass(value):
@@ -252,25 +267,19 @@ def _pair_leaf_values(
 ) -> tuple[tuple[str, Any, Any], ...]:
     """Return all differing comparison-relevant leaves, including missing sides."""
 
-    left_roots = _comparison_roots(left)
-    right_roots = _comparison_roots(right)
+    # Flatten the roots together so overlapping top-level observed/resolved
+    # keys are validated just like overlapping keys in nested evidence.
+    left_flat = _flatten(_comparison_roots(left), "")
+    right_flat = _flatten(_comparison_roots(right), "")
     differences: list[tuple[str, Any, Any]] = []
 
-    for root in sorted(set(left_roots) | set(right_roots)):
-        left_value = left_roots.get(root, _MISSING)
-        right_value = right_roots.get(root, _MISSING)
-        left_flat = {} if left_value is _MISSING else _flatten(left_value, root)
-        right_flat = {} if right_value is _MISSING else _flatten(right_value, root)
-        paths = sorted(set(left_flat) | set(right_flat))
-        if not paths:
-            paths = [root]
-        for path in paths:
-            left_leaf = left_flat.get(path, _MISSING)
-            right_leaf = right_flat.get(path, _MISSING)
-            if left_leaf is not _MISSING and right_leaf is not _MISSING:
-                if left_leaf == right_leaf:
-                    continue
-            differences.append((path, left_leaf, right_leaf))
+    for path in sorted(set(left_flat) | set(right_flat)):
+        left_leaf = left_flat.get(path, _MISSING)
+        right_leaf = right_flat.get(path, _MISSING)
+        if left_leaf is not _MISSING and right_leaf is not _MISSING:
+            if left_leaf == right_leaf:
+                continue
+        differences.append((path, left_leaf, right_leaf))
     return tuple(differences)
 
 
@@ -371,7 +380,19 @@ def compare_runs(
             issues.append(issue)
 
     direct_roles = _role_declarations(plan)
-    for path, left_value, right_value in _pair_leaf_values(left, right):
+    try:
+        differences = _pair_leaf_values(left, right)
+    except _AmbiguousPathError as exc:
+        issues.append(
+            CompatibilityIssue(
+                dimension=exc.path,
+                left=None,
+                right=None,
+                reason=str(exc),
+            )
+        )
+        differences = ()
+    for path, left_value, right_value in differences:
         role_match = _role_for_path(plan, path, direct_roles)
         if role_match is None:
             issues.append(

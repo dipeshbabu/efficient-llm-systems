@@ -59,7 +59,7 @@ def _next_power_of_2(n: int) -> int:
 
 
 def hadamard_matrix(n: int) -> np.ndarray:
-    """Generate a normalized Hadamard matrix of size n (must be power of 2).
+    """Generate an unnormalized Hadamard matrix of size n (must be power of 2).
 
     Uses the recursive Sylvester construction.
     """
@@ -98,6 +98,27 @@ def random_rotation_fast(
     return signs1, signs2, padded_d
 
 
+def _normalized_hadamard_inplace(values: np.ndarray) -> None:
+    """Transform contiguous float64 vectors along their final axis."""
+
+    n = values.shape[-1]
+    if n <= 1:
+        values /= np.sqrt(n)
+        return
+    scratch = np.empty((2, values.size // 2), dtype=values.dtype)
+    h = 1
+    while h < n:
+        butterflies = values.reshape(-1, 2, h)
+        left = scratch[0].reshape(-1, h)
+        right = scratch[1].reshape(-1, h)
+        np.copyto(left, butterflies[:, 0, :])
+        np.copyto(right, butterflies[:, 1, :])
+        np.add(left, right, out=butterflies[:, 0, :])
+        np.subtract(left, right, out=butterflies[:, 1, :])
+        h *= 2
+    values /= np.sqrt(n)
+
+
 def fast_walsh_hadamard_transform(x: np.ndarray) -> np.ndarray:
     """Fast Walsh-Hadamard Transform, O(n log n).
 
@@ -107,20 +128,14 @@ def fast_walsh_hadamard_transform(x: np.ndarray) -> np.ndarray:
     Returns:
         New transformed array (normalized by 1/sqrt(n)).
     """
+    if x.ndim != 1:
+        raise ValueError("Input must be a one-dimensional vector")
     n = len(x)
     if n < 1 or (n & (n - 1)) != 0:
         raise ValueError(f"Input length must be a positive power of 2, got {n}")
-    x = x.copy().astype(np.float64)
-    h = 1
-    while h < n:
-        for i in range(0, n, h * 2):
-            for j in range(i, i + h):
-                a = x[j]
-                b = x[j + h]
-                x[j] = a + b
-                x[j + h] = a - b
-        h *= 2
-    return x / np.sqrt(n)
+    result = x.astype(np.float64, copy=True)
+    _normalized_hadamard_inplace(result)
+    return result
 
 
 def apply_fast_rotation(
@@ -175,19 +190,6 @@ def apply_fast_rotation_batch(
     padded[:, :d] = X
     padded *= signs1[np.newaxis, :]
 
-    # Vectorized Walsh-Hadamard on each row
-    n = padded_d
-    h = 1
-    while h < n:
-        # Reshape for butterfly operations
-        reshaped = padded.reshape(batch, n // (h * 2), 2, h)
-        a = reshaped[:, :, 0, :].copy()
-        b = reshaped[:, :, 1, :].copy()
-        reshaped[:, :, 0, :] = a + b
-        reshaped[:, :, 1, :] = a - b
-        padded = reshaped.reshape(batch, n)
-        h *= 2
-
-    padded /= np.sqrt(n)
+    _normalized_hadamard_inplace(padded)
     padded *= signs2[np.newaxis, :]
     return padded[:, :d]

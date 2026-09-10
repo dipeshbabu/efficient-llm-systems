@@ -5,6 +5,14 @@ The package follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Performance
+
+- Scalar and batch rotations share a vectorized Walsh-Hadamard kernel.
+  Scalar transforms no longer run Python loops over individual elements,
+  and batch transforms reuse scratch space across stages. Inputs remain
+  unchanged and supported vector outputs retain the existing normalization.
+  Non-vector input to the scalar transform now raises a clear error.
+
 ### Security
 
 - Removed Accelerate from the `bench` extra to address

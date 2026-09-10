@@ -1,8 +1,4 @@
-"""Tests for random rotation matrix generation (Issue #2).
-
-Tests are written BEFORE implementation per workflow rules.
-All tests should FAIL until rotation.py is implemented.
-"""
+"""Independent numerical and input-preservation checks for random rotations."""
 
 import numpy as np
 import pytest
@@ -177,6 +173,29 @@ class TestDenseRotation:
 class TestFastWalshHadamard:
     """Tests for the fast Walsh-Hadamard transform."""
 
+    @pytest.mark.parametrize("n", [1, 2, 16, 128, 256])
+    @pytest.mark.parametrize("dtype", [np.int32, np.float32, np.float64])
+    def test_strided_input_matches_independent_reference(self, n, dtype):
+        from scipy.linalg import hadamard
+
+        from turboquant.rotation import fast_walsh_hadamard_transform
+
+        storage = np.arange(2 * n, dtype=dtype)
+        x = storage[::-2]
+        original = storage.copy()
+        result = fast_walsh_hadamard_transform(x)
+        expected = hadamard(n) @ x.astype(np.float64) / np.sqrt(n)
+        np.testing.assert_allclose(result, expected, atol=1e-12)
+        np.testing.assert_array_equal(storage, original)
+        assert result.dtype == np.float64
+        assert not np.shares_memory(result, storage)
+
+    def test_non_vector_input_is_rejected(self):
+        from turboquant.rotation import fast_walsh_hadamard_transform
+
+        with pytest.raises(ValueError, match="one-dimensional"):
+            fast_walsh_hadamard_transform(np.ones((4, 2)))
+
     def test_hadamard_non_pow2_raises(self):
         """Non-power-of-2 should raise ValueError."""
         from turboquant.rotation import hadamard_matrix
@@ -258,6 +277,26 @@ class TestFastWalshHadamard:
 
 class TestFastRotation:
     """Tests for structured random rotation (Hadamard + random signs)."""
+
+    @pytest.mark.parametrize("batch,d", [(0, 16), (1, 1), (3, 100), (4, 128)])
+    def test_batch_matches_independent_dense_reference(self, batch, d):
+        from scipy.linalg import hadamard
+
+        from turboquant.rotation import apply_fast_rotation_batch, random_rotation_fast
+
+        rng = np.random.default_rng(29)
+        signs1, signs2, padded_d = random_rotation_fast(d, rng)
+        storage = rng.standard_normal((batch, d * 2))
+        inputs = storage[:, ::2]
+        original = storage.copy()
+        padded = np.zeros((batch, padded_d))
+        padded[:, :d] = inputs
+        expected = (
+            (padded * signs1) @ hadamard(padded_d).T / np.sqrt(padded_d) * signs2
+        )[:, :d]
+        actual = apply_fast_rotation_batch(inputs, signs1, signs2, padded_d)
+        np.testing.assert_allclose(actual, expected, atol=1e-12)
+        np.testing.assert_array_equal(storage, original)
 
     def test_preserves_norms_pow2(self):
         """Fast rotation should preserve vector norms for power-of-2 dimensions."""

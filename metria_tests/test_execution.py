@@ -82,7 +82,10 @@ class FakeAdapter:
         return SupportReport(
             status=self.support_status,
             reasons=("not available",) if self.support_status != "supported" else (),
-            evidence={"capability": "fake"},
+            evidence={
+                "capability": "fake",
+                "token_ids_capture": "native_output_token_ids",
+            },
         )
 
     def resolve(
@@ -339,5 +342,6 @@ def test_executor_integrates_trajectory_protocol_into_run_record() -> None:
     trajectory_evidence = record.evidence["measurements"][measurement.name]
     assert trajectory_evidence["prompts"][0]["token_ids"] == (1, 2, 3)
     assert "private one" not in repr(trajectory_evidence)
+    assert record.provenance["preflight"]["captures"]["status"] == "supported"
     assert session.infer_calls == 1
     assert session.close_calls == 1

@@ -49,6 +49,7 @@ class _ContractAdapter:
 
     def __init__(self) -> None:
         self.launch_count = 0
+        self.capture_probe_count = 0
 
     def probe(
         self,
@@ -62,6 +63,25 @@ class _ContractAdapter:
                 "requested_model": spec.model.get("id"),
                 "environment_class": environment.get("hardware_class"),
             },
+        )
+
+    def probe_captures(
+        self,
+        spec: RunSpec,
+        environment: Mapping[str, Any],
+        capture: Sequence[CaptureRequest],
+    ) -> SupportReport:
+        del spec, environment
+        self.capture_probe_count += 1
+        kinds = tuple(item.kind for item in capture)
+        if kinds != ("token_ids",):
+            return SupportReport(
+                status="unsupported",
+                reasons=("contract fixture supports only token_ids",),
+            )
+        return SupportReport(
+            status="supported",
+            evidence={"token_ids": "fixture_native_capture"},
         )
 
     def resolve(
@@ -112,9 +132,11 @@ def test_reusable_runtime_contract_harness() -> None:
             InferenceRequest(prompt="metria contract prompt"),
             InferenceRequest(prompt="second private prompt"),
         ),
+        capture=(CaptureRequest(kind="token_ids"),),
         privacy_terms=("metria contract prompt", "second private prompt"),
     )
 
     exercise_runtime_contract(case)
 
+    assert adapter.capture_probe_count == 1
     assert adapter.launch_count == 1

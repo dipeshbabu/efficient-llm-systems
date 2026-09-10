@@ -15,8 +15,8 @@ evidence model before Metria adds more engines.
 - requested → resolved → observed runtime evidence;
 - content hashing for llama.cpp binaries;
 - exact redacted command records for invocations;
-- optional decode-time `token_ids` capture when a compatible patched
-  `llama-completion` binary is present;
+- optional decode-time `token_ids` capture through a qualified patched
+  `llama-completion` binary;
 - timeout and non-zero-exit failure reporting;
 - instance-local sessions with no Metria global backend selector.
 
@@ -88,11 +88,39 @@ ignore a treatment it cannot prove it applied.
 
 `CaptureRequest(kind="token_ids")` selects `llama-completion` and uses the
 existing `KV_FIDELITY_TRAJECTORY` patch ABI. Merely finding that binary is
-recorded as `binary_present_unverified`; a run only records token capture as
-observed when token records are actually returned.
+recorded as `binary_present_unverified` and is **not sufficient** for Metria's
+verification path.
 
-This keeps the existing research instrumentation usable without making that
-patch part of Metria's stable runtime contract.
+Before `execute_run()` resolves or launches llama.cpp, the trajectory
+measurement declares its `token_ids` requirement. Capture preflight then has
+three conservative outcomes:
+
+- no `llama-completion` provider: `unsupported`;
+- provider present but not qualified: `unknown`;
+- provider present and its content SHA-256 exactly matches
+  `environment["llama_cpp_token_ids_capture_sha256"]`: `supported`.
+
+A malformed qualification digest or a digest mismatch is `unsupported`. Any
+status other than `supported` becomes a `PREFLIGHT_FAILED` run, so an
+unqualified trajectory experiment cannot consume model/GPU work and fail only
+after launch.
+
+For example, a controlled qualification runner can pass:
+
+```python
+environment = {
+    "hardware_class": "h100",
+    "llama_cpp_token_ids_capture_sha256": "<64-hex-qualified-binary-digest>",
+}
+```
+
+The selected provider is hashed again at preflight. The expected and observed
+digests are retained in `provenance.preflight.captures`.
+
+This only qualifies the capture provider's binary identity. It does not claim
+that every model, llama.cpp revision, or hardware target has been validated.
+The pinned real-engine/hardware evidence remains tracked by the runtime
+qualification work in #12.
 
 ## Evidence and privacy
 

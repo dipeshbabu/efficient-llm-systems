@@ -128,10 +128,17 @@ methodology:
 
 - `RuntimeAdapter` is explicitly named, probes support, resolves configuration,
   launches a session, and records observed runtime evidence.
+- `CaptureSupportProbe` is an optional runtime contract for adapters that can
+  negotiate measurement capture requirements directly before launch.
 - `RuntimeSession` performs inference and owns reset/cleanup behavior.
 - `MeasurementProtocol` is explicitly named/versioned, declares evidence
   requirements, and returns a `MeasurementResult` containing metrics and
   retained evidence.
+
+When an adapter does not implement `CaptureSupportProbe`, Metria may consume
+recognized conservative capture-support markers from its ordinary runtime probe.
+Missing or unfamiliar capture evidence is `unknown`, never implicitly supported.
+Only an explicit `supported` capture conclusion permits launch.
 
 These protocols are intentionally provisional until exercised by at least two
 materially different runtimes.
@@ -143,7 +150,10 @@ one runtime and one measurement protocol at a time:
 
 ```text
 RunSpec
-  -> probe
+  -> measurement requirements
+  -> shared capability inspection
+  -> runtime probe
+  -> capture support negotiation
   -> resolve
   -> launch
   -> measure
@@ -152,10 +162,17 @@ RunSpec
   -> RunRecord
 ```
 
+Measurement requirements are validated before runtime work begins. The exact
+required capture set and its support conclusion are retained under
+`RunRecord.provenance.preflight.captures`. Unsupported, unknown, or experimental
+required captures fail before resolve or launch rather than consuming runtime
+resources and discovering the incompatibility during measurement.
+
 Failed runs are still evidence. The executor uses the lifecycle status to avoid
 turning missing data into apparent success:
 
-- unsupported requests and failures before launch become `PREFLIGHT_FAILED`;
+- unsupported requests, invalid measurement requirements, capture negotiation
+  failures, and other failures before launch become `PREFLIGHT_FAILED`;
 - launch or measurement failures become `FAILED`;
 - a measurement-level `TimeoutError` becomes `TIMED_OUT`;
 - completed metrics with missing observed runtime evidence or failed cleanup

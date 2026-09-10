@@ -63,6 +63,7 @@ def test_llamacpp_adapter_conforms_to_shared_runtime_contract(
         environment={"hardware_class": "contract-host"},
         requests=(InferenceRequest(prompt="private llama contract prompt"),),
         privacy_terms=("private llama contract prompt",),
+        require_identity=True,
     )
 
     exercise_runtime_contract(case)
@@ -136,6 +137,7 @@ def test_vllm_adapter_conforms_to_shared_runtime_contract(
         environment={"hardware_class": "contract-host"},
         requests=(InferenceRequest(prompt="private vllm contract prompt"),),
         privacy_terms=("private vllm contract prompt",),
+        require_identity=True,
     )
 
     exercise_runtime_contract(case)

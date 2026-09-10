@@ -14,6 +14,7 @@ evidence model before Metria adds more engines.
 - one runtime treatment: `llamacpp.kv_cache`;
 - requested → resolved → observed runtime evidence;
 - content hashing for llama.cpp binaries;
+- normalized `observed.identity` with explicit authority states;
 - exact redacted command records for invocations;
 - optional decode-time `token_ids` capture through a qualified patched
   `llama-completion` binary;
@@ -122,12 +123,52 @@ that every model, llama.cpp revision, or hardware target has been validated.
 The pinned real-engine/hardware evidence remains tracked by the runtime
 qualification work in #12.
 
+## Observed identity and authority
+
+`observe()` now exposes the same `metria.runtime_identity.v1` envelope used by
+other first-party runtimes:
+
+```text
+observed.identity
+  status: partial
+  runtime:
+    status: verified
+    cli_sha256: ...
+    completion_sha256: ...
+  model:
+    status: partial
+  tokenizer:
+    status: unknown
+  chat_template:
+    status: unknown
+  applied:
+    status: unknown | partial
+```
+
+The runtime executable identity is based on the content hashes retained during
+resolution. Metria does not infer a runtime version string from a filename or
+path.
+
+The local GGUF model currently retains path, size, and modification metadata but
+is **not** promoted to verified content identity by this issue. Requested model
+IDs, revisions, or digests remain requested claims and are deliberately absent
+from observed model identity. Immutable model content verification belongs to
+#16.
+
+Likewise, the current llama.cpp CLI path does not independently expose the
+embedded tokenizer or active chat-template identity, so both stay `unknown`.
+After an invocation, the applied identity component becomes `partial` because
+Metria can prove the exact command it issued but cannot claim that command-line
+intent is authoritative readback of llama.cpp internal state.
+
+This asymmetry is intentional. `partial` and `unknown` are useful evidence; they
+are safer than presenting requested values as facts.
+
 ## Evidence and privacy
 
 The resolved runtime record includes the content hash of each llama.cpp binary
 and file metadata for the model. Large model files are not automatically hashed
-by this adapter; stronger model-artifact verification belongs in Metria's future
-artifact resolver.
+by this adapter; stronger model-artifact verification is tracked by #16.
 
 For each invocation, Metria records the actual managed command flags and managed
 environment overrides. Prompt and system-message contents are replaced with

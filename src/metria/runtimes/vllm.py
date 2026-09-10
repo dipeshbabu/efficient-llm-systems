@@ -26,6 +26,7 @@ from ..protocols import (
     RuntimeSession,
     SupportReport,
 )
+from .vllm_identity import inspect_vllm_identity, require_matching_vllm_identity
 
 _SUPPORTED_GENERATION_KEYS = frozenset(
     {"max_tokens", "seed", "temperature", "chat_template", "system"}
@@ -33,6 +34,7 @@ _SUPPORTED_GENERATION_KEYS = frozenset(
 _SUPPORTED_RUNTIME_KEYS = frozenset(
     {
         "name",
+        "version",
         "dtype",
         "gpu_memory_utilization",
         "max_num_seqs",
@@ -79,6 +81,15 @@ def _text_hash(value: str | None) -> str | None:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _requested_runtime_version(spec: RunSpec) -> str | None:
+    value = spec.runtime.get("version")
+    if value is None:
+        return None
+    if not isinstance(value, str) or not value.strip():
+        raise TypeError("runtime.version must be a non-empty string or null")
+    return value
+
+
 def _model_source(spec: RunSpec) -> dict[str, Any]:
     """Resolve a local model path or registry identifier for vLLM."""
 
@@ -101,17 +112,27 @@ def _model_source(spec: RunSpec) -> dict[str, Any]:
         raise ValueError("vLLM requires model.id or model.path")
 
     revision = spec.model.get("revision")
-    tokenizer_revision = spec.model.get("tokenizer_revision", revision)
+    raw_tokenizer_id = spec.model.get("tokenizer_id")
+    tokenizer_revision = spec.model.get("tokenizer_revision")
+    if tokenizer_revision is None and raw_tokenizer_id is None:
+        tokenizer_revision = revision
     if revision is not None and not isinstance(revision, str):
         raise TypeError("model.revision must be a string or null")
+    if raw_tokenizer_id is not None and (
+        not isinstance(raw_tokenizer_id, str) or not raw_tokenizer_id.strip()
+    ):
+        raise TypeError("model.tokenizer_id must be a non-empty string or null")
     if tokenizer_revision is not None and not isinstance(tokenizer_revision, str):
         raise TypeError("model.tokenizer_revision must be a string or null")
+    tokenizer = raw_tokenizer_id or model
     return {
         "model": model,
         "source_kind": source_kind,
         "requested_id": raw_id,
         "requested_path": str(raw_path) if raw_path is not None else None,
         "revision": revision,
+        "tokenizer": tokenizer,
+        "requested_tokenizer_id": raw_tokenizer_id,
         "tokenizer_revision": tokenizer_revision,
     }
 
@@ -124,6 +145,7 @@ def _runtime_config(spec: RunSpec) -> dict[str, Any]:
         raise ValueError("unsupported vLLM runtime keys: " + ", ".join(unknown))
     if spec.runtime.get("name") != "vllm":
         raise ValueError("runtime.name must be 'vllm' for VLLMAdapter")
+    _requested_runtime_version(spec)
 
     dtype = spec.runtime.get("dtype", "auto")
     if not isinstance(dtype, str) or not dtype:
@@ -294,7 +316,14 @@ def _introspect_applied_config(llm: Any) -> dict[str, Any]:
     fields: dict[str, Any] = {}
     model_config = getattr(llm, "model_config", None)
     if model_config is not None:
-        for attr in ("model", "dtype", "max_model_len", "revision", "tokenizer"):
+        for attr in (
+            "model",
+            "dtype",
+            "max_model_len",
+            "revision",
+            "tokenizer",
+            "tokenizer_revision",
+        ):
             if hasattr(model_config, attr):
                 fields[f"model.{attr}"] = _evidence_scalar(getattr(model_config, attr))
 
@@ -320,6 +349,18 @@ def _introspect_applied_config(llm: Any) -> dict[str, Any]:
     }
 
 
+def _cleanup_failed_llm(llm: Any) -> None:
+    """Best-effort release of a just-created engine after identity failure."""
+
+    shutdown = getattr(llm, "shutdown", None)
+    if callable(shutdown):
+        try:
+            shutdown()
+        except Exception:
+            pass
+    gc.collect()
+
+
 class VLLMSession:
     """One instance-scoped vLLM offline engine plus immutable invocation evidence."""
 
@@ -336,6 +377,14 @@ class VLLMSession:
         self._llm = llm
         self._tokenizer = llm.get_tokenizer()
         self._applied = freeze_mapping(_introspect_applied_config(llm))
+        self._identity = inspect_vllm_identity(
+            resolved=self._resolved,
+            module=module,
+            llm=llm,
+            tokenizer=self._tokenizer,
+            applied=self._applied,
+        )
+        require_matching_vllm_identity(self._identity)
         self._invocations: list[Mapping[str, Any]] = []
         self._closed = False
         self._reset_count = 0
@@ -491,7 +540,7 @@ class VLLMSession:
         self._closed = True
 
     def observation(self) -> Mapping[str, Any]:
-        """Return configured state separately from applied/introspected evidence."""
+        """Return configured state separately from authoritative identity evidence."""
 
         return freeze_mapping(
             {
@@ -500,6 +549,7 @@ class VLLMSession:
                     "version": self._resolved["runtime"]["version"],
                 },
                 "model": self._resolved["model"],
+                "identity": self._identity.to_mapping(),
                 "configured": {
                     "runtime": self._resolved["runtime"]["settings"],
                     "kv_cache": self._resolved["kv_cache"],
@@ -527,9 +577,11 @@ class VLLMAdapter:
         """Validate recipe semantics and report optional dependency availability."""
 
         del environment
+        installed_version = _vllm_version()
         evidence: dict[str, Any] = {
             "runtime": "vllm",
-            "vllm_version": _vllm_version(),
+            "runtime_version": installed_version,
+            "vllm_version": installed_version,
             "token_ids_capture": "native_output_token_ids",
         }
         reasons: list[str] = []
@@ -537,8 +589,15 @@ class VLLMAdapter:
             _model_source(spec)
             runtime = _runtime_config(spec)
             kv = _kv_treatment(spec.treatments)
+            requested_version = _requested_runtime_version(spec)
+            if requested_version is not None and installed_version != requested_version:
+                reasons.append(
+                    "requested vLLM runtime version does not match installed distribution: "
+                    f"requested {requested_version!r}, installed {installed_version!r}"
+                )
             evidence.update(
                 {
+                    "requested_runtime_version": requested_version,
                     "max_model_len": runtime["max_model_len"],
                     "kv_cache_dtype": kv["dtype"],
                 }
@@ -575,6 +634,7 @@ class VLLMAdapter:
                 "runtime": {
                     "name": "vllm",
                     "version": _vllm_version(),
+                    "requested_version": _requested_runtime_version(spec),
                     "settings": runtime,
                 },
                 "model": model,
@@ -622,10 +682,16 @@ class VLLMAdapter:
         }
         if model.get("revision") is not None:
             kwargs["revision"] = model["revision"]
+        if model.get("requested_tokenizer_id") is not None:
+            kwargs["tokenizer"] = model["tokenizer"]
         if model.get("tokenizer_revision") is not None:
             kwargs["tokenizer_revision"] = model["tokenizer_revision"]
         llm = llm_cls(**kwargs)
-        return VLLMSession(resolved, environment, module, llm)
+        try:
+            return VLLMSession(resolved, environment, module, llm)
+        except Exception:
+            _cleanup_failed_llm(llm)
+            raise
 
     def observe(self, session: RuntimeSession) -> Mapping[str, Any]:
         """Return configured state and independent applied-config introspection."""

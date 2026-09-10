@@ -67,8 +67,50 @@ Metria keeps three states separate:
 
 This distinction is required for trustworthy systems evidence. A request for
 FP8 KV cache, for example, is not evidence that the launched engine used FP8.
-Runtime adapters must eventually provide applied-configuration evidence in the
-observed record.
+Runtime adapters must provide independent applied-configuration evidence when
+the runtime exposes it and must retain unknown state when it does not.
+
+## Observed identity authority
+
+First-party runtimes normalize identity evidence under `observed.identity` using
+`metria.runtime_identity.v1`. The envelope separates five authority-bearing
+components:
+
+- model;
+- tokenizer;
+- runtime/build;
+- chat template;
+- applied configuration.
+
+Each component declares `verified`, `partial`, `unknown`, or `mismatch`. The
+overall identity status is derived conservatively from those component states;
+an adapter cannot label the whole identity verified while retaining an unknown
+component.
+
+Observed identity contains facts learned independently from the launched runtime
+or resolved local executable. Requested model IDs, revisions, digests, or runtime
+features are not copied into this section and presented as observation. A
+concrete vLLM model, tokenizer, revision, runtime-version, or introspected applied
+configuration mismatch aborts launch before measurement. Missing upstream
+metadata stays partial or unknown.
+
+Chat templates are represented by digest when inspectable rather than by raw
+template text. Future endpoint identity is constrained to non-secret fields;
+credentials, authorization headers, API keys, and raw authenticated URLs do not
+belong in durable identity evidence.
+
+llama.cpp currently has asymmetric authority: Metria can content-identify the
+resolved executable, but the GGUF model, embedded tokenizer, chat template, and
+runtime-applied internal settings are not all independently observable. Those
+components therefore remain partial or unknown until immutable artifact and
+real-engine qualification work provides stronger evidence.
+
+Comparison uses the semantic identity facts and component authority states.
+Diagnostic source labels and explanatory reason strings are not comparison
+dimensions. A comparison plan's `model` role governs observed model, tokenizer,
+and chat-template identity; its `runtime` role governs runtime/build, endpoint,
+and applied-runtime identity. A difference in overall identity authority remains
+fail-closed unless explicitly accounted for.
 
 ## Treatments
 
@@ -155,7 +197,7 @@ RunSpec
   -> runtime probe
   -> capture support negotiation
   -> resolve
-  -> launch
+  -> launch + identity verification
   -> measure
   -> observe
   -> close
@@ -167,6 +209,11 @@ required capture set and its support conclusion are retained under
 `RunRecord.provenance.preflight.captures`. Unsupported, unknown, or experimental
 required captures fail before resolve or launch rather than consuming runtime
 resources and discovering the incompatibility during measurement.
+
+A runtime that can independently inspect identity immediately after construction
+may reject a mismatch during launch, before the measurement receives a session.
+Identity that can only be learned later remains observed evidence and is not
+silently promoted to verified.
 
 Failed runs are still evidence. The executor uses the lifecycle status to avoid
 turning missing data into apparent success:

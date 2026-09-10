@@ -34,10 +34,9 @@ def inspect_llamacpp_identity(
 
     The executable digests are content-based and therefore authoritative for
     the runtime binaries Metria resolved. The current adapter does not hash the
-    potentially large GGUF model, independently inspect its embedded tokenizer,
-    or read back applied KV-cache state from llama.cpp itself. Those facts stay
-    partial/unknown until the immutable artifact and real-engine qualification
-    work in #16/#12 provides stronger evidence.
+    GGUF model unless an expected SHA-256 was supplied. Embedded tokenizer and
+    template metadata and applied KV-cache state remain partial/unknown until
+    independently observable evidence is available.
     """
 
     runtime = resolved.get("runtime")
@@ -63,18 +62,28 @@ def inspect_llamacpp_identity(
     }
 
     model_path = model.get("path")
+    model_sha256 = _binary_digest(model)
+    model_reasons: tuple[str, ...]
     if isinstance(model_path, str) and model_path:
-        model_status = IdentityStatus.PARTIAL
+        model_status = (
+            IdentityStatus.VERIFIED if model_sha256 else IdentityStatus.PARTIAL
+        )
         model_identity = {
             "status": model_status.value,
             "path": model_path,
             "size_bytes": model.get("size_bytes"),
             "mtime_ns": model.get("mtime_ns"),
-            "source": "local_file_metadata",
+            "source": "verified_local_file_sha256"
+            if model_sha256
+            else "local_file_metadata",
         }
-        model_reasons = (
-            "llama.cpp model file has not yet been bound to verified content identity",
-        )
+        if model_sha256:
+            model_identity["sha256"] = model_sha256
+            model_reasons = ()
+        else:
+            model_reasons = (
+                "llama.cpp model file has not yet been bound to verified content identity",
+            )
     else:
         model_status = IdentityStatus.UNKNOWN
         model_identity = {

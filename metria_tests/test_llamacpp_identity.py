@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -31,7 +32,6 @@ def _spec(bin_dir: Path, model: Path) -> RunSpec:
             "path": str(model),
             "id": "claimed/model",
             "revision": "claimed-revision",
-            "sha256": "0" * 64,
         },
         runtime={"name": "llamacpp", "bin_dir": str(bin_dir), "n_gpu_layers": 0},
         scenario={"context": 128, "max_tokens": 4},
@@ -100,12 +100,58 @@ def test_llamacpp_identity_does_not_promote_requested_model_digest(
     bin_dir, _, model = _files(tmp_path)
     adapter = LlamaCppAdapter()
 
-    resolved = adapter.resolve(_spec(bin_dir, model), {})
+    spec = _spec(bin_dir, model)
+    wrong = replace(spec, model={**spec.model, "sha256": "0" * 64})
+    with pytest.raises(ValueError, match="SHA-256 does not match"):
+        adapter.resolve(wrong, {})
+
+
+def test_pinned_model_content_is_verified_and_changes_reject_launch(
+    tmp_path: Path,
+) -> None:
+    bin_dir, _, model = _files(tmp_path)
+    spec = _spec(bin_dir, model)
+    expected = hashlib.sha256(model.read_bytes()).hexdigest()
+    pinned = replace(spec, model={**spec.model, "sha256": expected.upper()})
+    adapter = LlamaCppAdapter()
+    resolved = adapter.resolve(pinned, {})
     session = adapter.launch(resolved, {})
     try:
-        identity = adapter.observe(session)["identity"]
-        assert resolved["model"]["requested_sha256"] == "0" * 64
-        assert "sha256" not in identity["model"]
-        assert identity["model"]["status"] == "partial"
+        identity = adapter.observe(session)["identity"]["model"]
+        assert identity["status"] == "verified"
+        assert identity["sha256"] == expected
+        assert identity["source"] == "verified_local_file_sha256"
+    finally:
+        session.close()
+
+    model.write_bytes(b"changed model")
+    with pytest.raises(ValueError, match="model content changed"):
+        adapter.launch(resolved, {})
+
+
+@pytest.mark.parametrize("digest", ["", "abc", "g" * 64, 123, True])
+def test_invalid_model_digest_fails_preflight(tmp_path: Path, digest) -> None:
+    bin_dir, _, model = _files(tmp_path)
+    spec = _spec(bin_dir, model)
+    report = LlamaCppAdapter().probe(
+        replace(spec, model={**spec.model, "sha256": digest}), {}
+    )
+    assert report.status == "unsupported"
+    assert "model.sha256" in report.reasons[0]
+
+
+def test_pinned_model_change_after_launch_prevents_inference(tmp_path: Path) -> None:
+    bin_dir, _, model = _files(tmp_path)
+    spec = _spec(bin_dir, model)
+    spec = replace(
+        spec,
+        model={**spec.model, "sha256": hashlib.sha256(model.read_bytes()).hexdigest()},
+    )
+    adapter = LlamaCppAdapter()
+    session = adapter.launch(adapter.resolve(spec, {}), {})
+    model.write_bytes(b"new model")
+    try:
+        with pytest.raises(ValueError, match="model file changed"):
+            session.infer((InferenceRequest(prompt="private"),))
     finally:
         session.close()

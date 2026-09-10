@@ -27,20 +27,12 @@ def _verified_component(**values: object) -> dict[str, object]:
 def test_identity_status_aggregates_conservatively() -> None:
     assert aggregate_identity_status(()) is IdentityStatus.UNKNOWN
     assert (
-        aggregate_identity_status(("verified", "verified"))
-        is IdentityStatus.VERIFIED
+        aggregate_identity_status(("verified", "verified")) is IdentityStatus.VERIFIED
     )
+    assert aggregate_identity_status(("verified", "unknown")) is IdentityStatus.PARTIAL
+    assert aggregate_identity_status(("partial", "verified")) is IdentityStatus.PARTIAL
     assert (
-        aggregate_identity_status(("verified", "unknown"))
-        is IdentityStatus.PARTIAL
-    )
-    assert (
-        aggregate_identity_status(("partial", "verified"))
-        is IdentityStatus.PARTIAL
-    )
-    assert (
-        aggregate_identity_status(("verified", "mismatch"))
-        is IdentityStatus.MISMATCH
+        aggregate_identity_status(("verified", "mismatch")) is IdentityStatus.MISMATCH
     )
 
 

@@ -20,6 +20,7 @@ from .recipes import (
     _json_value,
     _keys,
     _mapping,
+    _unique_json_object,
     run_spec_from_data,
     run_spec_to_data,
 )
@@ -338,7 +339,10 @@ def load_run_record(path: str | Path) -> RunRecord:
 
     record_path = Path(path)
     try:
-        raw = json.loads(record_path.read_text(encoding="utf-8"))
+        raw = json.loads(
+            record_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_json_object,
+        )
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid JSON run record {record_path}: {exc.msg}") from exc
     return run_record_from_data(raw)

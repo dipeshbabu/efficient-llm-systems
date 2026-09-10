@@ -16,6 +16,17 @@ from .models import ComparisonPlan, RunSpec, StudySpec, TreatmentSpec, Treatment
 STUDY_RECIPE_SCHEMA = "metria.study_recipe.v1"
 
 
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate JSON keys before a decoder can overwrite earlier values."""
+
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON object key {key!r}")
+        result[key] = value
+    return result
+
+
 @dataclass(frozen=True)
 class StudyRecipe:
     """Serializable study intent plus execution inputs outside ``StudySpec``.
@@ -392,7 +403,10 @@ def load_study_recipe(path: str | Path) -> StudyRecipe:
 
     recipe_path = Path(path)
     try:
-        raw = json.loads(recipe_path.read_text(encoding="utf-8"))
+        raw = json.loads(
+            recipe_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_json_object,
+        )
     except json.JSONDecodeError as exc:
         raise ValueError(f"invalid JSON recipe {recipe_path}: {exc.msg}") from exc
     return study_recipe_from_data(raw)

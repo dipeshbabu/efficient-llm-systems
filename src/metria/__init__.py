@@ -1,5 +1,12 @@
 """Metria core models for reproducible inference-systems studies."""
 
+from .artifacts import (
+    ArtifactIntegrityError,
+    artifact_to_data,
+    extract_verified_zip,
+    fetch_artifact,
+    verify_artifact,
+)
 from .capabilities import (
     GeometryInspection,
     ModelGeometry,
@@ -74,13 +81,14 @@ from .study_execution import (
     execute_study,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.1.1.dev0"
 
 from .verification import VerificationResult, VerificationVerdict, verify_recipe
 
 __all__ = [
     "RUN_RECORD_SCHEMA",
     "ArtifactManifest",
+    "ArtifactIntegrityError",
     "Capability",
     "CapabilitySet",
     "ComparisonPlan",
@@ -115,6 +123,10 @@ __all__ = [
     "VerificationResult",
     "VerificationVerdict",
     "aggregate_identity_status",
+    "artifact_to_data",
+    "extract_verified_zip",
+    "fetch_artifact",
+    "verify_artifact",
     "capability_inspection_to_mapping",
     "capture_hardware_fingerprint",
     "compare_runs",

@@ -8,7 +8,6 @@ on:
       version:
         description: "Exact root Metria version"
         required: true
-        default: "0.1.0"
         type: string
       publish:
         description: "Upload to PyPI (requires a tested release tag and environment review)"
@@ -20,16 +19,15 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-metria-${{ github.ref }}-${{ inputs.version || '0.1.0' }}
+  group: release-metria-${{ github.ref }}
   cancel-in-progress: false
-
-env:
-  RELEASE_VERSION: ${{ inputs.version || '0.1.0' }}
 
 jobs:
   build:
     name: Build Metria release
     runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     permissions:
       contents: read
       checks: read
@@ -50,7 +48,15 @@ jobs:
       - name: Sync locked workspace
         run: uv sync --locked --all-packages
       - name: Validate release sources
-        run: uv run --locked python tools/maintenance/check_metria_release.py --version "$RELEASE_VERSION"
+        id: version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          args=(--allow-development --github-output)
+          if [[ -n "$REQUESTED_VERSION" ]]; then
+            args+=(--version "$REQUESTED_VERSION")
+          fi
+          uv run --locked python tools/maintenance/check_metria_release.py "${args[@]}"
       - name: Require tested main commit and matching tag for publication
         if: github.event_name == 'workflow_dispatch' && (inputs.publish || github.ref_type == 'tag')
         env:
@@ -79,6 +85,8 @@ jobs:
   install:
     name: Install Metria / ${{ matrix.os }} / Python ${{ matrix.python }}
     needs: build
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -126,6 +134,8 @@ jobs:
     name: Publish Metria to PyPI
     if: github.event_name == 'workflow_dispatch' && inputs.publish
     needs: [build, install]
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
     runs-on: ubuntu-24.04
     environment:
       name: pypi-metria
@@ -152,7 +162,9 @@ jobs:
 
   verify:
     name: Verify Metria from PyPI
-    needs: publish
+    needs: [publish, build]
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -184,7 +196,9 @@ jobs:
 
   release:
     name: Publish GitHub release
-    needs: verify
+    needs: [verify, build]
+    env:
+      RELEASE_VERSION: ${{ needs.build.outputs.version }}
     runs-on: ubuntu-24.04
     permissions:
       contents: write

@@ -32,8 +32,13 @@ REQUIRED_CHECKS = [
 ] + [{"context": "CodeQL", "app_id": 57789}]
 
 
-def validate_source(root: Path, version: str) -> None:
-    if re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version) is None:
+def validate_source(
+    root: Path, version: str, *, allow_development: bool = False
+) -> None:
+    pattern = r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    if allow_development:
+        pattern += r"(?:\.dev(0|[1-9]\d*))?"
+    if re.fullmatch(pattern, version) is None:
         raise ValueError("release version must have three numeric components")
     project = tomllib.loads((root / "pyproject.toml").read_text("utf-8"))["project"]
     if project["name"] != "metria" or project["version"] != version:
@@ -51,7 +56,10 @@ def validate_source(root: Path, version: str) -> None:
     if runtime_versions != [version]:
         raise ValueError("runtime version does not match the release")
     changelog = (root / "CHANGELOG.md").read_text("utf-8")
-    if f"## {version}" not in changelog.splitlines():
+    heading = (
+        "## Unreleased" if allow_development and ".dev" in version else f"## {version}"
+    )
+    if heading not in changelog.splitlines():
         raise ValueError("changelog needs an exact release heading")
 
 
@@ -132,13 +140,29 @@ def validate_publish_ref(version: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--version", required=True)
+    parser.add_argument("--version")
     parser.add_argument("--publish", action="store_true")
+    parser.add_argument("--allow-development", action="store_true")
+    parser.add_argument("--github-output", action="store_true")
     args = parser.parse_args()
-    validate_source(Path(__file__).resolve().parents[2], args.version)
+    root = Path(__file__).resolve().parents[2]
+    version = (
+        args.version
+        or tomllib.loads((root / "pyproject.toml").read_text("utf-8"))["project"][
+            "version"
+        ]
+    )
+    validate_source(
+        root, version, allow_development=args.allow_development and not args.publish
+    )
     if args.publish:
-        validate_publish_ref(args.version)
-    print(f"Metria {args.version}: release validation passed")
+        validate_publish_ref(version)
+    if args.github_output:
+        with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+            output.write(f"version={version}\n")
+        with Path(os.environ["GITHUB_ENV"]).open("a", encoding="utf-8") as environment:
+            environment.write(f"RELEASE_VERSION={version}\n")
+    print(f"Metria {version}: release validation passed")
     return 0
 
 

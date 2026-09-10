@@ -52,6 +52,51 @@ def test_source_versions_and_changelog_must_match(tmp_path):
         release.validate_source(tmp_path, "0.1.0")
 
 
+def _development_source(tmp_path, monkeypatch):
+    (tmp_path / "src/metria").mkdir(parents=True)
+    (tmp_path / "pyproject.toml").write_text(
+        '[project]\nname = "metria"\nversion = "0.1.1.dev0"\n', encoding="utf-8"
+    )
+    (tmp_path / "src/metria/__init__.py").write_text(
+        '__version__ = "0.1.1.dev0"\n', encoding="utf-8"
+    )
+    (tmp_path / "CHANGELOG.md").write_text("## Unreleased\n", encoding="utf-8")
+    monkeypatch.setattr(
+        release, "__file__", str(tmp_path / "tools/maintenance/check.py")
+    )
+
+
+def test_development_validation_exports_source_version(tmp_path, monkeypatch):
+    _development_source(tmp_path, monkeypatch)
+    output, environment = tmp_path / "output", tmp_path / "environment"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(output))
+    monkeypatch.setenv("GITHUB_ENV", str(environment))
+    monkeypatch.setattr("sys.argv", ["check", "--allow-development", "--github-output"])
+    assert release.main() == 0
+    assert output.read_text() == "version=0.1.1.dev0\n"
+    assert environment.read_text() == "RELEASE_VERSION=0.1.1.dev0\n"
+
+
+def test_development_version_cannot_enter_publish_validation(tmp_path, monkeypatch):
+    _development_source(tmp_path, monkeypatch)
+    monkeypatch.setattr("sys.argv", ["check", "--allow-development", "--publish"])
+    monkeypatch.setattr(
+        release,
+        "validate_publish_ref",
+        lambda _: pytest.fail("must reject before publishing checks"),
+    )
+    with pytest.raises(ValueError, match="three numeric"):
+        release.main()
+
+
+@pytest.mark.parametrize(
+    "version", ["0.1.1.dev0\nENV=bad", "0.1.1.dev-1", "0.1.1rc1", "0.1.1.dev01"]
+)
+def test_development_version_export_cannot_inject_data(tmp_path, version):
+    with pytest.raises(ValueError, match="three numeric"):
+        release.validate_source(tmp_path, version, allow_development=True)
+
+
 def _check(identifier=1, **updates):
     return {
         "id": identifier,

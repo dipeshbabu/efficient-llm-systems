@@ -5,6 +5,10 @@ TurboQuant reference packages have independent versions and release notes.
 
 ## Unreleased
 
+- Added shared, bounded SHA-256 artifact resolution and allowlisted ZIP
+  extraction with reusable provenance manifests. KV Fidelity now consumes this
+  API for its pinned WikiText-2 cache. Root development is `0.1.1.dev0`.
+
 - Runtime identity mapping reads reuse deeply immutable evidence instead of
   rebuilding it for every field lookup, iteration, or length query.
 

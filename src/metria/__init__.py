@@ -51,6 +51,7 @@ from .models import (
     TreatmentSpec,
     TreatmentType,
 )
+from .processes import ProcessError, ProcessResult, run_process
 from .protocols import MeasurementResult
 from .recipes import (
     StudyRecipe,
@@ -106,6 +107,8 @@ __all__ = [
     "ModelRef",
     "PairwiseAnalysisStatus",
     "PreflightCapabilityResult",
+    "ProcessError",
+    "ProcessResult",
     "RunRecord",
     "RunSpec",
     "RunStatus",
@@ -141,6 +144,7 @@ __all__ = [
     "load_study_recipe",
     "run_evidence_digest",
     "run_record_digest",
+    "run_process",
     "run_record_from_data",
     "run_record_to_data",
     "run_record_to_json",

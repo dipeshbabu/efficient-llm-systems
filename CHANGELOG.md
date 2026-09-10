@@ -5,6 +5,10 @@ TurboQuant reference packages have independent versions and release notes.
 
 ## Unreleased
 
+- Added a shared subprocess runner with wall-clock deadlines, process-tree
+  cleanup, bounded partial output, and command fingerprints. Hardware diagnostic
+  runs now time out even when a child is silent or never emits a newline.
+
 - Added shared, bounded SHA-256 artifact resolution and allowlisted ZIP
   extraction with reusable provenance manifests. KV Fidelity now consumes this
   API for its pinned WikiText-2 cache. Root development is `0.1.1.dev0`.

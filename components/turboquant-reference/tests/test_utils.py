@@ -1,7 +1,9 @@
 """Tests for bit packing and memory utilities (Issue #8)."""
 
 import numpy as np
+import pytest
 
+from turboquant.turboquant import TurboQuant
 from turboquant.utils import (
     memory_footprint_bytes,
     pack_bits,
@@ -78,6 +80,25 @@ class TestBitPacking:
 
 
 class TestMemoryFootprint:
+    @pytest.mark.parametrize(
+        ("n_vectors", "d", "bit_width"), [(3, 9, 3), (5, 7, 4), (3, 16, 3)]
+    )
+    def test_estimate_matches_physically_packed_payload(self, n_vectors, d, bit_width):
+        vectors = np.random.default_rng(42).normal(size=(n_vectors, d))
+        packed = TurboQuant(d=d, bit_width=bit_width).quantize_packed(vectors)
+
+        estimate = memory_footprint_bytes(n_vectors, d, bit_width)
+
+        assert estimate["total_bytes"] == packed.nbytes
+
+    def test_large_vector_count_retains_integer_precision(self):
+        n_vectors = 2**53 + 1
+
+        estimate = memory_footprint_bytes(n_vectors, 128, 3)
+
+        assert estimate["mse_indices_bytes"] == n_vectors * 32
+        assert estimate["qjl_signs_bytes"] == n_vectors * 16
+
     def test_compression_ratio_3bit(self):
         result = memory_footprint_bytes(1000, 128, 3)
         assert result["compression_ratio"] > 4.0

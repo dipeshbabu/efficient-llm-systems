@@ -28,6 +28,7 @@ from ..protocols import (
     RuntimeSession,
     SupportReport,
 )
+from .llamacpp_identity import inspect_llamacpp_identity
 
 _DEFAULT_BIN_DIR = Path(
     os.path.expanduser(
@@ -473,10 +474,15 @@ class LlamaCppSession:
     def observation(self) -> Mapping[str, Any]:
         """Return runtime identity plus exact redacted commands that actually ran."""
 
+        identity = inspect_llamacpp_identity(
+            resolved=self._resolved,
+            invocations=self._invocations,
+        )
         return freeze_mapping(
             {
                 "runtime": self._resolved["runtime"],
                 "model": self._resolved["model"],
+                "identity": identity.to_mapping(),
                 "configured": {
                     "kv_cache": self._resolved["kv_cache"],
                 },

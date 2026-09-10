@@ -14,19 +14,27 @@ is launched. Keep vLLM in a runtime-specific environment rather than forcing it
 into environments used for llama.cpp, MLX, or other engines.
 
 `probe()` reports the run unsupported when the optional `vllm` distribution is
-not importable.
+not importable. A requested `runtime.version` is also fail-closed: if it differs
+from the installed vLLM distribution version, the run fails preflight rather
+than silently using another runtime build.
 
 ## Run specification
 
-A minimal run looks like:
+A run may pin both runtime and tokenizer identity:
 
 ```python
 from metria import RunSpec, TreatmentSpec, TreatmentType
 
 spec = RunSpec(
-    model={"id": "org/model", "revision": "commit-or-tag"},
+    model={
+        "id": "org/model",
+        "revision": "model-commit",
+        "tokenizer_id": "org/tokenizer",
+        "tokenizer_revision": "tokenizer-commit",
+    },
     runtime={
         "name": "vllm",
+        "version": "installed-version",
         "dtype": "bfloat16",
         "gpu_memory_utilization": 0.85,
         "max_num_seqs": 32,
@@ -45,8 +53,13 @@ spec = RunSpec(
 )
 ```
 
-The initial adapter deliberately owns a small runtime surface. Unknown runtime
-or generation fields fail rather than being silently ignored.
+When `tokenizer_id` is explicit, Metria passes it to vLLM instead of assuming
+the model tokenizer. A tokenizer revision defaults to the model revision only
+when the tokenizer itself is implicit. An explicitly different tokenizer with
+no tokenizer revision does not inherit an unrelated model revision.
+
+The adapter deliberately owns a small runtime surface. Unknown runtime or
+generation fields fail rather than being silently ignored.
 
 ## KV-cache treatment
 
@@ -93,6 +106,41 @@ Raw prompt and system text are not retained in invocation evidence. Metria
 stores SHA-256 fingerprints for the original prompt, rendered prompt, and system
 message along with non-sensitive generation settings and output token counts.
 
+## Identity verification before measurement
+
+Immediately after `vllm.LLM` is constructed and before a measurement receives
+the session, Metria inspects the live engine and tokenizer. The normalized
+result is retained under:
+
+```text
+observed.identity
+  schema: metria.runtime_identity.v1
+  status: verified | partial | unknown | mismatch
+  model: ...
+  tokenizer: ...
+  runtime: ...
+  chat_template: ...
+  applied: ...
+```
+
+The adapter checks independently observable model identifier/revision,
+tokenizer identifier/revision, loaded runtime version, and selected applied
+configuration fields. A concrete mismatch aborts launch before any measurement
+prompt is executed. Missing metadata is retained as partial or unknown rather
+than copied from the request.
+
+The active tokenizer chat template is represented by SHA-256 when inspectable;
+raw template text is not stored in identity evidence. The loaded module version
+and installed distribution metadata are both retained. If both are available
+and disagree, identity verification fails.
+
+Applied configuration remains intentionally conservative. Metria checks fields
+that the engine exposes and that have stable resolved counterparts, including
+maximum model length, KV-cache dtype, GPU memory utilization, prefix caching,
+and tensor-parallel size. A detected mismatch fails before measurement. Even
+when those fields agree, the applied component remains `partial` because vLLM
+does not expose authoritative readback for every constructor/runtime choice.
+
 ## Requested, resolved, and observed state
 
 The adapter keeps configured and applied state separate.
@@ -100,31 +148,28 @@ The adapter keeps configured and applied state separate.
 `resolve()` records:
 
 - model identifier/path and requested revisions;
-- installed vLLM version;
+- resolved tokenizer identifier/revision;
+- installed and requested vLLM versions;
 - exact runtime settings passed to `LLM`;
 - native KV-cache dtype;
 - resolved maximum model length.
 
-After launch, the session introspects model, cache, and parallel configuration
-fields exposed by the created vLLM engine. `observe()` reports that evidence as:
-
-```text
-configured: ...
-applied:
-  status: introspected | unverified
-  fields: ...
-```
-
-If a field cannot be recovered from the live engine, Metria does not copy the
-configured value into the applied section and pretend it was verified.
+After launch, the session retains both the existing introspection view and the
+normalized identity envelope. If a field cannot be recovered from the live
+engine, Metria does not copy the configured value into observed identity and
+pretend it was verified.
 
 ## Cleanup
 
 The adapter releases its session-owned vLLM and tokenizer references at close.
-It calls a public `shutdown()` only if the installed runtime exposes one. The
-cleanup record distinguishes explicit shutdown from ordinary Python reference
-release; Metria does not claim that reference release proves complete device
-allocator teardown.
+It calls a public `shutdown()` only if the installed runtime exposes one. When
+identity verification fails during launch, Metria also performs best-effort
+cleanup before propagating the failure so a rejected candidate does not leave a
+known engine instance behind.
+
+The cleanup record distinguishes explicit shutdown from ordinary Python
+reference release; Metria does not claim that reference release proves complete
+device allocator teardown.
 
 ## Cross-runtime trajectory studies
 
@@ -132,15 +177,12 @@ With this adapter and a capture-qualified llama.cpp adapter, the same trajectory
 measurement can be executed independently on two different runtimes:
 
 ```text
-RunSpec -> capture preflight -> llama.cpp -> TokenTrajectoryProtocol -> RunRecord
-RunSpec -> capture preflight -> vLLM      -> TokenTrajectoryProtocol -> RunRecord
-
-RunRecord evidence pair -> compare_trajectory_results()
+RunSpec -> capture preflight -> identity verification -> vLLM -> measurement
+RunSpec -> capture preflight -> llama.cpp -> measurement -> observed identity
 ```
 
-This is the first concrete exercise of Metria's target architecture: runtime
-execution differs, while the measurement semantics and pairwise comparison
-method stay fixed.
+Runtime execution differs, while the measurement semantics and pairwise
+comparison method stay fixed.
 
 ## Current limitations
 

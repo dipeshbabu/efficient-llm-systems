@@ -19,6 +19,11 @@ from .identity import (
     SupportLevel,
     WorkloadSpec,
 )
+from .identity_evidence import (
+    IdentityStatus,
+    RuntimeIdentityEvidence,
+    aggregate_identity_status,
+)
 from .inspection import (
     PreflightCapabilityResult,
     capability_inspection_to_mapping,
@@ -81,6 +86,7 @@ __all__ = [
     "CompatibilityReport",
     "GeometryInspection",
     "HardwareFingerprint",
+    "IdentityStatus",
     "MeasurementResult",
     "MetricDefinition",
     "MetricDirection",
@@ -94,6 +100,7 @@ __all__ = [
     "RunSpec",
     "RunStatus",
     "RuntimeConfig",
+    "RuntimeIdentityEvidence",
     "StudyExecutionResult",
     "StudyPairAnalysis",
     "StudyPairComparison",
@@ -103,6 +110,7 @@ __all__ = [
     "TreatmentSpec",
     "TreatmentType",
     "WorkloadSpec",
+    "aggregate_identity_status",
     "capability_inspection_to_mapping",
     "capture_hardware_fingerprint",
     "compare_runs",

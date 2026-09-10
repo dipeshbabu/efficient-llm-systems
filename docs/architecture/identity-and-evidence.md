@@ -2,9 +2,10 @@
 
 Metria's experiment model remains **Study → Run → Evidence**.
 
-The typed primitives in `metria.identity` do not introduce a second experiment
-object graph. They provide validated constructors and reusable evidence objects
-at boundaries that were previously represented only by unstructured mappings.
+The typed primitives in `metria.identity` and `metria.identity_evidence` do not
+introduce a second experiment object graph. They provide validated constructors
+and reusable evidence objects at boundaries that were previously represented
+only by unstructured mappings.
 
 ## Relationship to the study core
 
@@ -20,10 +21,12 @@ StudySpec
 RunRecord
   ├── requested
   ├── resolved
-  ├── observed      ← may include HardwareFingerprint-shaped evidence
+  ├── observed
+  │   ├── identity   ← RuntimeIdentityEvidence mapping
+  │   └── hardware   ← may include HardwareFingerprint-shaped evidence
   ├── metrics
   ├── evidence
-  └── artifacts     ← may include ArtifactManifest
+  └── artifacts      ← may include ArtifactManifest
 ```
 
 `ModelRef`, `RuntimeConfig`, and `WorkloadSpec` implement Python's `Mapping`
@@ -40,7 +43,7 @@ configuration schema.
 ## Requested identity is not observed identity
 
 A `ModelRef` records requested model and tokenizer identity. Fields such as
-`revision` or `geometry` are not proof that a launched server actually served
+`revision` or `geometry` are not proof that a launched runtime actually used
 those values.
 
 The normal evidence sequence remains:
@@ -51,8 +54,50 @@ requested → resolved → observed
 
 Runtime adapters are responsible for resolving requested identity and collecting
 whatever authoritative post-launch evidence their runtime can expose. Missing
-observed evidence should remain unknown rather than being inferred from the
-request.
+observed evidence remains unknown rather than being inferred from the request.
+
+## RuntimeIdentityEvidence
+
+`RuntimeIdentityEvidence` is the stable mapping-compatible shape for normalized
+identity under `RunRecord.observed["identity"]`. Its schema identifier is
+`metria.runtime_identity.v1`.
+
+The envelope carries model, tokenizer, runtime/build, chat-template, and applied
+configuration components. Each non-empty component declares one authority
+state:
+
+- `verified`;
+- `partial`;
+- `unknown`;
+- `mismatch`.
+
+The top-level status is computed conservatively from the component states. A
+caller cannot construct a `verified` aggregate while one retained component is
+`unknown`, `partial`, or `mismatch`.
+
+The object deep-freezes nested evidence and remains JSON/run-record compatible.
+Diagnostic source labels and explanatory reason strings are retained for humans
+but are not comparison dimensions. Semantic identity facts and their authority
+states remain comparison relevant.
+
+An inspectable chat template is represented by digest rather than raw text.
+Optional endpoint identity accepts only a small allowlist of non-secret fields.
+Authorization headers, tokens, API keys, and arbitrary authenticated URLs are
+rejected at the identity boundary.
+
+### First-party authority today
+
+vLLM can expose enough live engine/tokenizer metadata to check model,
+model-revision, tokenizer, tokenizer-revision, loaded runtime version, template
+digest, and selected applied configuration fields before measurement. Concrete
+mismatches abort the candidate before prompt execution. Missing metadata remains
+partial or unknown.
+
+llama.cpp currently provides stronger local executable identity than model
+identity: the resolved binary is content hashed, while the GGUF model is still
+represented by file metadata and the embedded tokenizer/template remain
+uninspected. Requested model IDs, revisions, and digests are therefore not copied
+into observed identity. #16 owns immutable model/data artifact verification.
 
 ## ModelRef and geometry inspection
 
@@ -118,7 +163,8 @@ metadata into a confident incompatibility claim, and it should not turn a user
 request into proof of support.
 
 `SupportReport` uses the same `SupportLevel` vocabulary so runtime preflight and
-`metria inspect` converge on one meaning.
+`metria inspect` converge on one meaning. `IdentityStatus` is separate because
+runtime identity also needs `partial` and `mismatch` states after launch.
 
 ## HardwareFingerprint
 
@@ -170,18 +216,22 @@ Neither digest implies that two records are valid to compare. Study-specific
 authoritative. The `metria compare` CLI therefore requires an explicit study
 recipe instead of treating a digest match as a comparison rule.
 
+`RuntimeIdentityEvidence` is stored as an ordinary immutable mapping inside the
+observed record, so it round-trips through the existing run-record schema and
+participates in record/evidence digests without a second serializer.
+
 See [run records and comparison](../guides/metria-run-records.md).
 
 ## What this layer still does not solve
 
 Remaining follow-on work includes:
 
-- stronger server-side model/tokenizer/applied-runtime verification;
+- immutable model/data artifact resolution, download verification, and safe
+  archive extraction (#16);
 - authoritative accelerator inventory beyond runtime-observed evidence;
-- artifact downloading, verification, and safe archive extraction;
-- automatic recipe/hardware digest attachment by the execution CLI;
-- hardware-qualified runtime evidence lanes;
+- exact runtime/model qualification on pinned real engines (#12);
+- automatic recipe/hardware digest attachment by the verification CLI;
 - public root package release policy.
 
-New runtime, benchmark, evaluator, and provenance work should reuse these
+New runtime, verification, measurement, and provenance work should reuse these
 primitives and schemas instead of introducing incompatible identity paths.

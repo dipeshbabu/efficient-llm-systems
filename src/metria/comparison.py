@@ -52,16 +52,29 @@ _INVOCATION_IDENTITY_FIELDS = frozenset(
         "generation",
     }
 )
+_IDENTITY_COMPONENT_KEYS = frozenset(
+    {"model", "tokenizer", "runtime", "chat_template", "applied"}
+)
+_IDENTITY_COMPONENT_DIAGNOSTIC_FIELDS = frozenset({"source"})
 
 # Requested declarations for these stable concepts also govern their direct
 # downstream identity/configuration evidence unless a more specific
 # resolved/observed declaration is present.
 _LIFECYCLE_ALIASES: Mapping[str, tuple[str, ...]] = {
-    "model": ("resolved.model", "observed.model"),
+    "model": (
+        "resolved.model",
+        "observed.model",
+        "observed.identity.model",
+        "observed.identity.tokenizer",
+        "observed.identity.chat_template",
+    ),
     "runtime": (
         "resolved.runtime",
         "observed.runtime",
         "observed.configured.runtime",
+        "observed.identity.runtime",
+        "observed.identity.applied",
+        "observed.identity.endpoint",
     ),
     "scenario": ("resolved.scenario", "observed.scenario"),
 }
@@ -202,7 +215,8 @@ def _flatten(value: Any, path: str) -> dict[str, Any]:
     if is_dataclass(value):
         flattened = {}
         for item in fields(value):
-            flattened.update(_flatten(getattr(value, item.name), f"{path}.{item.name}"))
+            child_path = f"{path}.{item.name}" if path else item.name
+            flattened.update(_flatten(getattr(value, item.name), child_path))
         return flattened or {path: value}
 
     # Positional recipe collections have stable equality semantics as complete
@@ -234,6 +248,26 @@ def _invocation_identity(observed: Mapping[str, Any]) -> Mapping[str, Any] | Non
     return projected or None
 
 
+def _identity_comparison_view(value: Any) -> Any:
+    """Project semantic identity facts while excluding diagnostic provenance text."""
+
+    if not isinstance(value, Mapping):
+        return value
+    projected: dict[str, Any] = {}
+    for key, item in value.items():
+        if key == "reasons":
+            continue
+        if key in _IDENTITY_COMPONENT_KEYS and isinstance(item, Mapping):
+            projected[key] = {
+                field: field_value
+                for field, field_value in item.items()
+                if field not in _IDENTITY_COMPONENT_DIAGNOSTIC_FIELDS
+            }
+        else:
+            projected[key] = item
+    return projected
+
+
 def _comparison_roots(record: RunRecord) -> dict[str, Any]:
     """Return comparison-relevant requested, resolved, and observed roots."""
 
@@ -248,13 +282,12 @@ def _comparison_roots(record: RunRecord) -> dict[str, Any]:
             if key not in _RESOLVED_NON_COMPARISON_ROOTS
         }
     )
-    roots.update(
-        {
-            f"observed.{key}": value
-            for key, value in record.observed.items()
-            if key not in _OBSERVED_NON_COMPARISON_ROOTS
-        }
-    )
+    for key, value in record.observed.items():
+        if key in _OBSERVED_NON_COMPARISON_ROOTS:
+            continue
+        roots[f"observed.{key}"] = (
+            _identity_comparison_view(value) if key == "identity" else value
+        )
     invocation_identity = _invocation_identity(record.observed)
     if invocation_identity is not None:
         roots["observed.invocations"] = invocation_identity

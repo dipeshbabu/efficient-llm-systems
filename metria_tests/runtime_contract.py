@@ -33,6 +33,7 @@ class RuntimeContractCase:
     )
     capture: tuple[CaptureRequest, ...] = ()
     privacy_terms: tuple[str, ...] = ("metria contract prompt",)
+    require_identity: bool = False
 
 
 def _assert_no_sensitive_text(value: object, terms: Sequence[str]) -> None:
@@ -55,6 +56,25 @@ def _assert_runtime_identity(observed: Mapping[str, Any], expected: str) -> None
         assert runtime.get("name") == expected
         return
     assert runtime == expected
+
+
+def _assert_observed_identity(observed: Mapping[str, Any]) -> None:
+    """Require the stable first-party observed identity envelope."""
+
+    identity = observed.get("identity")
+    assert isinstance(identity, Mapping)
+    assert identity.get("schema") == "metria.runtime_identity.v1"
+    assert identity.get("status") in {"verified", "partial", "unknown", "mismatch"}
+    for component in ("model", "tokenizer", "runtime", "chat_template", "applied"):
+        value = identity.get(component)
+        assert isinstance(value, Mapping)
+        if value:
+            assert value.get("status") in {
+                "verified",
+                "partial",
+                "unknown",
+                "mismatch",
+            }
 
 
 def exercise_runtime_contract(case: RuntimeContractCase) -> None:
@@ -101,12 +121,16 @@ def exercise_runtime_contract(case: RuntimeContractCase) -> None:
         observed_before_reset = adapter.observe(session)
         assert isinstance(observed_before_reset, Mapping)
         _assert_runtime_identity(observed_before_reset, adapter.name)
+        if case.require_identity:
+            _assert_observed_identity(observed_before_reset)
         _assert_no_sensitive_text(observed_before_reset, case.privacy_terms)
 
         session.reset("contract")
         observed_after_reset = adapter.observe(session)
         assert isinstance(observed_after_reset, Mapping)
         _assert_runtime_identity(observed_after_reset, adapter.name)
+        if case.require_identity:
+            _assert_observed_identity(observed_after_reset)
         _assert_no_sensitive_text(observed_after_reset, case.privacy_terms)
     finally:
         session.close()

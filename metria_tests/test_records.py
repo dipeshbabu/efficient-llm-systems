@@ -161,3 +161,22 @@ def test_metric_mapping_key_must_match_definition_name() -> None:
 
     with pytest.raises(ValueError, match="expected metric key"):
         run_record_from_data(data)
+
+
+@pytest.mark.parametrize(
+    ("original", "duplicate"),
+    [
+        ('"status":', '"status": "failed", "status":'),
+        ('"revision":', '"revision": "different", "revision":'),
+        ('"value":', '"value": -100.0, "value":'),
+    ],
+)
+def test_record_loader_rejects_duplicate_object_keys(
+    tmp_path: Path, original: str, duplicate: str
+) -> None:
+    path = tmp_path / "ambiguous.json"
+    text = run_record_to_json(_record()).replace(original, duplicate, 1)
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate JSON object key"):
+        load_run_record(path)

@@ -251,3 +251,22 @@ def test_serialized_recipe_contains_requested_prompt_text() -> None:
 
     assert "private prompt one" in text
     assert "private prompt two" in text
+
+
+@pytest.mark.parametrize(
+    ("original", "duplicate"),
+    [
+        ('"schema":', '"schema": "invalid.schema", "schema":'),
+        ('"context":', '"context": 1, "context":'),
+        ('"temperature":', '"temperature": 1.0, "temperature":'),
+    ],
+)
+def test_recipe_loader_rejects_duplicate_object_keys(
+    tmp_path: Path, original: str, duplicate: str
+) -> None:
+    path = tmp_path / "ambiguous.json"
+    text = study_recipe_to_json(_recipe()).replace(original, duplicate, 1)
+    path.write_text(text, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="duplicate JSON object key"):
+        load_study_recipe(path)

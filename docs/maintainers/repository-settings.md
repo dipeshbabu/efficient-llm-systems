@@ -49,6 +49,11 @@ and deletion. The expected required checks are:
 - `Analyze (actions)`; and
 - `Analyze (python)`.
 
+Automatic deletion of merged pull request branches is enabled
+(`delete_branch_on_merge: true`). GitHub deletes the head branch after a pull
+request is merged, including merges into `main`. Protected branches retain
+their deletion protection.
+
 The repository permits GitHub-owned Actions plus the explicitly allowed
 `astral-sh/setup-uv` and `pypa/gh-action-pypi-publish` actions. Full commit-SHA
 pinning is required. New third-party Actions require a deliberate allowlist and

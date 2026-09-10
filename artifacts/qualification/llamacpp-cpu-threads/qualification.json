@@ -1,0 +1,55 @@
+{
+  "cases": {
+    "context-rounding-rejected": {
+      "file_sha256": {
+        "candidate.run.json": "7364e8a3348ddb49aeb2992d9419d918ca3cedbc9795e3c99c243a95bd96aa4e",
+        "manifest.json": "368b767802846b2238a98903b837f0e18fcf514204ebdb83e1d969bbc025afa2",
+        "reference.run.json": "3d374fe837d184dc57075ed1845bad8eed1976b0aee734aeb76c74ddb853502e",
+        "report.md": "97296b181bfa24c70f17cd6abf5b6437182ab16c2514ef64c217f9dbd978e823"
+      },
+      "observed_exit_code": 1,
+      "verdict": "INSUFFICIENT_EVIDENCE"
+    },
+    "threads-1-to-2": {
+      "file_sha256": {
+        "candidate.run.json": "8166dfbd0039556e285a66c8903cace4329a8af237910c7c55339b5aa39088f8",
+        "manifest.json": "56c1a3526d211afb36888f9bba72cd350ac63706a1b166aff3ee03f719f2ec1a",
+        "reference.run.json": "1b0dc52ab3e4aa244bd0cefa7877e32616f19ea5f5efa01d3d955fec8e09c861",
+        "report.md": "21079e9949927193cb0db48dabaf1677cb79b6e7f025a0f776ef05c7b21bc35d"
+      },
+      "observed_exit_code": 0,
+      "verdict": "VERIFIED"
+    }
+  },
+  "date": "2026-09-10",
+  "limits": [
+    "three short prompts, 16 generated tokens each",
+    "CPU/WSL fixture qualification only",
+    "process wall timings include startup and model loading",
+    "no task-quality or statistical performance claim"
+  ],
+  "metria": {
+    "installed_from_wheel": true,
+    "source_revision": "e8ed545f9f6cb8d6936a8e9dcdf3d12f8392da37",
+    "version": "0.1.0.dev0",
+    "wheel_sha256": "b496c285e23b82ef00caecf540fa59db1f5c094c021b8d47d8279a9bed60ce7b"
+  },
+  "model": {
+    "file": "tinyllamas/stories260K.gguf",
+    "model_repository": "ggml-org/models-moved",
+    "purpose": "Small real-engine integration fixture; not a model-quality benchmark.",
+    "revision": "499bc8821c6b12b4e53c5bffcb21ec206f212d81",
+    "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+    "url": "https://huggingface.co/ggml-org/models-moved/resolve/499bc8821c6b12b4e53c5bffcb21ec206f212d81/tinyllamas/stories260K.gguf"
+  },
+  "runtime": {
+    "binary_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+    "build": "Release, static libraries, CPU backend, GGML_NATIVE=OFF, GGML_OPENMP=OFF",
+    "compiler": "GNU 13.3.0",
+    "patch_sha256": "75eb5872101ab933c192355c93acdc4126cb5e70f5f928aee04f555bb36f6997",
+    "repository": "https://github.com/ggml-org/llama.cpp",
+    "revision": "434ddbbc0e30522e897670681e503b797c12b7c1"
+  },
+  "schema": "metria.local_cpu_qualification.v1",
+  "scope": "local llama.cpp CPU thread comparison on a tiny integration model"
+}

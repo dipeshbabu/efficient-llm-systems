@@ -1,0 +1,301 @@
+{
+  "acceptance_policy_evaluated": false,
+  "analyses": [
+    {
+      "diagnostics": {
+        "comparison_steps": 48,
+        "mean_candidate_steps": 16.0,
+        "mean_reference_steps": 16.0,
+        "median_first_divergence": null,
+        "method": "kv_fidelity.trajectory_match",
+        "method_version": "0.3.4",
+        "n_prompts": 3,
+        "notes": [],
+        "per_prompt": [
+          {
+            "candidate_steps": 16,
+            "first_divergence": null,
+            "id": "story",
+            "matched": true,
+            "prefix_agreement_steps": 16,
+            "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a",
+            "reference_steps": 16
+          },
+          {
+            "candidate_steps": 16,
+            "first_divergence": null,
+            "id": "dog",
+            "matched": true,
+            "prefix_agreement_steps": 16,
+            "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d",
+            "reference_steps": 16
+          },
+          {
+            "candidate_steps": 16,
+            "first_divergence": null,
+            "id": "sun",
+            "matched": true,
+            "prefix_agreement_steps": 16,
+            "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4",
+            "reference_steps": 16
+          }
+        ],
+        "prefix_agreement_steps": 48,
+        "schema": "metria.trajectory_comparison.v1"
+      },
+      "error_type": null,
+      "message_sha256": null,
+      "metrics": {
+        "trajectory_agreement_score": {
+          "aggregation": "weighted_by_max_trajectory_length",
+          "coverage": 1.0,
+          "definition": {
+            "direction": "higher_is_better",
+            "method": "kv_fidelity.trajectory_match",
+            "name": "trajectory_agreement_score",
+            "unit": "score_0_100",
+            "version": "0.3.4"
+          },
+          "samples": [
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "story",
+                "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a"
+              },
+              "value": 100.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "dog",
+                "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d"
+              },
+              "value": 100.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "sun",
+                "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4"
+              },
+              "value": 100.0
+            }
+          ],
+          "uncertainty": {},
+          "value": 100.0
+        },
+        "trajectory_full_match_rate": {
+          "aggregation": "mean",
+          "coverage": 1.0,
+          "definition": {
+            "direction": "higher_is_better",
+            "method": "kv_fidelity.trajectory_match",
+            "name": "trajectory_full_match_rate",
+            "unit": "fraction",
+            "version": "0.3.4"
+          },
+          "samples": [
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "story",
+                "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a"
+              },
+              "value": 1.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "dog",
+                "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d"
+              },
+              "value": 1.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "sun",
+                "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4"
+              },
+              "value": 1.0
+            }
+          ],
+          "uncertainty": {},
+          "value": 1.0
+        },
+        "trajectory_mean_prefix_steps": {
+          "aggregation": "mean",
+          "coverage": 1.0,
+          "definition": {
+            "direction": "descriptive",
+            "method": "kv_fidelity.trajectory_match",
+            "name": "trajectory_mean_prefix_steps",
+            "unit": "tokens",
+            "version": "0.3.4"
+          },
+          "samples": [
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "story",
+                "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a"
+              },
+              "value": 16.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "dog",
+                "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d"
+              },
+              "value": 16.0
+            },
+            {
+              "metadata": {
+                "comparison_steps": 16,
+                "prefix_steps": 16,
+                "prompt_id": "sun",
+                "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4"
+              },
+              "value": 16.0
+            }
+          ],
+          "uncertainty": {},
+          "value": 16.0
+        }
+      },
+      "name": "kv_fidelity.trajectory_match",
+      "reason": null,
+      "status": "completed",
+      "version": "0.3.4"
+    }
+  ],
+  "change": {
+    "candidate_threads": 2,
+    "reference_threads": 1
+  },
+  "comparison": {
+    "comparable_metrics": [
+      "trajectory_mean_steps",
+      "trajectory_nonempty_capture_rate"
+    ],
+    "compatible": true,
+    "incompatible_metrics": {},
+    "issues": [],
+    "waived_differences": []
+  },
+  "comparison_plan": {
+    "block_by": [],
+    "control": [
+      "measurements",
+      "model",
+      "scenario"
+    ],
+    "vary": [
+      "observed.identity.applied.fields.threads",
+      "observed.runtime.threads",
+      "resolved.runtime.threads",
+      "runtime.threads"
+    ]
+  },
+  "hardware": {
+    "accelerators": [],
+    "host": {
+      "cpu_count": 12,
+      "hostname_sha256": "cec8bcd33a48dc99561fa5a832b1ba03e53f33e72b4350296db44ea0ba2eeb04"
+    },
+    "metadata": {
+      "accelerator_detection": "runtime_or_adapter_required"
+    },
+    "platform": {
+      "machine": "x86_64",
+      "processor": "x86_64",
+      "release": "5.15.167.4-microsoft-standard-WSL2",
+      "system": "Linux",
+      "version": "#1 SMP Tue Nov 5 00:21:55 UTC 2024"
+    },
+    "software": {
+      "python_executable": "python",
+      "python_implementation": "CPython",
+      "python_version": "3.12.3"
+    }
+  },
+  "implementation": {
+    "name": "metria.verify",
+    "version": "0.1.0.dev0"
+  },
+  "recipe_digest": "802b2e1a23f1449bd60fb6c942131c93566caaf76cab2329c25223485f520257",
+  "records": {
+    "candidate": {
+      "evidence_digest": "50ec43457c5294bfa6b09a440e677be688214e35e049c40cabe698af4b75152c",
+      "evidence_gaps": [],
+      "observed": {
+        "chat_template_applied": false,
+        "context": 256,
+        "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "provider_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+        "threads": 2,
+        "threads_batch": 1,
+        "vocab_size": 512
+      },
+      "path": "candidate.run.json",
+      "record_digest": "f515a6915b2b4a35c6b02dafc22575714516de99044b671c15a7c14d967864d5",
+      "run_id": "run-0001",
+      "status": "completed"
+    },
+    "reference": {
+      "evidence_digest": "1889f5eff5b4376a380659811504fbedd127527d5b08aed1f376af3702935e69",
+      "evidence_gaps": [],
+      "observed": {
+        "chat_template_applied": false,
+        "context": 256,
+        "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "provider_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+        "threads": 1,
+        "threads_batch": 1,
+        "vocab_size": 512
+      },
+      "path": "reference.run.json",
+      "record_digest": "705606966bde8cc8a6160295d53f9d0e45811142e614f31958920af80d22a225",
+      "run_id": "run-0000",
+      "status": "completed"
+    }
+  },
+  "schema": "metria.verification.v1",
+  "scope": "local_llamacpp_cpu_threads.v1",
+  "study": "llamacpp-cpu-thread-change",
+  "systems": {
+    "candidate": {
+      "available": true,
+      "includes": "process startup, model loading, prompt evaluation and generation",
+      "mean_seconds": 0.016843277333335276,
+      "method": "llamacpp.subprocess_monotonic.v1",
+      "samples_seconds": [
+        0.017062333000001928,
+        0.016267328000001413,
+        0.017200171000002484
+      ]
+    },
+    "reference": {
+      "available": true,
+      "includes": "process startup, model loading, prompt evaluation and generation",
+      "mean_seconds": 0.08428312166666647,
+      "method": "llamacpp.subprocess_monotonic.v1",
+      "samples_seconds": [
+        0.21182947200000157,
+        0.0232478890000003,
+        0.017772003999997565
+      ]
+    }
+  },
+  "verdict": "VERIFIED"
+}

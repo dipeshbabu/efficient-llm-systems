@@ -1,0 +1,102 @@
+{
+  "environment": {
+    "llama_cpp_token_ids_capture_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6"
+  },
+  "measurement_configs": {
+    "kv_fidelity.decode_time_trajectory": {
+      "prompts": [
+        {
+          "id": "story",
+          "prompt": "Once upon a time"
+        },
+        {
+          "id": "dog",
+          "prompt": "The little dog"
+        },
+        {
+          "id": "sun",
+          "prompt": "The sun was"
+        }
+      ]
+    }
+  },
+  "schema": "metria.study_recipe.v1",
+  "study": {
+    "comparison": {
+      "analyses": [
+        "kv_fidelity.trajectory_match"
+      ],
+      "block_by": [],
+      "control": [
+        "measurements",
+        "model",
+        "scenario"
+      ],
+      "vary": [
+        "observed.identity.applied.fields.threads",
+        "observed.runtime.threads",
+        "resolved.runtime.threads",
+        "runtime.threads"
+      ]
+    },
+    "constants": {},
+    "metadata": {},
+    "name": "llamacpp-cpu-thread-change",
+    "runs": [
+      {
+        "environment_selector": {},
+        "measurements": [
+          "kv_fidelity.decode_time_trajectory"
+        ],
+        "model": {
+          "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+          "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d"
+        },
+        "runtime": {
+          "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+          "flash_attention": false,
+          "n_gpu_layers": 0,
+          "name": "llamacpp",
+          "threads": 1,
+          "threads_batch": 1
+        },
+        "scenario": {
+          "chat_template": false,
+          "context": 256,
+          "max_tokens": 16,
+          "seed": 42,
+          "temperature": 0.0
+        },
+        "treatments": [],
+        "trial_policy": {}
+      },
+      {
+        "environment_selector": {},
+        "measurements": [
+          "kv_fidelity.decode_time_trajectory"
+        ],
+        "model": {
+          "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+          "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d"
+        },
+        "runtime": {
+          "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+          "flash_attention": false,
+          "n_gpu_layers": 0,
+          "name": "llamacpp",
+          "threads": 2,
+          "threads_batch": 1
+        },
+        "scenario": {
+          "chat_template": false,
+          "context": 256,
+          "max_tokens": 16,
+          "seed": 42,
+          "temperature": 0.0
+        },
+        "treatments": [],
+        "trial_policy": {}
+      }
+    ]
+  }
+}

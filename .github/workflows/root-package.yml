@@ -48,6 +48,7 @@ jobs:
           uv pip install --python .root-smoke-venv/bin/python --force-reinstall dist/metria/*.whl
           .root-smoke-venv/bin/metria --version
           .root-smoke-venv/bin/metria --help
+          .root-smoke-venv/bin/metria verify --help
           .root-smoke-venv/bin/python -c "import metria; print(metria.__version__)"
           cat > .smoke-study.json <<'JSON'
           {

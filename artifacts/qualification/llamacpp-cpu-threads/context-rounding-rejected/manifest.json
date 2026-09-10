@@ -1,0 +1,138 @@
+{
+  "acceptance_policy_evaluated": false,
+  "analyses": [
+    {
+      "diagnostics": {},
+      "error_type": "ValueError",
+      "message_sha256": "f1788451c30d1ca0cea3978bc3fceb4f85fb568deafbe298cdabbfc1e9d31cc9",
+      "metrics": {},
+      "name": "kv_fidelity.trajectory_match",
+      "reason": null,
+      "status": "failed",
+      "version": "0.3.4"
+    }
+  ],
+  "change": {
+    "candidate_threads": 2,
+    "reference_threads": 1
+  },
+  "comparison": {
+    "comparable_metrics": [
+      "trajectory_mean_steps",
+      "trajectory_nonempty_capture_rate"
+    ],
+    "compatible": true,
+    "incompatible_metrics": {},
+    "issues": [],
+    "waived_differences": []
+  },
+  "comparison_plan": {
+    "block_by": [],
+    "control": [
+      "measurements",
+      "model",
+      "scenario"
+    ],
+    "vary": [
+      "observed.identity.applied.fields.threads",
+      "observed.runtime.threads",
+      "resolved.runtime.threads",
+      "runtime.threads"
+    ]
+  },
+  "hardware": {
+    "accelerators": [],
+    "host": {
+      "cpu_count": 12,
+      "hostname_sha256": "cec8bcd33a48dc99561fa5a832b1ba03e53f33e72b4350296db44ea0ba2eeb04"
+    },
+    "metadata": {
+      "accelerator_detection": "runtime_or_adapter_required"
+    },
+    "platform": {
+      "machine": "x86_64",
+      "processor": "x86_64",
+      "release": "5.15.167.4-microsoft-standard-WSL2",
+      "system": "Linux",
+      "version": "#1 SMP Tue Nov 5 00:21:55 UTC 2024"
+    },
+    "software": {
+      "python_executable": "python",
+      "python_implementation": "CPython",
+      "python_version": "3.12.3"
+    }
+  },
+  "implementation": {
+    "name": "metria.verify",
+    "version": "0.1.0.dev0"
+  },
+  "recipe_digest": "98d1f47a62a931efdbe40487a6be5a85df84d3995113955078a1a24f31ebea66",
+  "records": {
+    "candidate": {
+      "evidence_digest": "ff70b45d0a0e3f21f48e9c3e07f650dd4d1334fedde51b1c1e5527af6ae0e262",
+      "evidence_gaps": [
+        "runtime-applied context does not match the request"
+      ],
+      "observed": {
+        "chat_template_applied": false,
+        "context": 256,
+        "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "provider_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+        "threads": 2,
+        "threads_batch": 1,
+        "vocab_size": 512
+      },
+      "path": "candidate.run.json",
+      "record_digest": "b0c0ff134137e0cf5f4f04818c5d2cf2d108267013cb4f1e441babc5d5193caf",
+      "run_id": "run-0001",
+      "status": "completed"
+    },
+    "reference": {
+      "evidence_digest": "dea65e1c0b2fe7eb4812f482e2c83fa2726e32d1b0d75cfc237865d0ccf33a7f",
+      "evidence_gaps": [
+        "runtime-applied context does not match the request"
+      ],
+      "observed": {
+        "chat_template_applied": false,
+        "context": 256,
+        "model_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "provider_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+        "threads": 1,
+        "threads_batch": 1,
+        "vocab_size": 512
+      },
+      "path": "reference.run.json",
+      "record_digest": "d9b3c378ef52b2a7a8a47d46a07d34a0b4768bb6fbfbdcc9f3c8f158b2e0faf5",
+      "run_id": "run-0000",
+      "status": "completed"
+    }
+  },
+  "schema": "metria.verification.v1",
+  "scope": "local_llamacpp_cpu_threads.v1",
+  "study": "llamacpp-cpu-thread-change",
+  "systems": {
+    "candidate": {
+      "available": true,
+      "includes": "process startup, model loading, prompt evaluation and generation",
+      "mean_seconds": 0.018764546666667787,
+      "method": "llamacpp.subprocess_monotonic.v1",
+      "samples_seconds": [
+        0.01848659500000238,
+        0.018883143000000047,
+        0.018923902000000936
+      ]
+    },
+    "reference": {
+      "available": true,
+      "includes": "process startup, model loading, prompt evaluation and generation",
+      "mean_seconds": 0.016870784666667287,
+      "method": "llamacpp.subprocess_monotonic.v1",
+      "samples_seconds": [
+        0.016791977000000458,
+        0.016855625000001595,
+        0.016964751999999805
+      ]
+    }
+  },
+  "verdict": "INSUFFICIENT_EVIDENCE"
+}

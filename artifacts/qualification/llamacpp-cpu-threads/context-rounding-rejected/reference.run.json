@@ -1,0 +1,622 @@
+{
+  "record": {
+    "artifacts": [],
+    "events": [
+      {
+        "kind": "supported",
+        "stage": "preflight"
+      },
+      {
+        "kind": "completed",
+        "stage": "launch"
+      },
+      {
+        "kind": "completed",
+        "stage": "measurement"
+      },
+      {
+        "kind": "completed",
+        "stage": "observe"
+      },
+      {
+        "kind": "completed",
+        "stage": "close"
+      }
+    ],
+    "evidence": {
+      "measurements": {
+        "kv_fidelity.decode_time_trajectory": {
+          "method": "kv_fidelity.decode_time_trajectory",
+          "method_version": "0.3.4",
+          "n_prompts": 3,
+          "prompts": [
+            {
+              "category": null,
+              "id": "story",
+              "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a",
+              "token_count": 16,
+              "token_ids": [
+                432,
+                383,
+                286,
+                261,
+                376,
+                298,
+                315,
+                421,
+                395,
+                317,
+                426,
+                338,
+                401,
+                396,
+                267,
+                337
+              ]
+            },
+            {
+              "category": null,
+              "id": "dog",
+              "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d",
+              "token_count": 16,
+              "token_ids": [
+                286,
+                261,
+                376,
+                298,
+                315,
+                421,
+                395,
+                317,
+                426,
+                338,
+                401,
+                396,
+                267,
+                337,
+                335,
+                311
+              ]
+            },
+            {
+              "category": null,
+              "id": "sun",
+              "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4",
+              "token_count": 16,
+              "token_ids": [
+                262,
+                415,
+                271,
+                299,
+                269,
+                265,
+                262,
+                433,
+                422,
+                286,
+                399,
+                262,
+                415,
+                271,
+                422,
+                426
+              ]
+            }
+          ],
+          "schema": "metria.trajectory_capture.v1"
+        }
+      }
+    },
+    "metrics": {
+      "trajectory_mean_steps": {
+        "aggregation": "mean",
+        "coverage": 1.0,
+        "definition": {
+          "direction": "descriptive",
+          "method": "kv_fidelity.decode_time_trajectory",
+          "name": "trajectory_mean_steps",
+          "unit": "tokens",
+          "version": "0.3.4"
+        },
+        "samples": [
+          {
+            "metadata": {
+              "prompt_id": "story",
+              "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a"
+            },
+            "value": 16.0
+          },
+          {
+            "metadata": {
+              "prompt_id": "dog",
+              "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d"
+            },
+            "value": 16.0
+          },
+          {
+            "metadata": {
+              "prompt_id": "sun",
+              "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4"
+            },
+            "value": 16.0
+          }
+        ],
+        "uncertainty": {},
+        "value": 16.0
+      },
+      "trajectory_nonempty_capture_rate": {
+        "aggregation": "mean",
+        "coverage": 1.0,
+        "definition": {
+          "direction": "descriptive",
+          "method": "kv_fidelity.decode_time_trajectory",
+          "name": "trajectory_nonempty_capture_rate",
+          "unit": "fraction",
+          "version": "0.3.4"
+        },
+        "samples": [
+          {
+            "metadata": {
+              "prompt_id": "story",
+              "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a"
+            },
+            "value": 1.0
+          },
+          {
+            "metadata": {
+              "prompt_id": "dog",
+              "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d"
+            },
+            "value": 1.0
+          },
+          {
+            "metadata": {
+              "prompt_id": "sun",
+              "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4"
+            },
+            "value": 1.0
+          }
+        ],
+        "uncertainty": {},
+        "value": 1.0
+      }
+    },
+    "observed": {
+      "closed": false,
+      "configured": {
+        "kv_cache": {
+          "attention_rotation_disable": null,
+          "attention_rotation_k": null,
+          "attention_rotation_v": null,
+          "key_dtype": "f16",
+          "value_dtype": "f16"
+        }
+      },
+      "environment": {
+        "llama_cpp_token_ids_capture_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6"
+      },
+      "identity": {
+        "applied": {
+          "fields": {
+            "chat_template_applied": false,
+            "context": 256,
+            "threads": 1,
+            "threads_batch": 1,
+            "vocab_size": 512
+          },
+          "invocation_count": 3,
+          "source": "qualified_runtime_capture",
+          "status": "partial"
+        },
+        "chat_template": {
+          "mode": "disabled",
+          "source": "qualified_runtime_capture",
+          "status": "verified"
+        },
+        "endpoint": {},
+        "model": {
+          "mtime_ns": 1789016105532409418,
+          "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+          "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+          "size_bytes": 1185376,
+          "source": "verified_local_file_sha256",
+          "status": "verified"
+        },
+        "reasons": [
+          "llama.cpp tokenizer identity is embedded in the model and not independently inspected",
+          "only context, thread counts, vocabulary size and template mode were read back"
+        ],
+        "runtime": {
+          "cli_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "completion_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "name": "llamacpp",
+          "source": "resolved_binary_content_hash",
+          "status": "verified"
+        },
+        "schema": "metria.runtime_identity.v1",
+        "status": "partial",
+        "tokenizer": {
+          "source": "embedded_in_model_uninspected",
+          "status": "unknown"
+        }
+      },
+      "invocations": [
+        {
+          "argv": [
+            "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+            "-m",
+            "/var/tmp/metria-local-verification/stories260K.gguf",
+            "-p",
+            "<redacted>",
+            "-n",
+            "16",
+            "-c",
+            "128",
+            "-ngl",
+            "0",
+            "--seed",
+            "42",
+            "--temp",
+            "0.0",
+            "-no-cnv",
+            "--no-display-prompt",
+            "-fa",
+            "off",
+            "-ctk",
+            "f16",
+            "-ctv",
+            "f16",
+            "-t",
+            "1",
+            "-tb",
+            "1"
+          ],
+          "binary": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "capture": "token_ids",
+          "duration_seconds": 0.016791977000000458,
+          "generation": {
+            "chat_template": false,
+            "context": 128,
+            "max_tokens": 16,
+            "reasoning": "off",
+            "seed": 42,
+            "temperature": 0.0,
+            "timeout": 300.0
+          },
+          "managed_env": {},
+          "prompt_sha256": "e286222c229ec73b1bc520d88583191572ae0cbbaa66ea68053994a5e50ac87a",
+          "returncode": 0,
+          "runtime_capture": {
+            "chat_template_applied": false,
+            "context": 256,
+            "schema": "metria.llamacpp_capture.v1",
+            "threads": 1,
+            "threads_batch": 1,
+            "vocab_size": 512
+          },
+          "system_sha256": null,
+          "token_capture_observed": true
+        },
+        {
+          "argv": [
+            "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+            "-m",
+            "/var/tmp/metria-local-verification/stories260K.gguf",
+            "-p",
+            "<redacted>",
+            "-n",
+            "16",
+            "-c",
+            "128",
+            "-ngl",
+            "0",
+            "--seed",
+            "42",
+            "--temp",
+            "0.0",
+            "-no-cnv",
+            "--no-display-prompt",
+            "-fa",
+            "off",
+            "-ctk",
+            "f16",
+            "-ctv",
+            "f16",
+            "-t",
+            "1",
+            "-tb",
+            "1"
+          ],
+          "binary": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "capture": "token_ids",
+          "duration_seconds": 0.016855625000001595,
+          "generation": {
+            "chat_template": false,
+            "context": 128,
+            "max_tokens": 16,
+            "reasoning": "off",
+            "seed": 42,
+            "temperature": 0.0,
+            "timeout": 300.0
+          },
+          "managed_env": {},
+          "prompt_sha256": "805a9795a676f77bcd3b5f3eb31d3389dcdec2318d59be516bf59eb353426c1d",
+          "returncode": 0,
+          "runtime_capture": {
+            "chat_template_applied": false,
+            "context": 256,
+            "schema": "metria.llamacpp_capture.v1",
+            "threads": 1,
+            "threads_batch": 1,
+            "vocab_size": 512
+          },
+          "system_sha256": null,
+          "token_capture_observed": true
+        },
+        {
+          "argv": [
+            "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+            "-m",
+            "/var/tmp/metria-local-verification/stories260K.gguf",
+            "-p",
+            "<redacted>",
+            "-n",
+            "16",
+            "-c",
+            "128",
+            "-ngl",
+            "0",
+            "--seed",
+            "42",
+            "--temp",
+            "0.0",
+            "-no-cnv",
+            "--no-display-prompt",
+            "-fa",
+            "off",
+            "-ctk",
+            "f16",
+            "-ctv",
+            "f16",
+            "-t",
+            "1",
+            "-tb",
+            "1"
+          ],
+          "binary": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "capture": "token_ids",
+          "duration_seconds": 0.016964751999999805,
+          "generation": {
+            "chat_template": false,
+            "context": 128,
+            "max_tokens": 16,
+            "reasoning": "off",
+            "seed": 42,
+            "temperature": 0.0,
+            "timeout": 300.0
+          },
+          "managed_env": {},
+          "prompt_sha256": "90d36f2f24070bbb5b70c041118703503d994b20ac227d26a2d6bb56bcd1e7b4",
+          "returncode": 0,
+          "runtime_capture": {
+            "chat_template_applied": false,
+            "context": 256,
+            "schema": "metria.llamacpp_capture.v1",
+            "threads": 1,
+            "threads_batch": 1,
+            "vocab_size": 512
+          },
+          "system_sha256": null,
+          "token_capture_observed": true
+        }
+      ],
+      "model": {
+        "mtime_ns": 1789016105532409418,
+        "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+        "requested_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "size_bytes": 1185376
+      },
+      "reset_count": 0,
+      "runtime": {
+        "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+        "cli": {
+          "mtime_ns": 1789013894406984838,
+          "path": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "size_bytes": 11211760
+        },
+        "completion": {
+          "mtime_ns": 1789013894406984838,
+          "path": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "size_bytes": 11211760
+        },
+        "extra_args": [],
+        "flash_attention": false,
+        "n_gpu_layers": 0,
+        "name": "llamacpp",
+        "threads": 1,
+        "threads_batch": 1
+      }
+    },
+    "provenance": {
+      "capabilities": {
+        "allowed": true,
+        "blocking": [],
+        "capabilities": {
+          "model.geometry": {
+            "evidence": {
+              "source": "requested_model_metadata"
+            },
+            "reasons": [
+              "model.geometry was not provided"
+            ],
+            "status": "unknown"
+          }
+        }
+      },
+      "environment": {
+        "llama_cpp_token_ids_capture_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6"
+      },
+      "executor": {
+        "name": "metria.execute_run",
+        "version": "1"
+      },
+      "measurement": {
+        "name": "kv_fidelity.decode_time_trajectory",
+        "version": "0.3.4"
+      },
+      "preflight": {
+        "captures": {
+          "evidence": {
+            "captures": {
+              "token_ids": {
+                "expected_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+                "observed_sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+                "probe_evidence_key": "token_ids_capture",
+                "probe_marker": "binary_present_unverified",
+                "qualification": "sha256",
+                "status": "supported"
+              }
+            },
+            "mechanism": "runtime_probe_evidence"
+          },
+          "reasons": [],
+          "required": [
+            {
+              "kind": "token_ids",
+              "options": {}
+            }
+          ],
+          "status": "supported"
+        },
+        "evidence": {
+          "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+          "llama_cli": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "llama_completion": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "model": "/var/tmp/metria-local-verification/stories260K.gguf",
+          "n_gpu_layers": 0,
+          "runtime": "llamacpp",
+          "token_ids_capture": "binary_present_unverified"
+        },
+        "reasons": [],
+        "status": "supported"
+      },
+      "verification": {
+        "hardware": {
+          "accelerators": [],
+          "host": {
+            "cpu_count": 12,
+            "hostname_sha256": "cec8bcd33a48dc99561fa5a832b1ba03e53f33e72b4350296db44ea0ba2eeb04"
+          },
+          "metadata": {
+            "accelerator_detection": "runtime_or_adapter_required"
+          },
+          "platform": {
+            "machine": "x86_64",
+            "processor": "x86_64",
+            "release": "5.15.167.4-microsoft-standard-WSL2",
+            "system": "Linux",
+            "version": "#1 SMP Tue Nov 5 00:21:55 UTC 2024"
+          },
+          "software": {
+            "python_executable": "python",
+            "python_implementation": "CPython",
+            "python_version": "3.12.3"
+          }
+        },
+        "implementation": {
+          "name": "metria.verify",
+          "version": "0.1.0.dev0"
+        },
+        "recipe_digest": "98d1f47a62a931efdbe40487a6be5a85df84d3995113955078a1a24f31ebea66",
+        "scope": "local_llamacpp_cpu_threads.v1"
+      }
+    },
+    "requested": {
+      "environment_selector": {},
+      "measurements": [
+        "kv_fidelity.decode_time_trajectory"
+      ],
+      "model": {
+        "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+        "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d"
+      },
+      "runtime": {
+        "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+        "flash_attention": false,
+        "n_gpu_layers": 0,
+        "name": "llamacpp",
+        "threads": 1,
+        "threads_batch": 1
+      },
+      "scenario": {
+        "chat_template": false,
+        "context": 128,
+        "max_tokens": 16,
+        "seed": 42,
+        "temperature": 0.0
+      },
+      "treatments": [],
+      "trial_policy": {}
+    },
+    "resolved": {
+      "kv_cache": {
+        "attention_rotation_disable": null,
+        "attention_rotation_k": null,
+        "attention_rotation_v": null,
+        "key_dtype": "f16",
+        "value_dtype": "f16"
+      },
+      "model": {
+        "mtime_ns": 1789016105532409418,
+        "path": "/var/tmp/metria-local-verification/stories260K.gguf",
+        "requested_sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+        "size_bytes": 1185376
+      },
+      "runtime": {
+        "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+        "cli": {
+          "mtime_ns": 1789013894406984838,
+          "path": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "size_bytes": 11211760
+        },
+        "completion": {
+          "mtime_ns": 1789013894406984838,
+          "path": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+          "sha256": "5e17486285ea5ecf5bce1bfd7bafa172fe3e0b0fea0ede0eafa59fe5c998c9b6",
+          "size_bytes": 11211760
+        },
+        "extra_args": [],
+        "flash_attention": false,
+        "n_gpu_layers": 0,
+        "name": "llamacpp",
+        "threads": 1,
+        "threads_batch": 1
+      },
+      "scenario": {
+        "chat_template": false,
+        "context": 128,
+        "max_tokens": 16,
+        "seed": 42,
+        "temperature": 0.0
+      },
+      "support": {
+        "bin_dir": "/var/tmp/metria-llamacpp-build/bin",
+        "llama_cli": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+        "llama_completion": "/var/tmp/metria-llamacpp-build/bin/llama-completion",
+        "model": "/var/tmp/metria-local-verification/stories260K.gguf",
+        "n_gpu_layers": 0,
+        "runtime": "llamacpp",
+        "token_ids_capture": "binary_present_unverified"
+      }
+    },
+    "run_id": "run-0000",
+    "status": "completed",
+    "study_name": "llamacpp-cpu-thread-change"
+  },
+  "schema": "metria.run_record.v1"
+}

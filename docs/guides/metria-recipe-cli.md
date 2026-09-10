@@ -1,13 +1,13 @@
 # Metria CLI
 
-Metria's current command line is deliberately data/evidence oriented. It can
-validate versioned study recipes, inspect requested capabilities/hardware, and
-compare already-saved run records. It does not yet execute studies, auto-load
-plugins, or make optimization recommendations.
+Metria's command line includes one complete local verification workflow plus
+recipe validation, capability inspection, and saved-record comparison. The
+first `verify` scope is a pinned local llama.cpp CPU thread-count change.
 
 Current commands include:
 
 ```text
+metria verify <study.json> --output <new-directory> [--json]
 metria recipe validate <study.json>
 metria recipe digest <study.json>
 metria recipe normalize <study.json>
@@ -135,16 +135,13 @@ record/recipe binding error returns `2`.
 
 See [run records and comparison](metria-run-records.md).
 
-## Why execution is not here yet
+## Local verification
 
-Study execution requires explicit runtime, measurement, and pairwise-analysis
-registries plus durable output/provenance policy. Installing the root CLI does
-not auto-import arbitrary plugins or install inference engines.
+Use the [local verifier guide](metria-verify.md) to prepare a qualified provider
+and run a reference/candidate pair. The command persists both run records, checks
+model and capture-provider hashes, validates actual thread/context readback,
+applies the comparison plan, and writes a manifest and readable report.
 
-The remaining sequence is:
-
-1. keep recipe, inspection, and run-record schemas versioned and strict;
-2. add explicit built-in registry selection/listing;
-3. attach recipe/hardware identities to execution provenance;
-4. add `metria run` with durable `metria.run_record.v1` output;
-5. keep third-party plugin loading separate from the first execution CLI.
+Installing the CLI does not install an inference engine or auto-load third-party
+plugins. Broader study execution remains available through `execute_run()` and
+`execute_study()` while additional verifier scopes are qualified.

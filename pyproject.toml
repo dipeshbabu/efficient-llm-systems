@@ -105,6 +105,11 @@ ignore = [
 "**/__init__.py" = ["F401"]
 
 [tool.mypy]
+mypy_path = [
+    "src",
+    "components/kv-fidelity/src",
+    "components/turboquant-reference/src",
+]
 files = [
     "src/metria",
     "components/kv-fidelity/src/kv_fidelity",

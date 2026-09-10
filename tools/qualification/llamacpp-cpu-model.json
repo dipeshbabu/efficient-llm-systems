@@ -1,0 +1,8 @@
+{
+  "model_repository": "ggml-org/models-moved",
+  "revision": "499bc8821c6b12b4e53c5bffcb21ec206f212d81",
+  "file": "tinyllamas/stories260K.gguf",
+  "sha256": "270cba1bd5109f42d03350f60406024560464db173c0e387d91f0426d3bd256d",
+  "url": "https://huggingface.co/ggml-org/models-moved/resolve/499bc8821c6b12b4e53c5bffcb21ec206f212d81/tinyllamas/stories260K.gguf",
+  "purpose": "Small real-engine integration fixture; not a model-quality benchmark."
+}

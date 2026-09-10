@@ -3,6 +3,11 @@
 This changelog covers the root `metria` distribution. KV Fidelity and
 TurboQuant reference packages have independent versions and release notes.
 
+## Unreleased
+
+- Runtime identity mapping reads reuse deeply immutable evidence instead of
+  rebuilding it for every field lookup, iteration, or length query.
+
 ## 0.1.0
 
 First Alpha release, published on 2026-09-10.

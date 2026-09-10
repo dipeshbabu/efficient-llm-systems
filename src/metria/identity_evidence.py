@@ -5,11 +5,23 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
+from types import MappingProxyType
 from typing import Any
 
 from ._freeze import freeze_mapping
 
 _IDENTITY_SCHEMA = "metria.runtime_identity.v1"
+_IDENTITY_FIELDS = (
+    "model",
+    "tokenizer",
+    "runtime",
+    "chat_template",
+    "applied",
+    "endpoint",
+    "reasons",
+)
+_IDENTITY_KEYS = ("schema", "status", *_IDENTITY_FIELDS)
+_IDENTITY_KEY_SET = frozenset(_IDENTITY_KEYS)
 _SAFE_ENDPOINT_FIELDS = frozenset(
     {
         "scheme",
@@ -51,7 +63,9 @@ def _normalize_component(value: Mapping[str, Any], *, name: str) -> Mapping[str,
     status = _normalize_status(frozen["status"], name=f"{name} identity status")
     normalized = dict(frozen)
     normalized["status"] = status.value
-    return freeze_mapping(normalized)
+    # All caller-owned values were detached above; only the normalized scalar
+    # status changed. Re-freezing would copy every nested value a second time.
+    return MappingProxyType(normalized)
 
 
 def _component_status(value: Mapping[str, Any]) -> IdentityStatus | None:
@@ -158,25 +172,21 @@ class RuntimeIdentityEvidence(Mapping[str, Any]):
         object.__setattr__(self, "reasons", reasons)
 
     def to_mapping(self) -> Mapping[str, Any]:
-        return freeze_mapping(
-            {
-                "schema": _IDENTITY_SCHEMA,
-                "status": IdentityStatus(self.status).value,
-                "model": self.model,
-                "tokenizer": self.tokenizer,
-                "runtime": self.runtime,
-                "chat_template": self.chat_template,
-                "applied": self.applied,
-                "endpoint": self.endpoint,
-                "reasons": self.reasons,
-            }
-        )
+        """Expose the already-frozen fields without copying nested evidence."""
+
+        return MappingProxyType(dict(self))
 
     def __getitem__(self, key: str) -> Any:
-        return self.to_mapping()[key]
+        if key not in _IDENTITY_KEY_SET:
+            raise KeyError(key)
+        if key == "schema":
+            return _IDENTITY_SCHEMA
+        if key == "status":
+            return IdentityStatus(self.status).value
+        return getattr(self, key)
 
     def __iter__(self) -> Iterator[str]:
-        return iter(self.to_mapping())
+        return iter(_IDENTITY_KEYS)
 
     def __len__(self) -> int:
-        return len(self.to_mapping())
+        return len(_IDENTITY_KEYS)

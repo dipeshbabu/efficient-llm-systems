@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from enum import Enum
 from itertools import combinations
@@ -230,6 +230,7 @@ def execute_study(
     measurement_configs: Mapping[str, Mapping[str, Any]],
     environment: Mapping[str, Any],
     analyses: Mapping[str, PairwiseAnalysis] | None = None,
+    record_sink: Callable[[RunRecord], None] | None = None,
 ) -> StudyExecutionResult:
     """Execute every run, validate pair compatibility, and derive analyses.
 
@@ -249,6 +250,10 @@ def execute_study(
     and supports exactly one measurement per ``RunSpec``. These constraints are
     explicit so future environment placement and multi-measurement scheduling
     can be added without silently changing current study semantics.
+
+    ``record_sink`` receives each immutable record as soon as that run finishes,
+    before the next run starts. Persistence failures propagate to the caller;
+    already-written evidence can therefore survive a later interrupted run.
     """
 
     analysis_registry: Mapping[str, PairwiseAnalysis] = analyses or {}
@@ -278,6 +283,8 @@ def execute_study(
             environment=environment,
         )
         records.append(record)
+        if record_sink is not None:
+            record_sink(record)
 
     pairwise: list[StudyPairComparison] = []
     for left, right in combinations(records, 2):

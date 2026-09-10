@@ -76,6 +76,8 @@ from .study_execution import (
 
 __version__ = "0.1.0.dev0"
 
+from .verification import VerificationResult, VerificationVerdict, verify_recipe
+
 __all__ = [
     "RUN_RECORD_SCHEMA",
     "ArtifactManifest",
@@ -110,6 +112,8 @@ __all__ = [
     "TreatmentSpec",
     "TreatmentType",
     "WorkloadSpec",
+    "VerificationResult",
+    "VerificationVerdict",
     "aggregate_identity_status",
     "capability_inspection_to_mapping",
     "capture_hardware_fingerprint",
@@ -134,4 +138,5 @@ __all__ = [
     "study_recipe_from_data",
     "study_recipe_to_data",
     "study_recipe_to_json",
+    "verify_recipe",
 ]

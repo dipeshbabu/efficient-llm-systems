@@ -10,6 +10,7 @@ generated evidence lives under [`artifacts/`](../artifacts/README.md).
 
 ## Guides
 
+- [Verify a local llama.cpp CPU thread change](guides/metria-verify.md)
 - [Metria llama.cpp runtime adapter](guides/metria-llamacpp-runtime.md)
 - [Metria vLLM runtime adapter](guides/metria-vllm-runtime.md)
 - [Metria trajectory measurement bridge](guides/metria-trajectory-measurement.md)

@@ -21,3 +21,8 @@ the recorded build, model, host, and workload, not a claim about other engines
 or hardware.
 
 The patch is derived from MIT-licensed llama.cpp; see `LICENSE.llama.cpp`.
+
+`build_llamacpp_cpu.sh` builds that pinned provider in a new workspace.
+`prepare_cpu_verification.py` exercises it, verifies the local model pin, saves
+the qualification run, and creates a one-thread versus two-thread recipe.
+See the [complete walkthrough](../../docs/guides/metria-verify.md).

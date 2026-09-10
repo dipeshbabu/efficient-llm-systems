@@ -24,6 +24,7 @@ from .recipes import (
     study_recipe_to_json,
 )
 from .records import load_run_record, run_evidence_digest, run_record_digest
+from .verification import render_verification, verify_recipe
 
 INSPECTION_SCHEMA = "metria.inspection.v1"
 COMPARISON_REPORT_SCHEMA = "metria.comparison_report.v1"
@@ -112,6 +113,22 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="json_output",
         help="emit a machine-readable pairwise comparison report",
+    )
+    verify = subparsers.add_parser(
+        "verify", help="execute and verify a pinned local llama.cpp CPU thread change"
+    )
+    verify.add_argument("path", type=Path, help="reference/candidate study recipe")
+    verify.add_argument(
+        "--output",
+        type=Path,
+        default=Path("verification"),
+        help="new evidence directory",
+    )
+    verify.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="emit the verification manifest as JSON",
     )
     return parser
 
@@ -399,6 +416,16 @@ def main(
         return 2
 
     try:
+        if args.command == "verify":
+            result = verify_recipe(_load(args.path), args.output)
+            if args.json_output:
+                out.write(
+                    json.dumps(result.to_data(), sort_keys=True, allow_nan=False) + "\n"
+                )
+            else:
+                out.write(render_verification(result.manifest))
+                out.write(f"Evidence: {result.output_dir}\n")
+            return result.exit_code
         if args.command == "compare":
             if len(args.records) < 2:
                 raise ValueError("compare requires at least two run record files")

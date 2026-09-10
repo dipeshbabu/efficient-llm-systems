@@ -4,7 +4,7 @@
 [![Metria core](https://github.com/dipeshbabu/metria/actions/workflows/metria-core.yml/badge.svg)](https://github.com/dipeshbabu/metria/actions/workflows/metria-core.yml)
 [![Root package](https://github.com/dipeshbabu/metria/actions/workflows/root-package.yml/badge.svg)](https://github.com/dipeshbabu/metria/actions/workflows/root-package.yml)
 
-**Run, measure, and compare LLM inference systems with reproducible evidence.**
+**Verify inference changes with reproducible evidence.**
 
 Metria is an open-source experiment and evidence layer for LLM inference
 systems. It helps researchers answer a question that raw benchmark numbers do
@@ -23,6 +23,11 @@ study, provenance, measurement, and comparison layer around them.
 > **Status:** Metria is under active development (`0.1.0.dev0`). The root
 > package is installable from source, but it is not published to a package
 > index yet. Public APIs should still be considered provisional.
+
+The first complete CLI workflow verifies a **local llama.cpp CPU thread-count
+change** using a pinned model and qualified capture provider. It checks what ran,
+compares sampled token trajectories, and saves a report with both run records.
+The first public release is planned as `0.1.0`.
 
 ## Why Metria
 
@@ -60,7 +65,7 @@ Metria is being built around four principles:
 | Pairwise analysis | KV Fidelity-compatible trajectory agreement analysis |
 | Recipes | Versioned `metria.study_recipe.v1` JSON with deterministic SHA-256 digesting |
 | Run records | Versioned `metria.run_record.v1` JSON with typed metrics plus full-record/evidence digests |
-| CLI | Recipe `validate` / `digest` / `normalize`, `metria inspect`, and study-plan-driven `metria compare` |
+| CLI | Local CPU-thread `metria verify`, recipe `validate` / `digest` / `normalize`, `metria inspect`, and saved-record `metria compare` |
 | Packaging | Root `metria` package installable from source; focused components stay independent |
 
 The standalone [KV Fidelity](components/kv-fidelity/README.md) package also
@@ -84,7 +89,27 @@ metria --help
 The root package deliberately does **not** install vLLM, llama.cpp, or other
 inference engines. Runtime stacks remain optional and user-managed.
 
-### 2. Define a study recipe
+### 2. Verify a local CPU thread change
+
+Follow the [local verification guide](docs/guides/metria-verify.md) to build the
+pinned capture provider and prepare the small example model. Then run:
+
+```bash
+python tools/qualification/prepare_cpu_verification.py \
+  --bin-dir /path/to/qualified/build/bin \
+  --model /path/to/stories260K.gguf \
+  --output study.json
+metria verify study.json --output verification
+```
+
+The output contains `manifest.json`, `report.md`, `reference.run.json`, and
+`candidate.run.json`. The command distinguishes completed comparisons,
+insufficient evidence, invalid comparisons, and execution failures. It reports
+behavioral observations; it does not apply a universal quality threshold.
+
+## Supporting recipe and comparison tools
+
+### Define a study recipe
 
 Metria recipes describe requested experiment intent as versioned data. For
 example:
@@ -154,7 +179,7 @@ and an accelerator is not claimed present merely because an environment
 variable mentions it. See the
 [capability inspection guide](docs/guides/metria-inspection.md).
 
-### 3. Persist and compare run evidence
+### Persist and compare run evidence
 
 The Python execution APIs return `RunRecord` values. Persist them with the
 versioned record API:
@@ -172,9 +197,9 @@ metria compare run-0001.json run-0002.json --recipe study.json
 metria compare run-0001.json run-0002.json --recipe study.json --json
 ```
 
-The CLI does **not** expose `metria run` yet. Study execution is available
-through the Python APIs while explicit registries and execution-output
-orchestration are being stabilized.
+Use `metria verify` for the qualified local CPU-thread workflow. General study
+execution remains available through the Python APIs; the CLI does not expose a
+generic `metria run` command.
 
 See the [CLI guide](docs/guides/metria-recipe-cli.md) and
 [run-record guide](docs/guides/metria-run-records.md).
@@ -352,8 +377,8 @@ Near-term work is focused on:
 
 1. **Observed runtime identity** — stronger served model/tokenizer/applied-config
    evidence.
-2. **Execution CLI and explicit registries** — built-in registry inspection,
-   recipe/hardware provenance attachment, and durable `metria run` output.
+2. **Verifier coverage** — extend the local CPU-thread workflow to additional
+   qualified inference changes, with trustworthy performance and acceptance policies.
 3. **Runtime qualification** — exercise the shared contract against first-party
    adapters and add hardware-qualified evidence lanes.
 4. **Artifact provenance** — immutable model/data verification and manifest

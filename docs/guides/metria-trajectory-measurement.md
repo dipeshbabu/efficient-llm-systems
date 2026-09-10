@@ -88,14 +88,10 @@ methodology to migrate into Metria's run/evidence model incrementally.
 
 ## Current limitations
 
-This bridge does not yet:
+The common `execute_run()` and `execute_study()` APIs attach these captures to
+run records and derive pairwise results. The first end-to-end CLI scope is
+[local llama.cpp CPU-thread verification](metria-verify.md).
 
-- orchestrate reference and candidate runs automatically;
-- attach measurement results to a `RunRecord` through a common executor;
-- provide trajectory KLD/logit capture;
-- provide a vLLM or SGLang Metria runtime adapter;
-- expose a CLI recipe for paired fidelity studies.
-
-The next orchestration step should execute a `RunSpec` through a runtime adapter
-and measurement protocol, then produce a complete `RunRecord` with measurement
-metrics/evidence and observed runtime provenance.
+Trajectory KLD/logit capture, statistical pooling across repeated trials, and
+broader qualified CLI runtime coverage remain future work. The tiny local
+qualification model demonstrates the integration, not general model quality.

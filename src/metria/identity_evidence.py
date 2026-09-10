@@ -75,7 +75,8 @@ def aggregate_identity_status(
     """Aggregate component authority without promoting unknown evidence."""
 
     normalized = tuple(
-        _normalize_status(status, name="identity component status") for status in statuses
+        _normalize_status(status, name="identity component status")
+        for status in statuses
     )
     if not normalized:
         return IdentityStatus.UNKNOWN

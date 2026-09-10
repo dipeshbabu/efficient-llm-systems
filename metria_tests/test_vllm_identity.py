@@ -112,9 +112,7 @@ class _LLM:
         assert len(prompts) == len(sampling_params)
         self.generate_calls += 1
         return [
-            SimpleNamespace(
-                outputs=[SimpleNamespace(text="ok", token_ids=[1, 2])]
-            )
+            SimpleNamespace(outputs=[SimpleNamespace(text="ok", token_ids=[1, 2])])
             for _ in prompts
         ]
 
@@ -273,9 +271,10 @@ def test_vllm_observation_retains_authority_and_chat_template_digest(
     assert identity["runtime"]["status"] == "verified"
     assert identity["runtime"]["version"] == "0.test"
     assert identity["chat_template"]["status"] == "verified"
-    assert identity["chat_template"]["sha256"] == hashlib.sha256(
-        b"{{ messages }}"
-    ).hexdigest()
+    assert (
+        identity["chat_template"]["sha256"]
+        == hashlib.sha256(b"{{ messages }}").hexdigest()
+    )
     assert identity["applied"]["status"] == "partial"
     assert "cache.cache_dtype" in identity["applied"]["checked_fields"]
     assert "{{ messages }}" not in repr(identity)

@@ -52,9 +52,10 @@ def test_llamacpp_identity_is_explicit_about_authority_before_inference(
     assert identity["schema"] == "metria.runtime_identity.v1"
     assert identity["status"] == "partial"
     assert identity["runtime"]["status"] == "verified"
-    assert identity["runtime"]["cli_sha256"] == hashlib.sha256(
-        cli.read_bytes()
-    ).hexdigest()
+    assert (
+        identity["runtime"]["cli_sha256"]
+        == hashlib.sha256(cli.read_bytes()).hexdigest()
+    )
     assert identity["model"]["status"] == "partial"
     assert identity["model"]["path"] == str(model.resolve())
     assert "claimed/model" not in repr(identity["model"])

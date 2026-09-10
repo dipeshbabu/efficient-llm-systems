@@ -5,6 +5,10 @@ in a job without publishing credentials, then a separate protected job uploads
 the verified artifacts with PyPI Trusted Publishing. No PyPI token is stored in
 GitHub.
 
+For the root `metria` distribution, follow the separate
+[Metria release procedure](releasing-metria.md). The component identities and
+release blockers below apply to their respective packages.
+
 ## KV Fidelity package identity
 
 This repository publishes KV Fidelity as `kv-fidelity`, with Python import

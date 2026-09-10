@@ -109,7 +109,9 @@ and `NOTICE` are present in the built artifacts.
 
 ## Releases
 
-Publishing is restricted to maintainers. `kv-fidelity` releases use a
+Publishing is restricted to maintainers. Root `metria` releases use a
+`metria-v<VERSION>` tag and the protected `pypi-metria` environment.
+`kv-fidelity` releases use a
 `kv-fidelity-v<VERSION>` tag and the protected `pypi-kv-fidelity` environment;
 `turboquant-reference` releases use a `turboquant-reference-v<VERSION>` tag and
 the protected `pypi-turboquant-reference` environment. Each package has a

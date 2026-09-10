@@ -14,6 +14,8 @@ METRIA_PROJECT_URLS = {
     "Homepage, https://github.com/dipeshbabu/metria",
     "Repository, https://github.com/dipeshbabu/metria",
     "Issues, https://github.com/dipeshbabu/metria/issues",
+    "Documentation, https://github.com/dipeshbabu/metria/blob/main/docs/guides/metria-verify.md",
+    "Changelog, https://github.com/dipeshbabu/metria/blob/main/CHANGELOG.md",
 }
 KV_FIDELITY_PROJECT_URLS = {
     "Homepage, https://github.com/dipeshbabu/metria/tree/main/components/kv-fidelity",

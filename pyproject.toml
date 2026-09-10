@@ -1,11 +1,11 @@
 # Root Metria framework and repository-level tool configuration.
 #
-# The root distribution is intentionally provisional and is not published by
-# this repository. Focused components keep independent package/release lifecycles.
+# The root Alpha distribution and focused components keep independent
+# package/release lifecycles.
 
 [project]
 name = "metria"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Evidence and experimentation framework for reproducible LLM inference systems studies."
 readme = "README.md"
 license = "Apache-2.0"
@@ -41,6 +41,8 @@ dependencies = []
 Homepage = "https://github.com/dipeshbabu/metria"
 Repository = "https://github.com/dipeshbabu/metria"
 Issues = "https://github.com/dipeshbabu/metria/issues"
+Documentation = "https://github.com/dipeshbabu/metria/blob/main/docs/guides/metria-verify.md"
+Changelog = "https://github.com/dipeshbabu/metria/blob/main/CHANGELOG.md"
 
 [project.scripts]
 metria = "metria.cli:main"

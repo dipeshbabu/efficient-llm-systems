@@ -1,0 +1,3 @@
+include CHANGELOG.md
+include docs/guides/metria-verify.md
+recursive-include tools/qualification *.py *.sh *.json *.patch *.md LICENSE.*

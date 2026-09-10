@@ -39,7 +39,7 @@ jobs:
         run: |
           uv run python -m twine check dist/metria/*
           uv run python tools/maintenance/check_wheel_contents.py dist/metria/*.whl
-          uv run python tools/maintenance/check_sdist_contents.py dist/metria/*.tar.gz
+          uv run python tools/maintenance/check_sdist_contents.py --metria-release dist/metria/*.tar.gz
 
       - name: Install root wheel and smoke-test CLI
         shell: bash

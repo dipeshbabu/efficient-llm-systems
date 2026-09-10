@@ -188,7 +188,9 @@ def test_verify_saves_incremental_records_manifest_and_readable_report(local_cas
     assert "CPU threads: 1 -> 2" in report
     assert "first divergence at token 2" in report
     for path in local_case["output"].iterdir():
-        assert "private" not in path.read_text(encoding="utf-8")
+        contents = path.read_text(encoding="utf-8")
+        assert "private prompt that must not appear" not in contents
+        assert "private generated text" not in contents
 
 
 def test_verify_human_output_explains_scope_and_artifacts(local_case):

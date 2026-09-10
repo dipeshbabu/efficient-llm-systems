@@ -140,7 +140,34 @@ def _file_identity(path: Path, *, include_hash: bool) -> dict[str, Any]:
     }
     if include_hash:
         identity["sha256"] = _sha256_file(resolved)
+        after = resolved.stat()
+        if (stat.st_size, stat.st_mtime_ns, stat.st_ino) != (
+            after.st_size,
+            after.st_mtime_ns,
+            after.st_ino,
+        ):
+            raise RuntimeError("runtime artifact changed while its content was hashed")
     return identity
+
+
+def _requested_model_sha256(spec: RunSpec) -> str | None:
+    value = spec.model.get("sha256")
+    if value is None:
+        return None
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-fA-F]{64}", value) is None:
+        raise ValueError("model.sha256 must be a 64-character SHA-256 digest")
+    return value.lower()
+
+
+def _check_pinned_model(model: Mapping[str, Any], *, hash_content: bool) -> None:
+    expected = model.get("sha256")
+    if expected is None:
+        return
+    actual = _file_identity(Path(model["path"]), include_hash=hash_content)
+    if hash_content and actual["sha256"] != expected:
+        raise ValueError("model content changed after resolution")
+    if any(actual[key] != model[key] for key in ("size_bytes", "mtime_ns")):
+        raise ValueError("model file changed after resolution")
 
 
 def _find_binary(bin_dir: Path, stem: str) -> Path | None:
@@ -503,6 +530,7 @@ class LlamaCppSession:
         model = self._resolved["model"]
         kv = self._resolved["kv_cache"]
         scenario = self._resolved["scenario"]
+        _check_pinned_model(model, hash_content=False)
         generation = _generation_options(request, scenario)
         executable = (
             runtime["completion"]["path"] if token_capture else runtime["cli"]["path"]
@@ -636,6 +664,7 @@ class LlamaCppAdapter:
         try:
             runtime = _runtime_config(spec)
             model = _model_path(spec)
+            _requested_model_sha256(spec)
             bin_dir = _bin_dir(spec, environment)
             _kv_treatment(spec.treatments)
         except (TypeError, ValueError) as exc:
@@ -686,7 +715,12 @@ class LlamaCppAdapter:
         if cli is None:  # probe guarantees this, keep fail-loud for races
             raise FileNotFoundError(f"llama-cli disappeared from {bin_dir}")
         completion = _find_binary(bin_dir, "llama-completion")
-        model_identity = _file_identity(model_path, include_hash=False)
+        expected_sha256 = _requested_model_sha256(spec)
+        model_identity = _file_identity(
+            model_path, include_hash=expected_sha256 is not None
+        )
+        if expected_sha256 is not None and model_identity["sha256"] != expected_sha256:
+            raise ValueError("model SHA-256 does not match model.sha256")
         for key in ("id", "revision", "sha256"):
             if key in spec.model:
                 model_identity[f"requested_{key}"] = spec.model[key]
@@ -721,6 +755,7 @@ class LlamaCppAdapter:
         runtime = resolved.get("runtime")
         if not isinstance(runtime, Mapping) or runtime.get("name") != "llamacpp":
             raise ValueError("resolved runtime is not a llama.cpp specification")
+        _check_pinned_model(resolved["model"], hash_content=True)
         return LlamaCppSession(resolved, environment)
 
     def observe(self, session: RuntimeSession) -> Mapping[str, Any]:

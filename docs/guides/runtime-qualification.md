@@ -82,11 +82,11 @@ reports `binary_present_unverified`. For `token_ids` verification, that remains
 that digest exactly. A missing provider or digest mismatch is `unsupported`.
 
 The resolved llama.cpp executable content hash is authoritative binary identity.
-The local GGUF model is still only partial identity because the current adapter
-does not hash the potentially large model file under #15. Requested model IDs,
-revisions, and digests remain claims rather than observed facts. The embedded
-tokenizer and chat template remain unknown. Recorded command invocations provide
-partial applied evidence but do not prove runtime-internal readback.
+The local GGUF model has verified file-content identity when `model.sha256`
+matches the file at resolution and launch. Without a pin, model metadata remains
+partial. Requested model IDs and revisions remain claims. The embedded tokenizer
+and chat template remain unknown. Recorded command invocations provide partial
+applied evidence but do not prove runtime-internal readback.
 
 Immutable model content identity belongs to #16. Pinned real-engine and hardware
 qualification remains tracked by #12.

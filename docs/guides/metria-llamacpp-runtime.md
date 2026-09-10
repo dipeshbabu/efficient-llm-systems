@@ -149,11 +149,17 @@ The runtime executable identity is based on the content hashes retained during
 resolution. Metria does not infer a runtime version string from a filename or
 path.
 
-The local GGUF model currently retains path, size, and modification metadata but
-is **not** promoted to verified content identity by this issue. Requested model
-IDs, revisions, or digests remain requested claims and are deliberately absent
-from observed model identity. Immutable model content verification belongs to
-#16.
+Supply `model.sha256` from a trusted artifact manifest to bind a local GGUF file
+to expected content. Resolution streams and verifies that digest, and launch
+checks the content again. A mismatch rejects the run. Pinned sessions also
+reject size or modification-time changes before each invocation.
+
+A matching digest is retained in observed model identity with status `verified`
+and source `verified_local_file_sha256`. Without a pin, file metadata remains
+`partial`. Requested model IDs and revisions are never copied into observation.
+Keep pinned model files immutable throughout execution; this is local content
+verification, not a guarantee against concurrent filesystem tampering. Download
+resolution, split model artifacts, and broader provenance remain tracked by #16.
 
 Likewise, the current llama.cpp CLI path does not independently expose the
 embedded tokenizer or active chat-template identity, so both stay `unknown`.
@@ -167,8 +173,8 @@ are safer than presenting requested values as facts.
 ## Evidence and privacy
 
 The resolved runtime record includes the content hash of each llama.cpp binary
-and file metadata for the model. Large model files are not automatically hashed
-by this adapter; stronger model-artifact verification is tracked by #16.
+and file metadata for the model. Model content is hashed when `model.sha256` is
+provided. Broader model-artifact resolution remains tracked by #16.
 
 For each invocation, Metria records the actual managed command flags and managed
 environment overrides. Prompt and system-message contents are replaced with

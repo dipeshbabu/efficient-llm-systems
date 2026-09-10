@@ -93,11 +93,12 @@ digest, and selected applied configuration fields before measurement. Concrete
 mismatches abort the candidate before prompt execution. Missing metadata remains
 partial or unknown.
 
-llama.cpp currently provides stronger local executable identity than model
-identity: the resolved binary is content hashed, while the GGUF model is still
-represented by file metadata and the embedded tokenizer/template remain
-uninspected. Requested model IDs, revisions, and digests are therefore not copied
-into observed identity. #16 owns immutable model/data artifact verification.
+llama.cpp verifies explicitly pinned local GGUF bytes and executable content.
+The qualified capture provider also supplies native configuration readback.
+The embedded tokenizer/template are not independently inspected, and requested
+IDs are not copied into observed identity. The shared
+[artifact resolver](../guides/artifact-resolution.md) provides bounded,
+digest-verified downloads and extraction for external model/data inputs.
 
 ## ModelRef and geometry inspection
 
@@ -193,9 +194,9 @@ artifacts. It can represent:
 - upstream source/license information;
 - additional provenance metadata.
 
-The type validates SHA-256 syntax and byte sizes but does not claim that a hash
-was independently verified. Downloaders and resolvers remain responsible for
-computing and checking digests before constructing verified provenance.
+The type validates SHA-256 syntax and byte sizes but does not itself claim that
+a hash was verified. The shared artifact resolver checks content before returning
+resolved manifests, and KV Fidelity uses it for its default corpus cache.
 
 ## Versioned run evidence
 
@@ -226,12 +227,8 @@ See [run records and comparison](../guides/metria-run-records.md).
 
 Remaining follow-on work includes:
 
-- immutable model/data artifact resolution, download verification, and safe
-  archive extraction (#16);
 - authoritative accelerator inventory beyond runtime-observed evidence;
 - exact runtime/model qualification on pinned real engines (#12);
-- automatic recipe/hardware digest attachment by the verification CLI;
-- public root package release policy.
 
 New runtime, verification, measurement, and provenance work should reuse these
 primitives and schemas instead of introducing incompatible identity paths.

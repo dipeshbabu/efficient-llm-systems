@@ -37,6 +37,9 @@ Only the protected publishing job receives OIDC permission.
 1. Update the root version in `pyproject.toml`, `src/metria/__init__.py`,
    and `uv.lock`; update `CHANGELOG.md` and `docs/releases/<VERSION>.md`.
    Merge by squash after all CI and security checks pass.
+   PR validation reads the source version, including `.devN` development
+   versions with an `Unreleased` changelog heading. Publication still requires
+   a stable three-component version and its exact release heading.
 2. Wait for checks on the resulting `main` commit, then create
    `metria-v<VERSION>` at that commit. The publication guard checks the
    required main jobs and their GitHub app identities on the tagged commit.

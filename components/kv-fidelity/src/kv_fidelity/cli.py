@@ -15,6 +15,10 @@ import math
 import sys
 from pathlib import Path
 
+from metria.artifacts import ArtifactIntegrityError, artifact_to_data, verify_artifact
+from metria.identity import ArtifactManifest
+
+from . import corpora as _corpora
 from .axes.gtm import run_gtm
 from .axes.kld import run_kld
 from .axes.plad import run_plad
@@ -123,49 +127,18 @@ Recognised keys: ctk, ctv, attn_rot_k, attn_rot_v, attn_rot_disable.
 
 
 _KV_FIDELITY_CACHE = Path.home() / ".cache" / "kv-fidelity"
-_WIKITEXT_2_URL = (
-    "https://huggingface.co/datasets/ggml-org/ci/resolve/main/wikitext-2-raw-v1.zip"
-)
 
 
 def _ensure_wikitext_2(
     cache_dir: Path = _KV_FIDELITY_CACHE, silent: bool = False
 ) -> Path:
-    """Make sure wikitext-2-raw is downloaded + extracted under
-    ``cache_dir/wikitext-2-raw/``. Returns that directory.
+    """Resolve the pinned, verified corpus through the shared artifact library."""
 
-    Idempotent: re-running is a no-op when files already exist.
-
-    Network: ~10 MB single zip, ~30 s on a typical home connection.
-    No third-party deps; uses stdlib urllib + zipfile.
-    """
-    import urllib.request
-    import zipfile
-
-    target = cache_dir / "wikitext-2-raw"
-    test_p = target / "wiki.test.raw"
-    train_p = target / "wiki.train.raw"
-    if test_p.is_file() and train_p.is_file():
-        return target
-
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = cache_dir / "wikitext-2-raw-v1.zip"
     if not silent:
-        print(f"Downloading wikitext-2-raw (~10MB) → {target} ...")
-    urllib.request.urlretrieve(_WIKITEXT_2_URL, zip_path)
-    if not silent:
-        print("Unzipping ...")
-    with zipfile.ZipFile(zip_path) as zf:
-        zf.extractall(cache_dir)
-    try:
-        zip_path.unlink()
-    except OSError:
-        pass
-    if not test_p.is_file() or not train_p.is_file():
-        raise RuntimeError(
-            f"Wikitext-2 unzip didn't produce expected files at {target}. "
-            f"Inspect {cache_dir} or fetch manually."
+        print(
+            "Resolving SHA-256-verified WikiText-2 cache (4.7 MB download if absent) ..."
         )
+    target = _corpora.ensure_wikitext_2(cache_dir)
     if not silent:
         print(f"✓ Cached at {target}")
     return target
@@ -180,6 +153,19 @@ def _resolve_default_paths(args, *, need_corpus: bool, need_haystack: bool):
     """
     if not (need_corpus or need_haystack):
         return
+    retained = dict(getattr(args, "_input_artifacts", {}))
+    for role, data in retained.items():
+        if (role == "corpus" and need_corpus) or (
+            role == "rniah_haystack" and need_haystack
+        ):
+            manifest = verify_artifact(
+                ArtifactManifest(**data),
+                getattr(args, role),
+                max_bytes=_corpora.MAX_EXPANDED_BYTES,
+            )
+            retained[role] = artifact_to_data(manifest)
+    if retained:
+        args._input_artifacts = retained
     have_corpus = bool(getattr(args, "corpus", None))
     have_haystack = bool(getattr(args, "rniah_haystack", None))
     if (need_corpus and have_corpus) and (not need_haystack or have_haystack):
@@ -207,11 +193,17 @@ def _resolve_default_paths(args, *, need_corpus: bool, need_haystack: bool):
             )
         _ensure_wikitext_2(cache_dir=_KV_FIDELITY_CACHE)
     if need_corpus and not have_corpus:
+        manifest = _corpora.resolve_cached_corpus(_KV_FIDELITY_CACHE, "wiki.test.raw")
+        retained["corpus"] = artifact_to_data(manifest)
         args.corpus = default_corpus
         print(f"  using cached corpus  : {args.corpus}")
     if need_haystack and not have_haystack:
+        manifest = _corpora.resolve_cached_corpus(_KV_FIDELITY_CACHE, "wiki.train.raw")
+        retained["rniah_haystack"] = artifact_to_data(manifest)
         args.rniah_haystack = default_haystack
         print(f"  using cached haystack: {args.rniah_haystack}")
+    if retained:
+        args._input_artifacts = retained
 
 
 def _resolve_default_prompts(args) -> bool:
@@ -795,6 +787,7 @@ def _run_score(args) -> int:
             kld=kld,
             rniah=rniah,
             plad=plad,
+            extras={"input_artifacts": getattr(args, "_input_artifacts", {})},
         )
     if args.json_out:
         assert rep is not None
@@ -1176,13 +1169,13 @@ def _add_fetch_parser(sub):
         "fetch",
         help="Download wikitext-2-raw corpus + haystack to ~/.cache/kv-fidelity/.",
         description=(
-            "Pre-fetch the wikitext-2-raw corpus (10MB zip → wiki.test.raw "
+            "Pre-fetch the pinned wikitext-2-raw corpus (4.7MB zip → wiki.test.raw "
             "+ wiki.train.raw) into ~/.cache/kv-fidelity/. Subsequent score / "
             "repeatability invocations will auto-find these files when "
             "--corpus / --rniah-haystack are omitted. Custom cache "
             "directories require explicit input paths.\n\n"
-            "Idempotent: re-running with the cache already populated is a "
-            "no-op. Skips any download if files already exist."
+            "Cached files are checked against pinned SHA-256 hashes before reuse. "
+            "Downloads and extraction are size-limited and verified before promotion."
         ),
     )
     p.add_argument(
@@ -1197,7 +1190,11 @@ def _add_fetch_parser(sub):
 
 
 def _run_fetch(args) -> int:
-    target = _ensure_wikitext_2(cache_dir=args.cache_dir)
+    try:
+        target = _ensure_wikitext_2(cache_dir=args.cache_dir)
+    except (ArtifactIntegrityError, OSError, ValueError) as exc:
+        print(f"ERROR: corpus verification failed: {exc}", file=sys.stderr)
+        return 2
     print()
     print(f"  test  : {target / 'wiki.test.raw'}")
     print(f"  train : {target / 'wiki.train.raw'}")
@@ -1360,6 +1357,7 @@ def _run_repeatability(args) -> int:
         no_progress=True,
         backend=args.backend,
         no_auto_fetch=bool(getattr(args, "no_auto_fetch", False)),
+        _input_artifacts=dict(getattr(args, "_input_artifacts", {})),
     )
 
     for i in range(1, args.runs + 1):

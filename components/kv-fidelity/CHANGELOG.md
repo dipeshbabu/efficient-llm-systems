@@ -13,6 +13,13 @@ milestones. The first planned `kv-fidelity` release is 0.3.5.
 
 ## Unreleased
 
+- WikiText-2 downloads now use an immutable upstream revision and pinned
+  archive/member hashes through Metria's shared artifact API. Cached defaults
+  are verified before use; unsafe, oversized, or unexpected archive entries
+  are rejected before promotion. JSON reports retain input artifact provenance.
+  KV Fidelity now requires `metria>=0.1.1.dev0,<0.2`; use the uv workspace for
+  current development until the corresponding root release is published.
+
 - Removed the unnecessary Accelerate dependency from the optional benchmark
   stack to address GHSA-4j2p-28q2-5m79, which has no patched release.
   Single-device research loaders now use ordinary Transformers loading and

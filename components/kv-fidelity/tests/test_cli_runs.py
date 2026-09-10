@@ -146,6 +146,26 @@ def test_run_score_default_two_axis(tmp_path, monkeypatch, capsys):
     assert "KV Fidelity score" in out
 
 
+def test_score_report_retains_verified_download_identity(
+    tmp_path, monkeypatch, pinned_wikitext
+):
+    _patch_backends(monkeypatch)
+    monkeypatch.setattr(cli, "run_trajectory", lambda **kw: _traj_result())
+    monkeypatch.setattr(cli, "run_kld", lambda **kw: _kld_result())
+    monkeypatch.setattr(cli, "_KV_FIDELITY_CACHE", tmp_path / "cache")
+    report_path = tmp_path / "report.json"
+    args = _make_score_args(
+        tmp_path, corpus=None, no_auto_fetch=False, json_out=report_path
+    )
+    assert cli._run_score(args) == 0
+    manifest = json.loads(report_path.read_text())["extras"]["input_artifacts"][
+        "corpus"
+    ]
+    assert manifest["sha256"] == pinned_wikitext.members["wiki.test.raw"].sha256
+    assert manifest["metadata"]["integrity"]["verified"] is True
+    assert manifest["revision"] == pinned_wikitext.archive.revision
+
+
 def test_run_score_axis_a_gtm_branch(tmp_path, monkeypatch):
     _patch_backends(monkeypatch)
     monkeypatch.setattr(cli, "run_gtm", lambda **kw: _gtm_result(85.0))
@@ -515,7 +535,9 @@ def test_run_repeatability_resolves_defaults_once(tmp_path, monkeypatch):
         assert run_args.no_auto_fetch is True
 
 
-def test_run_repeatability_real_resolvers_use_offline_cache(tmp_path, monkeypatch):
+def test_run_repeatability_real_resolvers_use_offline_cache(
+    tmp_path, monkeypatch, pinned_wikitext
+):
     _patch_backends(monkeypatch)
     cache = tmp_path / "cache"
     target = cache / "wikitext-2-raw"

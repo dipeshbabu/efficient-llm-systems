@@ -38,9 +38,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
-# The framework itself deliberately has no non-stdlib runtime dependencies.
+# Shared artifact/comparison infrastructure comes from the stdlib-only Metria core.
 # Backend extras opt into the libraries needed by each inference engine.
-dependencies = []
+dependencies = ["metria>=0.1.1.dev0,<0.2"]
 
 [project.optional-dependencies]
 mlx = [

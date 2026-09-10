@@ -54,7 +54,9 @@ def test_cli_version() -> None:
     status = main(["--version"], stdout=stdout, stderr=stderr)
 
     assert status == 0
-    assert stdout.getvalue().startswith("metria 0.1.0")
+    from metria import __version__
+
+    assert stdout.getvalue().strip() == f"metria {__version__}"
     assert stderr.getvalue() == ""
 
 

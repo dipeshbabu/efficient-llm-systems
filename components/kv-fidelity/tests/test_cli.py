@@ -121,43 +121,50 @@ def test_repeatability_parser_rejects_non_positive_runs(runs):
         )
 
 
-# --- _ensure_wikitext_2 (mock urlretrieve + zipfile) ---------------------
+# --- _ensure_wikitext_2 (real verifier with a pinned synthetic download) ---
 
 
-def test_ensure_wikitext_2_idempotent_when_cached(tmp_path):
+def test_ensure_wikitext_2_idempotent_when_cached(tmp_path, pinned_wikitext):
     target = tmp_path / "wikitext-2-raw"
     target.mkdir()
-    (target / "wiki.test.raw").write_text("test data")
-    (target / "wiki.train.raw").write_text("train data")
+    for name, data in pinned_wikitext.data.items():
+        (target / name).write_bytes(data)
     out = _ensure_wikitext_2(cache_dir=tmp_path, silent=True)
     assert out == target
 
 
-def test_ensure_wikitext_2_downloads_when_missing(tmp_path, monkeypatch):
+def test_ensure_wikitext_2_downloads_when_missing(tmp_path, pinned_wikitext):
     """_ensure_wikitext_2 should fetch + extract when cache empty."""
-    import zipfile
-
-    def fake_urlretrieve(url, dest):
-        # Build a minimal zip with the two expected files.
-        with zipfile.ZipFile(dest, "w") as zf:
-            zf.writestr("wikitext-2-raw/wiki.test.raw", "test data")
-            zf.writestr("wikitext-2-raw/wiki.train.raw", "train data")
-
-    monkeypatch.setattr("urllib.request.urlretrieve", fake_urlretrieve)
     out = _ensure_wikitext_2(cache_dir=tmp_path, silent=True)
     assert (out / "wiki.test.raw").exists()
     assert (out / "wiki.train.raw").exists()
 
 
-def test_ensure_wikitext_2_raises_if_unzip_missing_files(tmp_path, monkeypatch):
+def test_ensure_wikitext_2_raises_if_unzip_missing_files(
+    tmp_path, monkeypatch, pinned_wikitext
+):
+    import hashlib
+    import io
     import zipfile
+    from dataclasses import replace
 
-    def fake_urlretrieve(url, dest):
-        # Empty zip — neither expected file present
-        with zipfile.ZipFile(dest, "w") as zf:
-            zf.writestr("README.txt", "nothing useful")
+    import metria.artifacts as artifacts
 
-    monkeypatch.setattr("urllib.request.urlretrieve", fake_urlretrieve)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("README.txt", "nothing useful")
+    data = buffer.getvalue()
+    monkeypatch.setattr(
+        cli._corpora,
+        "WIKITEXT_ARCHIVE",
+        replace(
+            pinned_wikitext.archive,
+            sha256=hashlib.sha256(data).hexdigest(),
+            size_bytes=len(data),
+        ),
+    )
+    monkeypatch.setattr(artifacts, "_open_url", lambda *a: io.BytesIO(data))
+
     with pytest.raises(RuntimeError):
         _ensure_wikitext_2(cache_dir=tmp_path, silent=True)
 
@@ -192,12 +199,14 @@ def test_resolve_default_paths_no_auto_fetch_raises_when_missing(tmp_path, monke
         _resolve_default_paths(args, need_corpus=True, need_haystack=False)
 
 
-def test_resolve_default_paths_uses_cache_when_present(tmp_path, monkeypatch, capsys):
+def test_resolve_default_paths_uses_cache_when_present(
+    tmp_path, monkeypatch, capsys, pinned_wikitext
+):
     cache = tmp_path / "cache"
     target = cache / "wikitext-2-raw"
     target.mkdir(parents=True)
-    (target / "wiki.test.raw").write_text("t")
-    (target / "wiki.train.raw").write_text("t")
+    (target / "wiki.test.raw").write_bytes(pinned_wikitext.data["wiki.test.raw"])
+    (target / "wiki.train.raw").write_bytes(pinned_wikitext.data["wiki.train.raw"])
     args = argparse.Namespace(corpus=None, rniah_haystack=None, no_auto_fetch=False)
     monkeypatch.setattr(cli, "_KV_FIDELITY_CACHE", cache)
     _resolve_default_paths(args, need_corpus=True, need_haystack=True)
@@ -205,7 +214,9 @@ def test_resolve_default_paths_uses_cache_when_present(tmp_path, monkeypatch, ca
     assert args.rniah_haystack == target / "wiki.train.raw"
 
 
-def test_resolve_default_paths_fetches_into_active_cache(tmp_path, monkeypatch):
+def test_resolve_default_paths_fetches_into_active_cache(
+    tmp_path, monkeypatch, pinned_wikitext
+):
     cache = tmp_path / "cache"
     calls = []
 
@@ -232,7 +243,7 @@ def test_resolve_default_paths_fetches_into_active_cache(tmp_path, monkeypatch):
 
 
 def test_resolve_default_paths_accepts_partial_cache_for_quick_run(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, pinned_wikitext
 ):
     cache = tmp_path / "cache"
     target = cache / "wikitext-2-raw"
@@ -256,7 +267,7 @@ def test_resolve_default_paths_accepts_partial_cache_for_quick_run(
 
 
 def test_resolve_default_paths_offline_error_names_missing_haystack(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, pinned_wikitext
 ):
     cache = tmp_path / "cache"
     target = cache / "wikitext-2-raw"
@@ -309,11 +320,11 @@ def test_resolve_default_prompts_reports_missing_resource(monkeypatch, capsys):
 # --- _run_fetch ----------------------------------------------------------
 
 
-def test_run_fetch_idempotent(tmp_path, capsys):
+def test_run_fetch_idempotent(tmp_path, capsys, pinned_wikitext):
     target = tmp_path / "wikitext-2-raw"
     target.mkdir()
-    (target / "wiki.test.raw").write_text("t")
-    (target / "wiki.train.raw").write_text("t")
+    for name, content in pinned_wikitext.data.items():
+        (target / name).write_bytes(content)
     args = argparse.Namespace(cache_dir=tmp_path)
     rc = _run_fetch(args)
     assert rc == 0
@@ -322,11 +333,13 @@ def test_run_fetch_idempotent(tmp_path, capsys):
     assert "not auto-discovered" in out
 
 
-def test_run_fetch_default_cache_reports_auto_discovery(tmp_path, monkeypatch, capsys):
+def test_run_fetch_default_cache_reports_auto_discovery(
+    tmp_path, monkeypatch, capsys, pinned_wikitext
+):
     target = tmp_path / "wikitext-2-raw"
     target.mkdir()
-    (target / "wiki.test.raw").write_text("t")
-    (target / "wiki.train.raw").write_text("t")
+    for name, content in pinned_wikitext.data.items():
+        (target / name).write_bytes(content)
     monkeypatch.setattr(cli, "_KV_FIDELITY_CACHE", tmp_path)
 
     assert _run_fetch(argparse.Namespace(cache_dir=tmp_path)) == 0
@@ -403,10 +416,10 @@ def test_main_compare_dispatches(tmp_path, capsys):
     assert rc == 0
 
 
-def test_main_fetch_dispatches(tmp_path, capsys):
+def test_main_fetch_dispatches(tmp_path, capsys, pinned_wikitext):
     target = tmp_path / "wikitext-2-raw"
     target.mkdir()
-    (target / "wiki.test.raw").write_text("t")
-    (target / "wiki.train.raw").write_text("t")
+    for name, content in pinned_wikitext.data.items():
+        (target / name).write_bytes(content)
     rc = main(["fetch", "--cache-dir", str(tmp_path)])
     assert rc == 0

@@ -46,15 +46,22 @@ a version-sensitive llama.cpp source patch.
 
 ```bash
 git clone https://github.com/dipeshbabu/metria.git
-cd metria/components/kv-fidelity
-pip install -e .          # editable install, base
-pip install -e .[mlx]     # editable + MLX backend
-pip install -e .[sglang]  # editable + SGLang backend
-pip install -e .[dev]     # editable + pytest + coverage + build tooling
+cd metria
+uv sync --all-packages              # root core + components + development tools
+uv run kv-fidelity --help
+# Add --extra mlx or --extra sglang to uv sync for the selected backend.
 ```
 
-The base install gives you the `kv-fidelity` CLI with no third-party
-dependencies. Supported backend dependencies are extras you opt into.
+KV Fidelity uses the stdlib-only Metria core for shared artifact infrastructure.
+The current development checkout requires `metria>=0.1.1.dev0,<0.2`; the workspace
+resolves that dependency locally until the corresponding root release is
+published. Inference backend dependencies remain optional extras.
+
+Default WikiText-2 inputs use an immutable upstream revision and pinned
+archive/member hashes. `kv-fidelity fetch` verifies cached contents, enforces
+download/extraction limits, and rejects unsafe archive members. Scoring JSON
+retains source, revision, license metadata, and full input hashes under
+`extras.input_artifacts`. See [artifact resolution](../../docs/guides/artifact-resolution.md).
 
 ## Platform support
 

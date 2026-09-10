@@ -593,7 +593,7 @@ class LlamaCppSession:
                     check=False,
                 )
             except subprocess.TimeoutExpired as exc:
-                raise RuntimeError(
+                raise TimeoutError(
                     "llama.cpp request timed out after "
                     f"{generation['timeout']:.3f}s using {Path(executable).name}"
                 ) from exc

@@ -7,8 +7,8 @@ from typing import Any
 import pytest
 
 import metria.runtimes.llamacpp as llamacpp_module
-from metria import RunSpec, TreatmentSpec, TreatmentType
-from metria.protocols import CaptureRequest, InferenceRequest
+from metria import RunSpec, RunStatus, TreatmentSpec, TreatmentType, execute_run
+from metria.protocols import CaptureRequest, InferenceRequest, MeasurementResult
 from metria.runtimes.llamacpp import LlamaCppAdapter, LlamaCppSession
 
 
@@ -236,7 +236,7 @@ def test_timeout_is_reported_without_prompt_leak(
 
     monkeypatch.setattr(llamacpp_module.subprocess, "run", fake_timeout)
 
-    with pytest.raises(RuntimeError, match="timed out") as exc_info:
+    with pytest.raises(TimeoutError, match="timed out") as exc_info:
         session.infer(
             (InferenceRequest(prompt="do not leak me", generation={"timeout": 1.0}),)
         )
@@ -251,3 +251,37 @@ def test_session_close_prevents_future_inference(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="session is closed"):
         session.infer((InferenceRequest(prompt="x"),))
+
+
+def test_execute_run_preserves_llamacpp_timeout_status(
+    tmp_path: Path, monkeypatch
+) -> None:
+    bin_dir, model = _files(tmp_path)
+
+    class TextMeasurement:
+        name = "text"
+        version = "1"
+
+        def requirements(self, config):
+            return ()
+
+        def execute(self, session, scenario, config):
+            session.infer((InferenceRequest(prompt="private timeout prompt"),))
+            return MeasurementResult()
+
+    def timeout(argv, **kwargs):
+        raise subprocess.TimeoutExpired(argv, 1)
+
+    monkeypatch.setattr(llamacpp_module.subprocess, "run", timeout)
+    record = execute_run(
+        study_name="timeout",
+        run_id="reference",
+        spec=_spec(bin_dir, model),
+        adapter=LlamaCppAdapter(),
+        measurement=TextMeasurement(),
+        measurement_config={},
+        environment={},
+    )
+
+    assert record.status is RunStatus.TIMED_OUT
+    assert "private timeout prompt" not in repr(record)

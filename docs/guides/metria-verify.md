@@ -15,10 +15,23 @@ policies. General study execution remains available through the Python APIs.
 Use Linux or Ubuntu WSL for the pinned example below. You need Git, a C++17
 compiler, CMake, Python 3.10-3.14, and curl. Inference stays on the local CPU.
 
-From a Metria checkout:
+Install the root package in a Python virtual environment. After publication:
 
 ```bash
-python -m pip install .
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install metria==0.1.0
+```
+
+Before publication, replace the last command with
+`python -m pip install /path/to/metria-0.1.0-py3-none-any.whl`.
+
+The Python package does not bundle the native runtime or model. Download and
+extract `metria-0.1.0.tar.gz` from the release assets (or, after publication,
+`python -m pip download --no-deps --no-binary=:all: metria==0.1.0`).
+From the extracted `metria-0.1.0` directory, prepare the pinned local example:
+
+```bash
 sh tools/qualification/build_llamacpp_cpu.sh /var/tmp/metria-example-build
 curl -fL "https://huggingface.co/ggml-org/models-moved/resolve/499bc8821c6b12b4e53c5bffcb21ec206f212d81/tinyllamas/stories260K.gguf" -o stories260K.gguf
 python tools/qualification/prepare_cpu_verification.py \

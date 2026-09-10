@@ -7,13 +7,14 @@ branch. Older release lines may be asked to upgrade before receiving a fix.
 
 | Component | Supported versions |
 | --- | --- |
+| `metria` | `0.1.x` and `main` |
 | `kv-fidelity` | `main` (no PyPI release yet) |
 | `turboquant-reference` | `0.1.x` and `main` |
 
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities through [GitHub private vulnerability
-reporting](https://github.com/dipeshbabu/efficient-llm-systems/security/advisories/new).
+reporting](https://github.com/dipeshbabu/metria/security/advisories/new).
 Do not include exploit details, secrets, or other sensitive information in a
 public issue.
 

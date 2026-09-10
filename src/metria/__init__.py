@@ -74,7 +74,7 @@ from .study_execution import (
     execute_study,
 )
 
-__version__ = "0.1.0.dev0"
+__version__ = "0.1.0"
 
 from .verification import VerificationResult, VerificationVerdict, verify_recipe
 

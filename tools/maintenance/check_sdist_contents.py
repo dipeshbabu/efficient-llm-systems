@@ -9,9 +9,24 @@ import tarfile
 from pathlib import Path, PurePosixPath
 
 _REQUIRED_ROOT_FILES = frozenset({"pyproject.toml", "LICENSE", "NOTICE"})
+_METRIA_RELEASE_FILES = frozenset(
+    {
+        "CHANGELOG.md",
+        "README.md",
+        "src/metria/__init__.py",
+        "src/metria/cli.py",
+        "src/metria/verification.py",
+        "docs/guides/metria-verify.md",
+        "tools/qualification/build_llamacpp_cpu.sh",
+        "tools/qualification/prepare_cpu_verification.py",
+        "tools/qualification/llamacpp-capture.patch",
+        "tools/qualification/LICENSE.llama.cpp",
+        "tools/qualification/llamacpp-cpu-model.json",
+    }
+)
 
 
-def check_sdist(path: Path) -> list[str]:
+def check_sdist(path: Path, *, metria_release: bool = False) -> list[str]:
     """Return validation errors for one Metria ``.tar.gz`` source distribution."""
 
     errors: list[str] = []
@@ -32,7 +47,10 @@ def check_sdist(path: Path) -> list[str]:
 
     root = next(iter(roots))
     member_set = set(members)
-    for filename in sorted(_REQUIRED_ROOT_FILES):
+    required = _REQUIRED_ROOT_FILES
+    if metria_release:
+        required = required | _METRIA_RELEASE_FILES
+    for filename in sorted(required):
         expected = f"{root}/{filename}"
         if expected not in member_set:
             errors.append(
@@ -44,11 +62,12 @@ def check_sdist(path: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("sdists", nargs="+", type=Path)
+    parser.add_argument("--metria-release", action="store_true")
     args = parser.parse_args()
 
     errors: list[str] = []
     for sdist in args.sdists:
-        errors.extend(check_sdist(sdist))
+        errors.extend(check_sdist(sdist, metria_release=args.metria_release))
     if errors:
         print("\n".join(errors), file=sys.stderr)
         return 1

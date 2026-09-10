@@ -20,14 +20,13 @@ as vLLM, llama.cpp, SGLang, MLX, TensorRT-LLM, torchao, LLM Compressor, and
 custom research code remain responsible for execution; Metria provides the
 study, provenance, measurement, and comparison layer around them.
 
-> **Status:** Metria is under active development (`0.1.0.dev0`). The root
-> package is installable from source, but it is not published to a package
-> index yet. Public APIs should still be considered provisional.
+> **Status:** `0.1.0` is the first Alpha release. Public APIs remain provisional.
+> Release files are prepared; PyPI publication is a separate maintainer step.
 
 The first complete CLI workflow verifies a **local llama.cpp CPU thread-count
 change** using a pinned model and qualified capture provider. It checks what ran,
 compares sampled token trajectories, and saves a report with both run records.
-The first public release is planned as `0.1.0`.
+See the [0.1.0 release notes](CHANGELOG.md) for the supported scope and limits.
 
 ## Why Metria
 
@@ -66,7 +65,7 @@ Metria is being built around four principles:
 | Recipes | Versioned `metria.study_recipe.v1` JSON with deterministic SHA-256 digesting |
 | Run records | Versioned `metria.run_record.v1` JSON with typed metrics plus full-record/evidence digests |
 | CLI | Local CPU-thread `metria verify`, recipe `validate` / `digest` / `normalize`, `metria inspect`, and saved-record `metria compare` |
-| Packaging | Root `metria` package installable from source; focused components stay independent |
+| Packaging | Dependency-free root `metria` wheel and source archive; focused components stay independent |
 
 The standalone [KV Fidelity](components/kv-fidelity/README.md) package also
 supports llama.cpp, MLX, vLLM, and SGLang for its focused KV-cache evaluation
@@ -75,7 +74,18 @@ of first-party runtime adapters already exposed by the Metria core.
 
 ## Quick start
 
-### 1. Install from source
+### 1. Install Metria
+
+Use Python 3.10–3.14. Once the maintainer publishes the release:
+
+```bash
+python -m pip install metria==0.1.0
+metria --version
+metria verify --help
+```
+
+Before publication, install the prepared wheel from the GitHub release, or
+install from source:
 
 ```bash
 git clone https://github.com/dipeshbabu/metria.git
@@ -91,7 +101,7 @@ inference engines. Runtime stacks remain optional and user-managed.
 
 ### 2. Verify a local CPU thread change
 
-Follow the [local verification guide](docs/guides/metria-verify.md) to build the
+Follow the [local verification guide](https://github.com/dipeshbabu/metria/blob/main/docs/guides/metria-verify.md) to build the
 pinned capture provider and prepare the small example model. Then run:
 
 ```bash

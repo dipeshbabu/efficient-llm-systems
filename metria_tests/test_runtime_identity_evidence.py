@@ -56,6 +56,52 @@ def test_runtime_identity_is_mapping_compatible_and_deeply_immutable() -> None:
         identity["runtime"]["name"] = "changed"
 
 
+def test_mapping_views_keep_key_order_and_hide_non_mapping_attributes() -> None:
+    identity = RuntimeIdentityEvidence(
+        status=IdentityStatus.VERIFIED,
+        model={"status": IdentityStatus.VERIFIED, "id": "example/model"},
+    )
+    expected_keys = (
+        "schema",
+        "status",
+        "model",
+        "tokenizer",
+        "runtime",
+        "chat_template",
+        "applied",
+        "endpoint",
+        "reasons",
+    )
+    assert tuple(identity) == expected_keys
+    assert tuple(identity.to_mapping()) == expected_keys
+    assert len(identity) == len(expected_keys)
+    assert dict(identity) == identity.to_mapping()
+    assert type(identity["status"]) is str
+    assert type(identity["model"]["status"]) is str
+    for key in ("missing", "__dict__", "to_mapping"):
+        assert key not in identity
+        assert identity.get(key, "fallback") == "fallback"
+        with pytest.raises(KeyError):
+            identity[key]
+    with pytest.raises(TypeError):
+        identity[[]]
+
+
+def test_all_mapping_views_retain_detached_nested_evidence() -> None:
+    values = [{"threads": [1, 2]}]
+    identity = RuntimeIdentityEvidence(
+        status="verified", applied=_verified_component(samples=values)
+    )
+    views = [identity, identity.to_mapping(), dict(identity), dict(identity.items())]
+    values[0]["threads"].append(3)
+    for view in views:
+        assert view["applied"]["samples"][0]["threads"] == (1, 2)
+        with pytest.raises(TypeError):
+            view["applied"]["samples"][0]["threads"] = ()
+    with pytest.raises(TypeError):
+        identity.to_mapping()["status"] = "unknown"
+
+
 def test_runtime_identity_cannot_overstate_component_authority() -> None:
     with pytest.raises(ValueError, match="aggregate component authority"):
         RuntimeIdentityEvidence(

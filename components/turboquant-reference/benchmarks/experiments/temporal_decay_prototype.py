@@ -289,7 +289,7 @@ def run_real_model_test():
         from transformers import AutoModelForCausalLM, AutoTokenizer
     except ImportError:
         print("SKIPPED: torch/transformers not available")
-        print("Install: pip install torch transformers accelerate")
+        print('Install: pip install "torch>=2.13" "transformers>=5.14.1"')
         return None
 
     print("Loading model...")

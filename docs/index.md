@@ -15,7 +15,6 @@ generated evidence lives under [`artifacts/`](../artifacts/README.md).
 - [Metria vLLM runtime adapter](guides/metria-vllm-runtime.md)
 - [Metria trajectory measurement bridge](guides/metria-trajectory-measurement.md)
 - [Metria pairwise analyses](guides/metria-pairwise-analysis.md)
-- [Historical TurboQuant+ engine setup](guides/getting-started.md)
 - [TurboQuant configuration recommendations](guides/turboquant-recommendations.md)
 - [MLX port](guides/mlx-port.md)
 - [Windows and AMD RDNA 4 setup](guides/windows-rdna4-setup.md)
@@ -27,6 +26,13 @@ generated evidence lives under [`artifacts/`](../artifacts/README.md).
 - [Test-suite definition](reference/test-suite-definition.md)
 - [Weight-compression results](reference/weight-compression-results.md)
 
+## Historical engine setup
+
+- [Archived TurboQuant+ fork setup](../research/archive/turboquant-engine-setup.md)
+
+This archived guide describes an experimental fork whose public source is
+unavailable. For the published Metria CLI, use the local verification guide above.
+
 ## Components
 
 - [KV Fidelity](../components/kv-fidelity/README.md)
@@ -37,6 +43,8 @@ generated evidence lives under [`artifacts/`](../artifacts/README.md).
 - [Project governance](../GOVERNANCE.md)
 - [Maintainers and component ownership](../MAINTAINERS.md)
 - [Repository settings baseline](maintainers/repository-settings.md)
+- [Publishing the root Metria package](guides/releasing-metria.md)
+- [Independent component release procedures](guides/releasing.md)
 
 When documents disagree, prefer current guidance backed by the newer
 controlled experiment. Preserve older results as dated evidence rather than

@@ -7,6 +7,7 @@ body:
     attributes:
       label: Target area
       options:
+        - Metria core or CLI
         - KV Fidelity
         - TurboQuant reference
         - Diagnostics

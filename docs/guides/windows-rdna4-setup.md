@@ -54,8 +54,8 @@ hipinfo
 cd C:\models
 
 # Python research prototype
-git clone https://github.com/dipeshbabu/efficient-llm-systems.git
-cd efficient-llm-systems
+git clone https://github.com/dipeshbabu/metria.git
+cd metria
 uv sync --all-packages
 uv run pytest
 

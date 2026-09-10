@@ -39,7 +39,10 @@ Only the protected publishing job receives OIDC permission.
    Merge by squash after all CI and security checks pass.
 2. Wait for checks on the resulting `main` commit, then create
    `metria-v<VERSION>` at that commit. The publication guard checks the
-   eight required jobs and their GitHub app identities on the tagged commit.
+   required main jobs and their GitHub app identities on the tagged commit.
+   It also finds the exact PR merged into that commit and verifies all eight
+   required checks on its head. GitHub attaches the aggregate `CodeQL` result
+   to the PR, while its analysis jobs run on both the PR and `main`.
 3. Run a validation-only release build:
 
    ```bash

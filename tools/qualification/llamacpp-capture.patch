@@ -1,0 +1,70 @@
+diff --git a/tools/completion/completion.cpp b/tools/completion/completion.cpp
+index 941b739..9235f28 100644
+--- a/tools/completion/completion.cpp
++++ b/tools/completion/completion.cpp
+@@ -8,6 +8,7 @@
+ 
+ #include <clocale>
+ #include <cstdio>
++#include <cstdlib>
+ #include <cstring>
+ #include <ctime>
+ #include <fstream>
+@@ -97,6 +98,17 @@ int llama_completion(int argc, char ** argv) {
+ 
+     auto & sparams = params.sampling;
+ 
++    const char * trajectory_path = std::getenv("KV_FIDELITY_TRAJECTORY");
++    std::ofstream trajectory;
++    int trajectory_step = 0;
++    if (trajectory_path && trajectory_path[0]) {
++        trajectory.open(trajectory_path, std::ios::out | std::ios::trunc);
++        if (!trajectory) {
++            LOG_ERR("cannot open token capture file\n");
++            return 1;
++        }
++    }
++
+     // save choice to use color for later
+     // (note for later: this is a slightly awkward choice)
+     console::init(params.simple_io, params.use_color);
+@@ -183,6 +195,23 @@ int llama_completion(int argc, char ** argv) {
+         LOG_WRN("%s: chat template is not available or is not supported. This may cause the model to output suboptimal responses\n", __func__);
+     }
+ 
++    if (trajectory.is_open()) {
++        std::ofstream evidence(std::string(trajectory_path) + ".runtime.json");
++        evidence << "{\"schema\":\"metria.llamacpp_capture.v1\","
++                 << "\"context\":" << llama_n_ctx(ctx) << ","
++                 << "\"threads\":" << llama_n_threads(ctx) << ","
++                 << "\"threads_batch\":" << llama_n_threads_batch(ctx) << ","
++                 << "\"vocab_size\":" << llama_vocab_n_tokens(vocab) << ","
++                 << "\"chat_template_applied\":"
++                 << ((params.conversation_mode && params.enable_chat_template) ? "true" : "false")
++                 << "}\n";
++        evidence.close();
++        if (!evidence) {
++            LOG_ERR("cannot write runtime capture file\n");
++            return 1;
++        }
++    }
++
+     // print chat template example in conversation mode
+     if (params.conversation_mode) {
+         if (params.enable_chat_template) {
+@@ -667,6 +696,15 @@ int llama_completion(int argc, char ** argv) {
+ 
+             const llama_token id = common_sampler_sample(smpl, ctx, -1);
+ 
++            if (trajectory.is_open()) {
++                trajectory << "{\"step\":" << trajectory_step++ << ",\"token_id\":" << id << "}\n";
++                trajectory.flush();
++                if (!trajectory) {
++                    LOG_ERR("cannot write token capture file\n");
++                    return 1;
++                }
++            }
++
+             common_sampler_accept(smpl, id, /* accept_grammar= */ true);
+ 
+             // LOG_DBG("last: %s\n", string_from(ctx, smpl->prev.to_vector()).c_str());

@@ -15,7 +15,7 @@ repos:
         exclude: ^(artifacts/|research/)
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
-        exclude: ^(artifacts/|research/)
+        exclude: ^(artifacts/|research/|tools/qualification/.*\.patch$)
 
   # Ruff hook updates are reviewed against the root lint/type configuration.
   - repo: https://github.com/astral-sh/ruff-pre-commit

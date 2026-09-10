@@ -21,6 +21,23 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from metria import ProcessResult
+
+
+def _process_result(**overrides):
+    return ProcessResult(
+        **{
+            "command_fingerprint": "sha256:" + "0" * 64,
+            "returncode": 0,
+            "stdout": "",
+            "stderr": "",
+            "timed_out": False,
+            "elapsed_s": 0.1,
+            **overrides,
+        }
+    )
+
+
 # ---------------------------------------------------------------------------
 # Import the repository diagnostic tool.
 # ---------------------------------------------------------------------------
@@ -337,7 +354,7 @@ class TestBackgroundMonitor:
         finally:
             thd.MONITOR_POLL_INTERVAL = orig
 
-    @patch("subprocess.check_output")
+    @patch("turbo_hardware_diag._probe_output")
     @patch("platform.system", return_value="Darwin")
     def test_darwin_mem_pressure(self, mock_plat, mock_subp):
         mock_subp.return_value = MOCK_VM_STAT
@@ -345,14 +362,14 @@ class TestBackgroundMonitor:
         # (500000 + 300000) / (500000 + 300000 + 1000000) = 44%
         assert result == "44"
 
-    @patch("subprocess.check_output")
+    @patch("turbo_hardware_diag._probe_output")
     @patch("platform.system", return_value="Darwin")
     def test_darwin_cpu_speed_limit(self, mock_plat, mock_subp):
         mock_subp.return_value = MOCK_PMSET_THERM
         result = thd.BackgroundMonitor._macos_cpu_speed_limit()
         assert result == "100"
 
-    @patch("subprocess.check_output")
+    @patch("turbo_hardware_diag._probe_output")
     @patch("platform.system", return_value="Linux")
     def test_linux_mem_pct(self, mock_plat, mock_subp):
         mock_subp.return_value = MOCK_FREE_OUTPUT
@@ -360,7 +377,7 @@ class TestBackgroundMonitor:
         # 40000000 / 131072000 * 100 = ~31
         assert int(result) == 31
 
-    @patch("subprocess.check_output", side_effect=FileNotFoundError)
+    @patch("turbo_hardware_diag._probe_output", side_effect=FileNotFoundError)
     def test_graceful_na_when_probes_fail(self, mock_subp):
         result = thd.BackgroundMonitor._nvidia_query("temperature.gpu")
         assert result == "N/A"
@@ -841,18 +858,12 @@ class TestBenchRunner:
 
     def test_subprocess_timeout_handled(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.stdout = iter([])
-            mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-                cmd="test", timeout=600
-            )
-            mock_proc.kill = MagicMock()
-            mock_popen.return_value = mock_proc
-
+        with patch("turbo_hardware_diag.run_process") as mock_run:
+            mock_run.return_value = _process_result(timed_out=True, stdout="partial")
             output, rc = thd._run_subprocess(["fake"], log, timeout=1)
         log.close()
         assert rc == -1
+        assert output == "partial"
         content = (tmp_path / "test.txt").read_text()
         assert "timed out" in content
 
@@ -1130,7 +1141,7 @@ class TestSections:
     def test_section_3_model_info(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("os.path.getsize", return_value=36_000_000_000),
         ):
             mock_run.return_value = _make_completed_process(stdout=MOCK_CLI_OUTPUT)
@@ -1143,7 +1154,7 @@ class TestSections:
     def test_section_4_gpu_capabilities(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("shutil.which", return_value=None),
         ):
@@ -1162,7 +1173,7 @@ class TestSections:
     def test_section_5_build_validation(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 some commit"),
         ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 OK")
@@ -1614,7 +1625,9 @@ class TestPackaging:
 class TestGracefulDegradation:
     """System survives when probes and tools are missing."""
 
-    @patch("subprocess.check_output", side_effect=FileNotFoundError("missing"))
+    @patch(
+        "turbo_hardware_diag._probe_output", side_effect=FileNotFoundError("missing")
+    )
     def test_missing_nvidia_smi_warning(self, mock_sub, tmp_path):
         result = thd.BackgroundMonitor._nvidia_query("temperature.gpu")
         assert result == "N/A"
@@ -1648,13 +1661,8 @@ class TestGracefulDegradation:
 
     def test_subprocess_timeout_produces_timeout_tag(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.stdout = iter([])
-            mock_proc.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
-            mock_proc.kill = MagicMock()
-            mock_popen.return_value = mock_proc
-
+        with patch("turbo_hardware_diag.run_process") as mock_run:
+            mock_run.return_value = _process_result(timed_out=True)
             output, rc = thd._run_subprocess(["fake-cmd"], log, timeout=5)
         log.close()
         assert rc == -1
@@ -1663,7 +1671,9 @@ class TestGracefulDegradation:
 
     def test_permission_denied_warning(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.Popen", side_effect=PermissionError("denied")):
+        with patch(
+            "turbo_hardware_diag.run_process", side_effect=PermissionError("denied")
+        ):
             output, rc = thd._run_subprocess(["restricted-cmd"], log)
         log.close()
         assert rc == -1
@@ -1867,7 +1877,7 @@ class TestParsingHelpers:
 class TestDetectStorageType:
     """SSD/HDD detection for model files."""
 
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag._run_probe")
     def test_darwin_ssd_from_diskutil(self, mock_run):
         mock_run.return_value = _make_completed_process(
             stdout="<dict><key>SolidState</key></dict>"
@@ -1875,7 +1885,7 @@ class TestDetectStorageType:
         result = thd.detect_storage_type("/fake/model.gguf", "Darwin")
         assert result == "ssd"
 
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag._run_probe")
     def test_darwin_apple_silicon_implies_ssd(self, mock_run):
         # diskutil doesn't say SolidState, but sysctl says Apple
         def side_effect(cmd, **kwargs):
@@ -1889,7 +1899,7 @@ class TestDetectStorageType:
         result = thd.detect_storage_type("/fake/model.gguf", "Darwin")
         assert result == "ssd"
 
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag._run_probe")
     def test_darwin_unknown_cpu(self, mock_run):
         def side_effect(cmd, **kwargs):
             if "diskutil" in cmd:
@@ -1904,7 +1914,7 @@ class TestDetectStorageType:
 
     @patch("os.path.exists", return_value=False)
     @patch("os.path.realpath", return_value="/fake/model.gguf")
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag._run_probe")
     def test_linux_nvme_is_ssd(self, mock_run, mock_real, mock_exists):
         mock_run.return_value = _make_completed_process(
             stdout="Filesystem     1K-blocks   Used Available Use% Mounted on\n/dev/nvme0n1p1 500000000 200000000 300000000  40% /",
@@ -1915,7 +1925,7 @@ class TestDetectStorageType:
 
     def test_linux_ssd_from_rotational(self):
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("os.path.realpath", return_value="/fake/model.gguf"),
             patch("os.path.exists", return_value=True),
             patch("builtins.open", mock.mock_open(read_data="0")),
@@ -1929,7 +1939,7 @@ class TestDetectStorageType:
 
     def test_linux_hdd_from_rotational(self):
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("os.path.realpath", return_value="/fake/model.gguf"),
             patch("os.path.exists", return_value=True),
             patch("builtins.open", mock.mock_open(read_data="1")),
@@ -1942,13 +1952,13 @@ class TestDetectStorageType:
         assert result == "hdd"
 
     @patch("os.path.realpath", return_value="/fake/model.gguf")
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag._run_probe")
     def test_linux_df_failure_returns_unknown(self, mock_run, mock_real):
         mock_run.return_value = _make_completed_process(stdout="", rc=1)
         result = thd.detect_storage_type("/fake/model.gguf", "Linux")
         assert result == "unknown"
 
-    @patch("subprocess.run", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag.run_process", side_effect=Exception("boom"))
     def test_exception_returns_unknown(self, mock_run):
         result = thd.detect_storage_type("/fake/model.gguf", "Darwin")
         assert result == "unknown"
@@ -2064,67 +2074,67 @@ class TestBackgroundMonitorExtended:
     """Extended monitor coverage — static methods + _poll internals."""
 
     @patch(
-        "subprocess.check_output",
+        "turbo_hardware_diag._probe_output",
         return_value="total = 2048.00M  used = 150.50M  free = 1897.50M",
     )
     def test_macos_swap_mb(self, mock_sub):
         result = thd.BackgroundMonitor._macos_swap_mb()
         assert result == "150.50"
 
-    @patch("subprocess.check_output", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag._probe_output", side_effect=Exception("boom"))
     def test_macos_swap_mb_exception(self, mock_sub):
         result = thd.BackgroundMonitor._macos_swap_mb()
         assert result == "0"
 
-    @patch("subprocess.check_output", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag._probe_output", side_effect=Exception("boom"))
     def test_macos_mem_pressure_exception(self, mock_sub):
         result = thd.BackgroundMonitor._macos_mem_pressure()
         assert result == "0"
 
     @patch(
-        "subprocess.check_output",
+        "turbo_hardware_diag._probe_output",
         return_value="Mach Virtual Memory Statistics:\nPages active: 0.\nPages wired down: 0.\nPages free: 0.",
     )
     def test_macos_mem_pressure_zero_total(self, mock_sub):
         result = thd.BackgroundMonitor._macos_mem_pressure()
         assert result == "0"
 
-    @patch("subprocess.check_output", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag._probe_output", side_effect=Exception("boom"))
     def test_macos_cpu_speed_limit_exception(self, mock_sub):
         result = thd.BackgroundMonitor._macos_cpu_speed_limit()
         assert result == "100"
 
-    @patch("subprocess.check_output", return_value="no CPU_Speed_Limit here")
+    @patch("turbo_hardware_diag._probe_output", return_value="no CPU_Speed_Limit here")
     def test_macos_cpu_speed_limit_no_match(self, mock_sub):
         result = thd.BackgroundMonitor._macos_cpu_speed_limit()
         assert result == "100"
 
-    @patch("subprocess.check_output", return_value=MOCK_FREE_OUTPUT)
+    @patch("turbo_hardware_diag._probe_output", return_value=MOCK_FREE_OUTPUT)
     def test_linux_swap_mb(self, mock_sub):
         result = thd.BackgroundMonitor._linux_swap_mb()
         assert result == "384000"
 
-    @patch("subprocess.check_output", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag._probe_output", side_effect=Exception("boom"))
     def test_linux_swap_mb_exception(self, mock_sub):
         result = thd.BackgroundMonitor._linux_swap_mb()
         assert result == "0"
 
-    @patch("subprocess.check_output", side_effect=Exception("boom"))
+    @patch("turbo_hardware_diag._probe_output", side_effect=Exception("boom"))
     def test_linux_mem_pct_exception(self, mock_sub):
         result = thd.BackgroundMonitor._linux_mem_pct()
         assert result == "0"
 
-    @patch("subprocess.check_output", return_value="no Mem: line here")
+    @patch("turbo_hardware_diag._probe_output", return_value="no Mem: line here")
     def test_linux_mem_pct_no_mem_line(self, mock_sub):
         result = thd.BackgroundMonitor._linux_mem_pct()
         assert result == "0"
 
-    @patch("subprocess.check_output", return_value="no Swap: line here")
+    @patch("turbo_hardware_diag._probe_output", return_value="no Swap: line here")
     def test_linux_swap_mb_no_swap_line(self, mock_sub):
         result = thd.BackgroundMonitor._linux_swap_mb()
         assert result == "0"
 
-    @patch("subprocess.check_output", return_value="42\n")
+    @patch("turbo_hardware_diag._probe_output", return_value="42\n")
     def test_nvidia_query_success(self, mock_sub):
         result = thd.BackgroundMonitor._nvidia_query("temperature.gpu")
         assert result == "42"
@@ -2503,7 +2513,9 @@ class TestSectionsExtended:
     def test_section_3_model_info_exception(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run", side_effect=Exception("cli failed")),
+            patch(
+                "turbo_hardware_diag._run_probe", side_effect=Exception("cli failed")
+            ),
             patch("os.path.getsize", side_effect=OSError("no file")),
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("turbo_hardware_diag.detect_storage_type", return_value="unknown"),
@@ -2517,7 +2529,7 @@ class TestSectionsExtended:
     def test_section_3_model_info_ssd_detection(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("os.path.getsize", return_value=36_000_000_000),
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("turbo_hardware_diag.detect_storage_type", return_value="hdd"),
@@ -2533,7 +2545,7 @@ class TestSectionsExtended:
     def test_section_4_gpu_linux(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
             patch("shutil.which", return_value="/usr/bin/nvidia-smi"),
             patch(
@@ -2554,7 +2566,7 @@ class TestSectionsExtended:
     def test_section_4_gpu_linux_no_nvidia(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
             patch("shutil.which", return_value=None),
         ):
@@ -2568,7 +2580,7 @@ class TestSectionsExtended:
         log = _make_log(tmp_path)
         gpu_output = "build: 123\nhas tensor            = false"
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("shutil.which", return_value=None),
         ):
@@ -2583,7 +2595,10 @@ class TestSectionsExtended:
     def test_section_4_exception(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run", side_effect=Exception("gpu init failed")),
+            patch(
+                "turbo_hardware_diag._run_probe",
+                side_effect=Exception("gpu init failed"),
+            ),
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch("shutil.which", return_value=None),
         ):
@@ -2599,7 +2614,7 @@ class TestSectionsExtended:
     def test_section_5_turbo3_failure(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag._run_cmd", return_value=""),
         ):
             mock_run.return_value = _make_completed_process(stdout="", rc=1)
@@ -2621,7 +2636,7 @@ class TestSectionsExtended:
             raise Exception("metal lib failed")
 
         with (
-            patch("subprocess.run", side_effect=side_effect),
+            patch("turbo_hardware_diag._run_probe", side_effect=side_effect),
             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"),
         ):
             thd.section_5_build_validation(
@@ -2634,7 +2649,7 @@ class TestSectionsExtended:
     def test_section_5_no_git_repo(self, tmp_path):
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag._run_cmd", return_value=""),
         ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 OK")
@@ -2680,7 +2695,7 @@ class TestSectionsExtended:
 
     def test_section_11_memory(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run") as mock_run:
+        with patch("turbo_hardware_diag._run_probe") as mock_run:
             mock_run.return_value = _make_completed_process(
                 stdout="KV buffer size = 1024 MB", stderr=""
             )
@@ -2691,7 +2706,9 @@ class TestSectionsExtended:
 
     def test_section_11_memory_exception(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.run", side_effect=Exception("cli crashed")):
+        with patch(
+            "turbo_hardware_diag._run_probe", side_effect=Exception("cli crashed")
+        ):
             thd.section_11_memory(log, "/fake/cli", "/fake/model.gguf")
         log.close()
         content = (tmp_path / "test.txt").read_text()
@@ -3201,22 +3218,44 @@ class TestMainFunction:
 class TestRunCmd:
     """_run_cmd utility."""
 
-    @patch("subprocess.run", side_effect=Exception("boom"))
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"timed_out": True},
+            {"stdout_truncated": True},
+            {"stderr_truncated": True},
+        ],
+    )
+    def test_probe_rejects_incomplete_evidence(self, overrides):
+        with patch(
+            "turbo_hardware_diag.run_process", return_value=_process_result(**overrides)
+        ):
+            with pytest.raises((TimeoutError, thd.ProcessError)):
+                thd._run_probe(["fake"], timeout=1)
+
+    def test_checked_probe_rejects_nonzero_exit(self):
+        with patch(
+            "turbo_hardware_diag.run_process",
+            return_value=_process_result(returncode=7),
+        ):
+            with pytest.raises(thd.ProcessError, match="status 7"):
+                thd._probe_output(["fake"], timeout=1)
+
+    @patch("turbo_hardware_diag._run_probe", side_effect=Exception("boom"))
     def test_run_cmd_exception_returns_empty(self, mock_run):
         result = thd._run_cmd(["fake"])
         assert result == ""
 
-    @patch("subprocess.run")
+    @patch("turbo_hardware_diag.run_process")
     def test_run_cmd_success(self, mock_run):
-        mock_run.return_value = _make_completed_process(stdout="  output  ")
+        mock_run.return_value = _process_result(stdout="  output  ")
         result = thd._run_cmd(["fake"])
         assert result == "output"
 
-    @patch("subprocess.run")
-    def test_run_cmd_shell(self, mock_run):
-        mock_run.return_value = _make_completed_process(stdout="shell out")
-        result = thd._run_cmd("echo test", shell=True)
-        assert result == "shell out"
+    @patch("turbo_hardware_diag.run_process")
+    def test_run_cmd_timeout(self, mock_run):
+        mock_run.return_value = _process_result(stdout="partial", timed_out=True)
+        assert thd._run_cmd(["fake"]) == ""
 
 
 # ============================================================
@@ -3227,19 +3266,24 @@ class TestSubprocessRunner:
 
     def test_subprocess_with_env_extra(self, tmp_path):
         log = _make_log(tmp_path)
-        with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.stdout = iter(["line1\n", "line2\n"])
-            mock_proc.wait.return_value = None
-            mock_proc.returncode = 0
-            mock_popen.return_value = mock_proc
 
+        def run(command, **kwargs):
+            assert kwargs["env"]["FOO"] == "bar"
+            assert kwargs["timeout_s"] == 10
+            assert kwargs["merge_stderr"]
+            kwargs["on_output"]("stdout", "line1\r\nline")
+            kwargs["on_output"]("stdout", "2\npartial")
+            return _process_result(stdout="line1\r\nline2\npartial")
+
+        with patch("turbo_hardware_diag.run_process", side_effect=run):
             output, rc = thd._run_subprocess(
                 ["cmd"], log, env_extra={"FOO": "bar"}, timeout=10
             )
         log.close()
         assert "line1" in output
         assert rc == 0
+        assert output == "line1\nline2\npartial"
+        assert "line1\nline2\npartial" in (tmp_path / "test.txt").read_text()
 
     def test_run_bench_rc_minus1_no_failed(self, tmp_path):
         """rc=-1 means timeout already handled, don't print FAILED again."""
@@ -3446,24 +3490,22 @@ class TestExceptPaths:
         content = (tmp_path / "test.txt").read_text()
         assert "[WARNING]" in content
 
-    def test_subprocess_kill_failure(self, tmp_path):
-        """Cover the proc.kill() exception path in _run_subprocess."""
+    def test_subprocess_cleanup_failure(self, tmp_path):
+        """Shared lifecycle errors remain safe, nonfatal diagnostic failures."""
         log = _make_log(tmp_path)
-        with patch("subprocess.Popen") as mock_popen:
-            mock_proc = MagicMock()
-            mock_proc.stdout = iter([])
-            mock_proc.wait.side_effect = subprocess.TimeoutExpired("cmd", 5)
-            mock_proc.kill.side_effect = OSError("already dead")
-            mock_popen.return_value = mock_proc
+        with patch(
+            "turbo_hardware_diag.run_process", side_effect=OSError("secret-path")
+        ):
             output, rc = thd._run_subprocess(["fake"], log, timeout=5)
         log.close()
         assert rc == -1
+        assert "secret-path" not in (tmp_path / "test.txt").read_text()
 
     def test_section_3_storage_detection_exception(self, tmp_path):
         """Cover the except in section_3 storage detection."""
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("os.path.getsize", return_value=1000),
             patch("turbo_hardware_diag.detect_platform", return_value="Darwin"),
             patch(
@@ -3481,7 +3523,10 @@ class TestExceptPaths:
         """Cover section 5 turbo3 validation exception path."""
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run", side_effect=Exception("turbo validation failed")),
+            patch(
+                "turbo_hardware_diag._run_probe",
+                side_effect=Exception("turbo validation failed"),
+            ),
             patch("turbo_hardware_diag._run_cmd", return_value=""),
         ):
             thd.section_5_build_validation(
@@ -3612,7 +3657,7 @@ class TestExceptPaths:
             return _make_completed_process(stdout=metal_output, rc=0)
 
         with (
-            patch("subprocess.run", side_effect=run_side),
+            patch("turbo_hardware_diag._run_probe", side_effect=run_side),
             patch("turbo_hardware_diag._run_cmd", return_value="abc1234 commit"),
         ):
             thd.section_5_build_validation(
@@ -4022,7 +4067,7 @@ class TestCoverageGapClosers:
         """Cover except when nvidia-smi CUDA query raises in section_4."""
         log = _make_log(tmp_path)
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag.detect_platform", return_value="Linux"),
             patch("shutil.which", return_value="/usr/bin/nvidia-smi"),
             patch(
@@ -4049,7 +4094,7 @@ class TestCoverageGapClosers:
             return ""
 
         with (
-            patch("subprocess.run") as mock_run,
+            patch("turbo_hardware_diag._run_probe") as mock_run,
             patch("turbo_hardware_diag._run_cmd", side_effect=patched_run_cmd),
         ):
             mock_run.return_value = _make_completed_process(stdout="turbo3 test passed")

@@ -1,7 +1,7 @@
 # Tools
 
 Hardware profiling, benchmarking, quality validation, and conversion utilities
-for Efficient LLM Systems. Tools are grouped by purpose:
+for Metria. Tools are grouped by purpose:
 
 - `diagnostics/` — portable hardware and runtime diagnostics
 - `validation/` — quality gates, NIAH, MLX validation, and skip-rate analysis
@@ -46,6 +46,12 @@ retries and timeouts. If installation is unavailable, the diagnostic continues
 with its tested ASCII display. Running the Python script directly never
 installs optional dependencies.
 
+Benchmark runs and command probes use Metria's shared
+[subprocess lifecycle](../docs/guides/subprocess-lifecycle.md), including deadlines
+for silent processes and process-tree cleanup. Run the diagnostic from the full
+repository checkout so the launcher can load the shared library. Timeout logs
+retain partial output without exposing command arguments.
+
 ---
 
 ## Quality & Speed At A Glance
@@ -84,8 +90,8 @@ turbo3 matches q8_0 on needle retrieval. The few single-needle misses at 32K ove
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/dipeshbabu/efficient-llm-systems.git
-cd efficient-llm-systems
+git clone https://github.com/dipeshbabu/metria.git
+cd metria
 
 # 2. Run the diagnostic
 bash tools/diagnostics/turbo-diag /path/to/llama.cpp /path/to/model.gguf

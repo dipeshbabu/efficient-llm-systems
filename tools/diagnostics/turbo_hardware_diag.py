@@ -29,7 +29,6 @@ import platform
 import re
 import shutil
 import signal
-import subprocess
 import sys
 import textwrap
 import threading
@@ -38,6 +37,18 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+# The Bash launcher and direct Python entry point use their checkout's shared
+# library, including when an older Metria is installed in the environment.
+source_dir = Path(__file__).resolve().parents[2] / "src"
+if (source_dir / "metria" / "processes.py").is_file():
+    sys.path.insert(0, str(source_dir))
+try:
+    from metria.processes import ProcessError, ProcessResult, run_process
+except ModuleNotFoundError as exc:
+    if exc.name not in {"metria", "metria.processes"}:
+        raise
+    raise SystemExit("Run this diagnostic from a complete Metria checkout.") from None
 
 # ---------------------------------------------------------------------------
 # Optional rich import — graceful fallback to plain text
@@ -109,19 +120,15 @@ def detect_storage_type(model_path: str, plat: str) -> str:
     try:
         if plat == "Darwin":
             # Get the mount point for the model file
-            result = subprocess.run(
+            result = _run_probe(
                 ["diskutil", "info", "-plist", "/"],
-                capture_output=True,
-                text=True,
                 timeout=10,
             )
             if "Solid State" in result.stdout or "SolidState" in result.stdout:
                 return "ssd"
             # Apple Silicon Macs are always SSD
-            cpu = subprocess.run(
+            cpu = _run_probe(
                 ["sysctl", "-n", "machdep.cpu.brand_string"],
-                capture_output=True,
-                text=True,
                 timeout=5,
             )
             if "Apple" in cpu.stdout:
@@ -130,10 +137,8 @@ def detect_storage_type(model_path: str, plat: str) -> str:
         elif plat == "Linux":
             # Find the block device for the model file's mount point
             model_real = os.path.realpath(model_path)
-            result = subprocess.run(
+            result = _run_probe(
                 ["df", model_real],
-                capture_output=True,
-                text=True,
                 timeout=10,
             )
             if result.returncode == 0:
@@ -356,7 +361,7 @@ class BackgroundMonitor(threading.Thread):
     @staticmethod
     def _macos_mem_pressure() -> str:
         try:
-            out = subprocess.check_output(["vm_stat"], text=True, timeout=5)
+            out = _probe_output(["vm_stat"], timeout=5)
             active = wired = free = 0
             for line in out.splitlines():
                 if "Pages active" in line:
@@ -375,9 +380,7 @@ class BackgroundMonitor(threading.Thread):
     @staticmethod
     def _macos_swap_mb() -> str:
         try:
-            out = subprocess.check_output(
-                ["sysctl", "-n", "vm.swapusage"], text=True, timeout=5
-            )
+            out = _probe_output(["sysctl", "-n", "vm.swapusage"], timeout=5)
             m = re.search(r"used\s*=\s*([\d.]+)M", out)
             return m.group(1) if m else "0"
         except Exception:
@@ -386,9 +389,7 @@ class BackgroundMonitor(threading.Thread):
     @staticmethod
     def _macos_cpu_speed_limit() -> str:
         try:
-            out = subprocess.check_output(
-                ["pmset", "-g", "therm"], text=True, timeout=5
-            )
+            out = _probe_output(["pmset", "-g", "therm"], timeout=5)
             m = re.search(r"CPU_Speed_Limit\s+(\d+)", out)
             return m.group(1) if m else "100"
         except Exception:
@@ -397,7 +398,7 @@ class BackgroundMonitor(threading.Thread):
     @staticmethod
     def _linux_mem_pct() -> str:
         try:
-            out = subprocess.check_output(["free"], text=True, timeout=5)
+            out = _probe_output(["free"], timeout=5)
             for line in out.splitlines():
                 if line.startswith("Mem:"):
                     parts = line.split()
@@ -409,7 +410,7 @@ class BackgroundMonitor(threading.Thread):
     @staticmethod
     def _linux_swap_mb() -> str:
         try:
-            out = subprocess.check_output(["free", "-m"], text=True, timeout=5)
+            out = _probe_output(["free", "-m"], timeout=5)
             for line in out.splitlines():
                 if line.startswith("Swap:"):
                     return line.split()[2]
@@ -421,9 +422,8 @@ class BackgroundMonitor(threading.Thread):
     def _nvidia_query(field: str) -> str:
         """Query nvidia-smi. For multi-GPU, returns sum/max/first depending on field."""
         try:
-            out = subprocess.check_output(
+            out = _probe_output(
                 ["nvidia-smi", f"--query-gpu={field}", "--format=csv,noheader,nounits"],
-                text=True,
                 timeout=5,
             )
             lines = [line.strip() for line in out.strip().split("\n") if line.strip()]
@@ -1114,17 +1114,33 @@ def detect_hardware(log: DiagLog) -> dict:
     return hw
 
 
-def _run_cmd(cmd: list[str] | str, timeout: int = 10, shell: bool = False) -> str:
+def _run_probe(cmd: list[str], *, timeout: int) -> ProcessResult:
+    """Preserve probe failure handling while sharing process containment."""
+    result = run_process(cmd, timeout_s=timeout)
+    if result.timed_out:
+        raise TimeoutError(
+            f"Command timed out after {timeout}s ({result.command_fingerprint})"
+        )
+    if result.stdout_truncated or result.stderr_truncated:
+        raise ProcessError(
+            f"Command probe output exceeded its limit ({result.command_fingerprint})"
+        )
+    return result
+
+
+def _probe_output(cmd: list[str], *, timeout: int) -> str:
+    result = _run_probe(cmd, timeout=timeout)
+    if result.returncode:
+        raise ProcessError(
+            f"Command probe exited with status {result.returncode} ({result.command_fingerprint})"
+        )
+    return result.stdout
+
+
+def _run_cmd(cmd: list[str], timeout: int = 10) -> str:
     """Run a command, return stdout. Never raises."""
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            shell=shell,
-        )
-        return result.stdout.strip()
+        return _run_probe(cmd, timeout=timeout).stdout.strip()
     except Exception:
         # Expected probe failure — command may not exist on this platform
         return ""
@@ -1535,33 +1551,41 @@ def _run_subprocess(
     if env_extra:
         env.update(env_extra)
 
+    pending = ""
+
+    def write_output(_stream: str, chunk: str) -> None:
+        nonlocal pending
+        lines = (pending + chunk).split("\n")
+        pending = lines.pop()
+        for line in lines:
+            log.write(line.rstrip("\r"))
+        # Bound buffering even for a program that never emits a newline.
+        if len(pending) >= 8192:
+            log.write(pending)
+            pending = ""
+
     try:
-        proc = subprocess.Popen(
+        result = run_process(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
+            timeout_s=timeout,
             env=env,
-            bufsize=1,
+            merge_stderr=True,
+            on_output=write_output,
         )
-        lines: list[str] = []
-        assert proc.stdout is not None
-        for line in proc.stdout:
-            line = line.rstrip("\n")
-            lines.append(line)
-            log.write(line)
-        proc.wait(timeout=timeout)
-        return "\n".join(lines), proc.returncode
-    except subprocess.TimeoutExpired:
-        log.warning(f"Command timed out after {timeout}s: {' '.join(cmd[:4])}...")
-        try:
-            proc.kill()
-        except Exception as e:
-            log.warning(f"Could not kill timed-out process: {e}")
-        return "", -1
+        if result.timed_out:
+            log.warning(
+                f"Command timed out after {timeout}s ({result.command_fingerprint})"
+            )
+        if result.stdout_truncated:
+            log.warning("Retained command output was truncated; see the streamed log.")
+        output = result.stdout.replace("\r\n", "\n").removesuffix("\n")
+        return output, -1 if result.timed_out else result.returncode
     except Exception as e:
-        log.warning(f"Command failed: {e}")
+        log.warning(f"Command failed ({type(e).__name__})")
         return "", -1
+    finally:
+        if pending:
+            log.write(pending)
 
 
 def _parse_env_string(env_str: str) -> dict[str, str]:
@@ -1877,10 +1901,8 @@ def section_3_model_info(
         "--jinja",
     ]
     try:
-        result = subprocess.run(
+        result = _run_probe(
             cmd,
-            capture_output=True,
-            text=True,
             timeout=60,
         )
         output = result.stdout + result.stderr
@@ -1998,10 +2020,8 @@ def section_4_gpu_capabilities(
         "--jinja",
     ]
     try:
-        result = subprocess.run(
+        result = _run_probe(
             cmd,
-            capture_output=True,
-            text=True,
             timeout=60,
         )
         gpu_init = result.stdout + result.stderr
@@ -2108,7 +2128,7 @@ def section_5_build_validation(
         "1",
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        result = _run_probe(cmd, timeout=120)
         output = result.stdout + result.stderr
         lines = output.strip().splitlines()
         for line in lines[-5:]:
@@ -2141,7 +2161,7 @@ def section_5_build_validation(
         "--jinja",
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        result = _run_probe(cmd, timeout=60)
         output = result.stdout + result.stderr
         found = False
         for line in output.splitlines():
@@ -2574,7 +2594,7 @@ def section_11_memory(
             "--jinja",
         ]
         try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            result = _run_probe(cmd, timeout=120)
             output = result.stdout + result.stderr
             for line in output.splitlines():
                 if any(kw in line for kw in mem_keywords):

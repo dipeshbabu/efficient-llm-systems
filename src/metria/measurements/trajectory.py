@@ -481,6 +481,7 @@ def compare_trajectory_results(
             "method_version": _COMPARISON_VERSION,
             "n_prompts": n_prompts,
             "median_first_divergence": median_first_divergence,
+            "all_trajectories_match": full_matches == n_prompts,
             "mean_reference_steps": sum(reference_lengths) / n_prompts,
             "mean_candidate_steps": sum(candidate_lengths) / n_prompts,
             "comparison_steps": comparison_steps_total,

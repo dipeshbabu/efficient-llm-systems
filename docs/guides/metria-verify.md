@@ -99,22 +99,26 @@ instead of silently ignoring them.
 | Verdict | Meaning |
 |---|---|
 | `VERIFIED` | Both runs completed, the scoped evidence checks passed, and behavioral comparison completed. |
+| `PASS` / `FAIL` | Development version: a valid comparison met / did not meet an explicit user-defined acceptance policy. |
 | `NOT_COMPARABLE` | An undeclared or controlled difference prevents a valid comparison. |
 | `INSUFFICIENT_EVIDENCE` | Required model/provider identity, runtime readback, or token captures are absent or inconsistent with the request. |
 | `EXECUTION_FAILED` | Execution, timeout, interruption, or behavioral analysis prevented completion. |
 
-Exit status is `0` for `VERIFIED`, `1` for other verification outcomes, `2` for
+Exit status is `0` for `VERIFIED` or `PASS`, `1` for other verification outcomes, `2` for
 invalid input or filesystem errors, and `130` for interruption.
 
 `VERIFIED` is not a task-quality or deployment-acceptance verdict. Token prefix
 agreement and exact sequence matches describe behavioral change on the supplied
-prompts. The report explicitly records that no acceptance policy was evaluated.
+prompts. Without a policy, the report explicitly records that no acceptance
+policy was evaluated. The development version adds
+[optional typed acceptance policies](verification-policies.md); published 0.1.0
+does not include that feature.
 
 Process wall-time samples include startup, model loading, prompt evaluation, and
 generation. They are descriptive observations from this workload; they are not
 decode-only throughput, TTFT, isolated kernel timing, or a statistically qualified
-performance claim. Repeated-trial measurement and acceptance policies remain
-separate follow-up work.
+performance claim. Repeated-trial and verifier-native performance measurement
+remain separate follow-up work; current policy targets cover behavioral analysis.
 
 The observed thread count and context come from the running llama.cpp context.
 Missing readback never becomes a match. For example, if llama.cpp rounds a

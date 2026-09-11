@@ -56,6 +56,13 @@ from .models import (
     TreatmentSpec,
     TreatmentType,
 )
+from .policies import (
+    PolicyCriterion,
+    PolicyDecision,
+    PolicyEvaluation,
+    VerificationPolicy,
+    policy_from_data,
+)
 from .processes import ProcessError, ProcessResult, run_process
 from .protocols import MeasurementResult
 from .recipes import (
@@ -115,6 +122,10 @@ __all__ = [
     "ModelRef",
     "PairwiseAnalysisStatus",
     "PreflightCapabilityResult",
+    "PolicyCriterion",
+    "PolicyDecision",
+    "PolicyEvaluation",
+    "VerificationPolicy",
     "ProcessError",
     "ProcessResult",
     "RunRecord",
@@ -163,4 +174,5 @@ __all__ = [
     "study_recipe_to_data",
     "study_recipe_to_json",
     "verify_recipe",
+    "policy_from_data",
 ]

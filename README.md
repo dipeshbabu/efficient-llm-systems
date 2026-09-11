@@ -122,6 +122,11 @@ sufficient evidence and its analysis completed; it does not certify quality,
 a speedup, or deployment acceptance. GPU settings, quantization, runtime upgrades,
 chat templates, and repeated-trial policies are outside this first CLI scope.
 
+The development version adds [optional acceptance policies](docs/guides/verification-policies.md)
+that produce PASS/FAIL after the evidence and comparison gates succeed. These
+use your criteria, with no universal safety thresholds; they are not included
+in the published 0.1.0 release.
+
 ## Supporting recipe and comparison tools
 
 ### Define a study recipe

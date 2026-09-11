@@ -11,12 +11,17 @@ from types import SimpleNamespace
 import pytest
 
 from metria import (
+    Capability,
+    CapabilityCheck,
+    CapabilityCheckRegistry,
+    CapabilityCheckResult,
     ComparisonPlan,
     HardwareFingerprint,
     RunSpec,
     RunStatus,
     StudyRecipe,
     StudySpec,
+    SupportLevel,
     dump_study_recipe,
     verification,
 )
@@ -158,6 +163,45 @@ def _invoke(case, *, json_output=True):
         args.append("--json")
     status = main(args, stdout=stdout, stderr=stderr)
     return status, stdout.getvalue(), stderr.getvalue()
+
+
+def test_python_verifier_applies_additional_checks_before_runtime_execution(local_case):
+    checks = CapabilityCheckRegistry(
+        (
+            CapabilityCheck(
+                "example.deployment",
+                lambda spec, geometry, override: CapabilityCheckResult(
+                    Capability(
+                        "example.deployment",
+                        SupportLevel.UNSUPPORTED,
+                        reasons=("synthetic deployment gate",),
+                    )
+                ),
+            ),
+        )
+    )
+    verification.verify_recipe(
+        local_case["recipe"], local_case["output"], capability_checks=checks
+    )
+    assert local_case["calls"] == []
+    for role in ("reference", "candidate"):
+        record = load_run_record(local_case["output"] / f"{role}.run.json")
+        assert record.status is RunStatus.PREFLIGHT_FAILED
+        assert record.provenance["capabilities"]["checks"]["example.deployment"][
+            "required"
+        ]
+
+
+def test_invalid_check_registry_fails_before_creating_verifier_output(local_case):
+    checks = CapabilityCheckRegistry(
+        (CapabilityCheck("turboquant.kv_cache.geometry", lambda *args: None),)
+    )
+    with pytest.raises(ValueError, match="duplicate"):
+        verification.verify_recipe(
+            local_case["recipe"], local_case["output"], capability_checks=checks
+        )
+    assert local_case["calls"] == []
+    assert not local_case["output"].exists()
 
 
 def test_verify_saves_incremental_records_manifest_and_readable_report(local_case):

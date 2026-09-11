@@ -6,6 +6,7 @@ import hashlib
 from collections.abc import Mapping
 from typing import Any
 
+from .capability_checks import CapabilityCheckRegistry
 from .capture_support import probe_capture_support
 from .identity import SupportLevel
 from .inspection import capability_inspection_to_mapping, inspect_run_capabilities
@@ -96,6 +97,7 @@ def execute_run(
     measurement: MeasurementProtocol,
     measurement_config: Mapping[str, Any],
     environment: Mapping[str, Any],
+    capability_checks: CapabilityCheckRegistry | None = None,
 ) -> RunRecord:
     """Execute one requested run and return evidence even when execution fails.
 
@@ -191,7 +193,9 @@ def execute_run(
     provenance["preflight"] = preflight
 
     try:
-        capability_result = inspect_run_capabilities(spec)
+        capability_result = inspect_run_capabilities(
+            spec, capability_checks=capability_checks
+        )
     except Exception as exc:
         events.append(_error_event("capability_inspection", exc))
         return _record(

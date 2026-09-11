@@ -5,6 +5,10 @@ TurboQuant reference packages have independent versions and release notes.
 
 ## Unreleased
 
+- Moved TurboQuant KV support policy into an explicit integration, with generic
+  capability-check registration shared by inspection, execution, and verification.
+  Built-in preflight protections and experimental override evidence are preserved.
+
 - Added a shared subprocess runner with wall-clock deadlines, process-tree
   cleanup, bounded partial output, and command fingerprints. Hardware diagnostic
   runs now time out even when a child is silent or never emits a newline.

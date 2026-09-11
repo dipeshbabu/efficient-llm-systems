@@ -9,8 +9,10 @@ from enum import Enum
 from itertools import combinations
 from typing import Any
 
+from .capability_checks import CapabilityCheckRegistry
 from .comparison import compare_runs
 from .execution import execute_run
+from .inspection import resolve_capability_checks
 from .models import CompatibilityReport, RunRecord, RunSpec, StudySpec
 from .protocols import (
     MeasurementProtocol,
@@ -231,6 +233,7 @@ def execute_study(
     environment: Mapping[str, Any],
     analyses: Mapping[str, PairwiseAnalysis] | None = None,
     record_sink: Callable[[RunRecord], None] | None = None,
+    capability_checks: CapabilityCheckRegistry | None = None,
 ) -> StudyExecutionResult:
     """Execute every run, validate pair compatibility, and derive analyses.
 
@@ -256,6 +259,7 @@ def execute_study(
     already-written evidence can therefore survive a later interrupted run.
     """
 
+    resolve_capability_checks(capability_checks)
     analysis_registry: Mapping[str, PairwiseAnalysis] = analyses or {}
     routes = _validate_registries(
         study,
@@ -281,6 +285,7 @@ def execute_study(
             measurement=measurements[measurement_name],
             measurement_config=measurement_configs.get(measurement_name, {}),
             environment=environment,
+            capability_checks=capability_checks,
         )
         records.append(record)
         if record_sink is not None:

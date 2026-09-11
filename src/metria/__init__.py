@@ -10,8 +10,12 @@ from .artifacts import (
 from .capabilities import (
     GeometryInspection,
     ModelGeometry,
-    evaluate_turboquant_kv_capability,
     inspect_model_geometry,
+)
+from .capability_checks import (
+    CapabilityCheck,
+    CapabilityCheckRegistry,
+    CapabilityCheckResult,
 )
 from .comparison import compare_runs
 from .execution import execute_run
@@ -36,6 +40,7 @@ from .inspection import (
     capability_inspection_to_mapping,
     inspect_run_capabilities,
 )
+from .integrations.turboquant import evaluate_turboquant_kv_capability
 from .models import (
     ComparisonPlan,
     CompatibilityIssue,
@@ -92,6 +97,9 @@ __all__ = [
     "ArtifactIntegrityError",
     "Capability",
     "CapabilitySet",
+    "CapabilityCheck",
+    "CapabilityCheckRegistry",
+    "CapabilityCheckResult",
     "ComparisonPlan",
     "CompatibilityIssue",
     "CompatibilityReport",

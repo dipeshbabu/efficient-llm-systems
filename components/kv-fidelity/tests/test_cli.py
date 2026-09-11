@@ -350,17 +350,9 @@ def test_run_fetch_default_cache_reports_auto_discovery(
 
 
 def _write_report(path: Path, **overrides):
-    rep = {
-        "composite": 92.5,
-        "band": "EXCELLENT",
-        "summary": "ok",
-        "framework_version": "0.3.2",
-        "environment": {"backend": "llamacpp"},
-        "axes": {
-            "gtm": {"score": 95.0, "band": "EXCELLENT"},
-            "kld": {"score": 90.0, "band": "EXCELLENT"},
-        },
-    }
+    from ._fixtures import make_comparable_report
+
+    rep = make_comparable_report()
     rep.update(overrides)
     path.write_text(json.dumps(rep))
 
@@ -378,29 +370,29 @@ def test_run_compare_two_reports(tmp_path, capsys):
     assert "DEGRADED" in out
 
 
-def test_run_compare_skips_unparseable(tmp_path, capsys):
+def test_run_compare_rejects_unparseable(tmp_path, capsys):
     bad = tmp_path / "bad.json"
     bad.write_text("not json")
     good = tmp_path / "g.json"
     _write_report(good)
     rc = _run_compare(argparse.Namespace(reports=[bad, good]))
-    assert rc == 0
+    assert rc == 2
     out = capsys.readouterr().out
-    assert "skip" in out
+    assert "NOT_COMPARABLE" in out
 
 
-def test_run_compare_no_parseable_returns_1(tmp_path, capsys):
+def test_run_compare_single_report_rejected(tmp_path, capsys):
     bad = tmp_path / "bad.json"
     bad.write_text("not json")
     rc = _run_compare(argparse.Namespace(reports=[bad]))
-    assert rc == 1
+    assert rc == 2
 
 
 def test_run_compare_handles_missing_axis_score(tmp_path, capsys):
     p = tmp_path / "no_axes.json"
     _write_report(p, axes={})
-    rc = _run_compare(argparse.Namespace(reports=[p]))
-    assert rc == 0
+    rc = _run_compare(argparse.Namespace(reports=[p, p]))
+    assert rc == 2
     out = capsys.readouterr().out
     # Em dash placeholder for missing axes
     assert "—" in out
@@ -413,7 +405,7 @@ def test_main_compare_dispatches(tmp_path, capsys):
     p = tmp_path / "r.json"
     _write_report(p)
     rc = main(["compare", str(p)])
-    assert rc == 0
+    assert rc == 2
 
 
 def test_main_fetch_dispatches(tmp_path, capsys, pinned_wikitext):

@@ -115,7 +115,8 @@ Friend-tester input on Windows is welcome — open an issue with your
 | Avoid known setup / interpretation traps | [PITFALLS.md](PITFALLS.md) |
 | See what v0.3 explicitly does NOT do | [LIMITATIONS.md](LIMITATIONS.md) |
 | See what changed across versions | [CHANGELOG.md](CHANGELOG.md) |
-| Compare your run to known-good reference numbers | [examples/](src/kv_fidelity/examples/) (4 sample JSONs + HTMLs) |
+| Inspect historical example reports | [examples/](src/kv_fidelity/examples/) (4 sample JSONs + HTMLs) |
+| Check whether reports support direct comparison | [Comparison guide](../../docs/guides/kv-fidelity-comparison.md) |
 | See the methodology evolution data | [MATRIX-RESULTS.md](MATRIX-RESULTS.md) |
 
 
@@ -168,7 +169,7 @@ not full-vocabulary KL.
 ```
 kv-fidelity score          # score a candidate KV config
 kv-fidelity selftest       # 30s preflight: binaries, flags, model probe
-kv-fidelity compare        # multi-report side-by-side
+kv-fidelity compare        # shared Metria compatibility checks and score table
 kv-fidelity repeatability  # run N times, report spread (stdev/range)
 kv-fidelity fetch          # download wikitext-2-raw corpus to ~/.cache/kv-fidelity/
 ```
@@ -190,6 +191,14 @@ Every `score` run can emit two formats via `--json-out` and `--html-out`:
 The HTML uses `light-dark()` CSS (Chrome 123+ / Safari 17.5+ / Firefox
 120+) for dark mode and a native system-font stack. It contains no external
 font, script, or stylesheet dependency.
+
+Development reports now include named metric methods and available local input
+identities under `extras.comparison_evidence`. `compare` requires at least two
+valid reports and rejects missing evidence or incompatible methods by default.
+Full-vocabulary KLD and top-k estimates remain different metrics. Historical
+reports can be inspected with a reasoned `--allow-incompatible` override, which
+retains their incompatibilities in text and JSON. See the
+[comparison and migration guide](../../docs/guides/kv-fidelity-comparison.md).
 
 ## Quickstart
 

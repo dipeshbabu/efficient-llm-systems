@@ -418,12 +418,18 @@ def json_report(
             "band": _band_or_skipped(composite.gtm_score),
             "skipped": composite.gtm_score is None,
             "description": _AXIS_PROSE["gtm"],
+            "method": "trajectory_prefix_agreement"
+            if isinstance(gtm, TrajectoryResult)
+            else "retokenized_greedy_token_match",
+            "method_version": "1",
         },
         "kld": {
             **kld_dict,
             "band": _band_or_skipped(composite.kld_score),
             "skipped": composite.kld_score is None,
             "description": _AXIS_PROSE["kld"],
+            "method": "exp_negative_mean_kld",
+            "method_version": "1",
         },
     }
     if rniah is not None:
@@ -446,6 +452,8 @@ def json_report(
                 else "unscored"
             ),
             "description": _AXIS_PROSE["rniah"],
+            "method": "relative_needle_retrieval",
+            "method_version": "1",
         }
     if plad is not None and composite.plad_score is not None:
         pl_dict = asdict(plad)
@@ -468,6 +476,8 @@ def json_report(
             **pl_dict,
             "band": band(composite.plad_score),
             "description": _AXIS_PROSE["plad"],
+            "method": "prompt_locality_agreement_delta",
+            "method_version": "1",
         }
     # v0.3.1: framework version + environment metadata so cross-person
     # report comparison is reproducible. Backend metadata (llama.cpp commit,

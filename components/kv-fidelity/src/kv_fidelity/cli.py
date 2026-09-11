@@ -509,6 +509,12 @@ def _run_score(args) -> int:
         need_haystack=args.axis_rniah,
     )
 
+    evidence_capture = None
+    if args.json_out or args.html_out:
+        from .provenance import begin_report_capture
+
+        evidence_capture = begin_report_capture(vars(args), backend=backend.name)
+
     # Cost hint up front so the user knows what they're committing to.
     cost_axes = ["A (~2 min)", "B (~5 min)"]
     if args.axis_rniah:
@@ -787,7 +793,12 @@ def _run_score(args) -> int:
             kld=kld,
             rniah=rniah,
             plad=plad,
-            extras={"input_artifacts": getattr(args, "_input_artifacts", {})},
+            extras={
+                "input_artifacts": getattr(args, "_input_artifacts", {}),
+                "comparison_evidence": evidence_capture.finish()
+                if evidence_capture is not None
+                else {},
+            },
         )
     if args.json_out:
         assert rep is not None
@@ -1097,7 +1108,7 @@ def _run_selftest(args) -> int:
 def _add_compare_parser(sub):
     p = sub.add_parser(
         "compare",
-        help="Side-by-side comparison of multiple report JSONs.",
+        help="Compare report JSONs using shared Metria evidence and method checks.",
     )
     p.add_argument(
         "reports",
@@ -1105,63 +1116,27 @@ def _add_compare_parser(sub):
         nargs="+",
         help="Two or more report.json files to compare.",
     )
+    p.add_argument(
+        "--allow-incompatible",
+        metavar="REASON",
+        help="Inspect incompatible reports with a retained expert-override reason. Does not change compatibility.",
+    )
+    p.add_argument(
+        "--json-out",
+        type=Path,
+        help="Write compatibility, metric-method results, and override details as JSON.",
+    )
     return p
 
 
 def _run_compare(args) -> int:
-    import json as _json
+    from .comparison_cli import run_report_comparison
 
-    rows = []
-    for path in args.reports:
-        try:
-            d = _json.loads(path.read_text(encoding="utf-8"))
-        except Exception as e:
-            print(f"skip {path}: {e}")
-            continue
-        rows.append(
-            {
-                "label": path.stem,
-                "composite": d.get("composite"),
-                "band": d.get("band"),
-                "summary": d.get("summary"),
-                "axes": d.get("axes", {}),
-                "version": d.get("framework_version"),
-                "backend": d.get("environment", {}).get("backend"),
-            }
-        )
-    if not rows:
-        print("no reports parsed")
-        return 1
-    # Print a markdown-style comparison table
-    print()
-    print(
-        f"{'Report':<32} {'Comp':>7} {'Band':<10} {'Traj':>7} {'KLD':>7} {'R-NIAH':>7} {'PLAD':>7}"
+    return run_report_comparison(
+        args.reports,
+        override_reason=getattr(args, "allow_incompatible", None),
+        json_out=getattr(args, "json_out", None),
     )
-    print("-" * 80)
-    for r in rows:
-        a = r["axes"]
-
-        def fmt(d, k):
-            try:
-                ax = d[k]
-                if ax.get("skipped") or ax.get("score") is None:
-                    return "skip"
-                return f"{ax['score']:.2f}"
-            except Exception:
-                return "—"
-
-        comp_val = r["composite"]
-        comp_str = (
-            f"{comp_val:>7.2f}" if isinstance(comp_val, (int, float)) else f"{'—':>7}"
-        )
-        band_str = r["band"] if isinstance(r["band"], str) else "—"
-        print(
-            f"{r['label'][:32]:<32} {comp_str} {band_str:<10} "
-            f"{fmt(a, 'gtm'):>7} {fmt(a, 'kld'):>7} "
-            f"{fmt(a, 'rniah'):>7} {fmt(a, 'plad'):>7}"
-        )
-    print()
-    return 0
 
 
 def _add_fetch_parser(sub):

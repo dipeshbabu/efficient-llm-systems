@@ -12,6 +12,7 @@ from typing import Any
 
 from ._freeze import freeze_mapping
 from .models import ComparisonPlan, RunSpec, StudySpec, TreatmentSpec, TreatmentType
+from .policies import VerificationPolicy, policy_from_data
 
 STUDY_RECIPE_SCHEMA = "metria.study_recipe.v1"
 
@@ -40,6 +41,7 @@ class StudyRecipe:
     study: StudySpec
     measurement_configs: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     environment: Mapping[str, Any] = field(default_factory=dict)
+    policy: VerificationPolicy | None = None
 
     def __post_init__(self) -> None:
         """Validate recipe routing and detach mutable caller-owned state."""
@@ -62,6 +64,16 @@ class StudyRecipe:
             )
         object.__setattr__(self, "measurement_configs", freeze_mapping(configs))
         object.__setattr__(self, "environment", freeze_mapping(self.environment))
+        if self.policy is not None and not isinstance(self.policy, VerificationPolicy):
+            raise TypeError("recipe policy must be a VerificationPolicy")
+        if self.policy is not None:
+            missing = self.policy.required_analyses - set(
+                self.study.comparison.analyses
+            )
+            if missing:
+                raise ValueError(
+                    "policy requires undeclared analyses: " + ", ".join(sorted(missing))
+                )
 
 
 def _mapping(value: Any, *, name: str) -> Mapping[str, Any]:
@@ -255,7 +267,7 @@ def study_recipe_from_data(value: Any) -> StudyRecipe:
         mapping,
         name="recipe",
         required=frozenset({"schema", "study"}),
-        optional=frozenset({"measurement_configs", "environment"}),
+        optional=frozenset({"measurement_configs", "environment", "policy"}),
     )
     schema = mapping["schema"]
     if schema != STUDY_RECIPE_SCHEMA:
@@ -272,6 +284,7 @@ def study_recipe_from_data(value: Any) -> StudyRecipe:
             mapping.get("environment", {}),
             name="recipe.environment",
         ),
+        policy=policy_from_data(mapping["policy"]) if "policy" in mapping else None,
     )
 
 
@@ -353,7 +366,7 @@ def study_recipe_to_data(recipe: StudyRecipe) -> dict[str, Any]:
             dimension: study.comparison.waivers[dimension]
             for dimension in sorted(study.comparison.waivers)
         }
-    return {
+    data = {
         "schema": STUDY_RECIPE_SCHEMA,
         "study": {
             "name": study.name,
@@ -371,6 +384,9 @@ def study_recipe_to_data(recipe: StudyRecipe) -> dict[str, Any]:
             path="environment",
         ),
     }
+    if recipe.policy is not None:
+        data["policy"] = recipe.policy.to_data()
+    return data
 
 
 def study_recipe_to_json(recipe: StudyRecipe, *, indent: int | None = 2) -> str:

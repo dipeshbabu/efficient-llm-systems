@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from collections.abc import Mapping, Sequence
@@ -17,6 +18,7 @@ from .hardware import capture_hardware_fingerprint
 from .inspection import resolve_capability_checks
 from .measurements import TokenTrajectoryProtocol, TrajectoryAgreementAnalysis
 from .models import CompatibilityReport, RunRecord, RunStatus
+from .policies import PolicyDecision, evaluate_policy, render_policy_evaluation
 from .protocols import (
     InferenceRequest,
     MeasurementProtocol,
@@ -49,6 +51,8 @@ class VerificationVerdict(str, Enum):
     """Distinct outcomes; VERIFIED denotes completed comparison, not task quality."""
 
     VERIFIED = "VERIFIED"
+    PASS = "PASS"
+    FAIL = "FAIL"
     NOT_COMPARABLE = "NOT_COMPARABLE"
     INSUFFICIENT_EVIDENCE = "INSUFFICIENT_EVIDENCE"
     EXECUTION_FAILED = "EXECUTION_FAILED"
@@ -335,6 +339,19 @@ def _comparison_data(report: CompatibilityReport) -> dict[str, Any]:
 
 def _analysis_data(outcome: StudyPairAnalysis) -> dict[str, Any]:
     result = outcome.result
+    metrics: dict[str, Any] = {}
+    metric_errors: dict[str, Any] = {}
+    if result is not None:
+        for key, value in result.metrics.items():
+            try:
+                metrics[key] = _metric_summary_to_data(value, key=key)
+            except (TypeError, ValueError, AttributeError) as exc:
+                metric_errors[key] = {
+                    "error_type": type(exc).__name__,
+                    "message_sha256": hashlib.sha256(
+                        str(exc).encode("utf-8")
+                    ).hexdigest(),
+                }
     return {
         "name": outcome.name,
         "version": outcome.version,
@@ -342,12 +359,8 @@ def _analysis_data(outcome: StudyPairAnalysis) -> dict[str, Any]:
         "reason": outcome.reason,
         "error_type": outcome.error_type,
         "message_sha256": outcome.message_sha256,
-        "metrics": {}
-        if result is None
-        else {
-            key: _metric_summary_to_data(value, key=key)
-            for key, value in result.metrics.items()
-        },
+        "metrics": metrics,
+        "metric_errors": metric_errors,
         "diagnostics": {}
         if result is None
         else _json_value(result.evidence, path="analysis.evidence"),
@@ -404,14 +417,40 @@ def render_verification(manifest: Mapping[str, Any]) -> str:
     for analysis in manifest["analyses"]:
         lines.append(f"  {analysis['name']}: {analysis['status']}")
         metrics = analysis["metrics"]
-        if "trajectory_agreement_score" in metrics:
-            lines.append(
-                f"    Token prefix agreement: {metrics['trajectory_agreement_score']['value']:.6g}/100"
-            )
-        if "trajectory_full_match_rate" in metrics:
-            lines.append(
-                f"    Exact token-sequence matches: {metrics['trajectory_full_match_rate']['value'] * 100:.6g}%"
-            )
+        for key, error in analysis.get("metric_errors", {}).items():
+            lines.append(f"    {key}: invalid metric evidence ({error['error_type']})")
+        for key, unit, label, scale, suffix in (
+            (
+                "trajectory_agreement_score",
+                "score_0_100",
+                "Token prefix agreement",
+                1,
+                "/100",
+            ),
+            (
+                "trajectory_full_match_rate",
+                "fraction",
+                "Exact token-sequence matches",
+                100,
+                "%",
+            ),
+        ):
+            if key not in metrics:
+                continue
+            metric = metrics[key]
+            expected = {
+                "name": key,
+                "unit": unit,
+                "direction": "higher_is_better",
+                "method": TrajectoryAgreementAnalysis.name,
+                "version": TrajectoryAgreementAnalysis.version,
+            }
+            if metric["definition"] != expected:
+                lines.append(
+                    f"    {key}: unavailable for interpretation (unexpected metric identity)"
+                )
+            else:
+                lines.append(f"    {label}: {metric['value'] * scale:.6g}{suffix}")
         if "per_prompt" in analysis["diagnostics"]:
             diverged = [
                 row
@@ -428,16 +467,17 @@ def render_verification(manifest: Mapping[str, Any]) -> str:
             lines.append(
                 f"  {role} mean process wall time: {timing['mean_seconds']:.6g}s (includes startup and model loading)"
             )
-    lines.extend(
-        (
-            "",
-            "Verdict:",
-            f"  {manifest['verdict']}",
-            "  VERIFIED means comparison and analysis completed within the stated scope.",
-            "  No task-quality or performance acceptance policy was evaluated.",
-            "",
+    lines.extend(("", "Verdict:", f"  {manifest['verdict']}"))
+    if "policy" in manifest:
+        lines.extend(render_policy_evaluation(manifest["policy"]))
+    else:
+        lines.extend(
+            (
+                "  VERIFIED means comparison and analysis completed within the stated scope.",
+                "  No task-quality or performance acceptance policy was evaluated.",
+            )
         )
-    )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -519,6 +559,7 @@ def verify_recipe(
         comparison = compare_runs(saved[0], saved[1], recipe.study.comparison)
         outcomes = ()
 
+    analysis_data = [_analysis_data(outcome) for outcome in outcomes]
     gaps = [_evidence_gaps(record, provider) for record in saved]
     failed = {
         RunStatus.FAILED,
@@ -536,8 +577,17 @@ def verify_recipe(
         outcome.status is not PairwiseAnalysisStatus.COMPLETED for outcome in outcomes
     ):
         verdict = VerificationVerdict.EXECUTION_FAILED
+    elif any(analysis["metric_errors"] for analysis in analysis_data):
+        verdict = VerificationVerdict.INSUFFICIENT_EVIDENCE
     else:
         verdict = VerificationVerdict.VERIFIED
+    policy_result = None
+    if recipe.policy is not None:
+        policy_result = evaluate_policy(
+            recipe.policy, outcomes, verification_status=verdict.value
+        )
+        if policy_result.status is not PolicyDecision.NOT_EVALUATED:
+            verdict = VerificationVerdict(policy_result.status.value)
     manifest = {
         "schema": VERIFICATION_SCHEMA,
         "scope": VERIFICATION_SCOPE,
@@ -546,7 +596,8 @@ def verify_recipe(
         "implementation": context["implementation"],
         "hardware": hardware,
         "verdict": verdict.value,
-        "acceptance_policy_evaluated": False,
+        "acceptance_policy_evaluated": policy_result is not None
+        and policy_result.status is not PolicyDecision.NOT_EVALUATED,
         "change": {
             "reference_threads": recipe.study.runs[0].runtime["threads"],
             "candidate_threads": recipe.study.runs[1].runtime["threads"],
@@ -569,11 +620,13 @@ def verify_recipe(
             for index, (role, record) in enumerate(zip(_ROLES, saved, strict=True))
         },
         "comparison": _comparison_data(comparison),
-        "analyses": [_analysis_data(outcome) for outcome in outcomes],
+        "analyses": analysis_data,
         "systems": {
             role: _wall_time(record) for role, record in zip(_ROLES, saved, strict=True)
         },
     }
+    if policy_result is not None:
+        manifest["policy"] = policy_result.to_data()
     _write_atomic(output / "report.md", render_verification(manifest))
     _write_atomic(
         output / "manifest.json",
@@ -588,5 +641,11 @@ def verify_recipe(
     return VerificationResult(
         output,
         manifest,
-        130 if interrupted else (0 if verdict is VerificationVerdict.VERIFIED else 1),
+        130
+        if interrupted
+        else (
+            0
+            if verdict in {VerificationVerdict.VERIFIED, VerificationVerdict.PASS}
+            else 1
+        ),
     )

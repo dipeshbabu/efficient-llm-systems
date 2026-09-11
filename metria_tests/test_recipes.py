@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -8,11 +9,13 @@ import pytest
 
 from metria import (
     ComparisonPlan,
+    PolicyCriterion,
     RunSpec,
     StudyRecipe,
     StudySpec,
     TreatmentSpec,
     TreatmentType,
+    VerificationPolicy,
     dump_study_recipe,
     load_study_recipe,
     study_recipe_digest,
@@ -97,6 +100,19 @@ def test_recipe_without_waivers_keeps_existing_canonical_shape() -> None:
     data = study_recipe_to_data(_recipe())
 
     assert "waivers" not in data["study"]["comparison"]
+
+
+def test_verification_policy_round_trips_and_changes_recipe_identity():
+    original = _recipe()
+    assert "policy" not in study_recipe_to_data(original)
+    policy = VerificationPolicy(
+        (PolicyCriterion("behavior.trajectory_agreement", "0.3.4", minimum=0.98),)
+    )
+    recipe = replace(original, policy=policy)
+    assert study_recipe_from_data(study_recipe_to_data(recipe)) == recipe
+    assert study_recipe_digest(recipe) != study_recipe_digest(original)
+    with pytest.raises(ValueError, match="undeclared analyses"):
+        replace(recipe, study=replace(recipe.study, comparison=ComparisonPlan()))
 
 
 def test_recipe_serializes_waivers_deterministically() -> None:

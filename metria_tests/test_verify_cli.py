@@ -17,11 +17,13 @@ from metria import (
     CapabilityCheckResult,
     ComparisonPlan,
     HardwareFingerprint,
+    PolicyCriterion,
     RunSpec,
     RunStatus,
     StudyRecipe,
     StudySpec,
     SupportLevel,
+    VerificationPolicy,
     dump_study_recipe,
     verification,
 )
@@ -242,6 +244,112 @@ def test_verify_human_output_explains_scope_and_artifacts(local_case):
     assert status == 0 and not errors
     assert "VERIFIED" in output and "Evidence:" in output
     assert "No task-quality or performance acceptance policy was evaluated" in output
+
+
+@pytest.mark.parametrize(
+    "minimum,verdict,exit_code", [(0.6, "PASS", 0), (0.9, "FAIL", 1)]
+)
+def test_verify_applies_policy_after_valid_comparison(
+    local_case, minimum, verdict, exit_code
+):
+    policy = VerificationPolicy(
+        (
+            PolicyCriterion("behavior.trajectory_agreement", "0.3.4", minimum=minimum),
+            PolicyCriterion("behavior.all_trajectories_match", "0.3.4", equals=False),
+            PolicyCriterion("analysis.status", "0.3.4", equals="completed"),
+        )
+    )
+    local_case["recipe"] = replace(local_case["recipe"], policy=policy)
+    code, output, errors = _invoke(local_case)
+    assert code == exit_code and not errors
+    data = json.loads(output)
+    assert data["verdict"] == verdict
+    assert data["acceptance_policy_evaluated"] is True
+    assert data["policy"]["status"] == verdict
+    assert len(data["policy"]["criteria"]) == 3
+    assert data["policy"]["criteria"][0]["observed_value"] == pytest.approx(2 / 3)
+    report = (local_case["output"] / "report.md").read_text()
+    assert "Policy checks:" in report and verdict in report
+    assert "universal deployment-safety" in report
+    assert (
+        "No task-quality or performance acceptance policy was evaluated" not in report
+    )
+
+
+@pytest.mark.parametrize(
+    "mode",
+    ["legacy", "empty", "ignored_threads", "different_vocab", "failure", "timeout"],
+)
+def test_policy_cannot_override_failed_verification_gates(local_case, mode):
+    local_case["mode"] = mode
+    local_case["recipe"] = replace(
+        local_case["recipe"],
+        policy=VerificationPolicy(
+            (PolicyCriterion("behavior.trajectory_agreement", "0.3.4", minimum=0),)
+        ),
+    )
+    code, output, errors = _invoke(local_case)
+    assert code == 1 and not errors
+    data = json.loads(output)
+    assert data["verdict"] not in {"PASS", "FAIL"}
+    assert data["policy"]["status"] == "NOT_EVALUATED"
+    assert data["acceptance_policy_evaluated"] is False
+
+
+@pytest.mark.parametrize("change", ["missing", "unit", "method", "invalid_value"])
+def test_missing_or_incompatible_policy_metric_is_reported_as_insufficient(
+    local_case, monkeypatch, change
+):
+    local_case["recipe"] = replace(
+        local_case["recipe"],
+        policy=VerificationPolicy(
+            (PolicyCriterion("behavior.trajectory_agreement", "0.3.4", minimum=0),)
+        ),
+    )
+    original = TrajectoryAgreementAnalysis.analyze
+
+    def analyze(self, left, right):
+        result = original(self, left, right)
+        metrics = dict(result.metrics)
+        metric = metrics["trajectory_agreement_score"]
+        if change == "missing":
+            del metrics["trajectory_agreement_score"]
+        elif change == "invalid_value":
+            metrics["trajectory_agreement_score"] = replace(metric, value=None)
+        else:
+            metrics["trajectory_agreement_score"] = replace(
+                metric,
+                definition=replace(metric.definition, **{change: "incompatible"}),
+            )
+        return replace(result, metrics=metrics)
+
+    monkeypatch.setattr(TrajectoryAgreementAnalysis, "analyze", analyze)
+    code, output, errors = _invoke(local_case)
+    assert code == 1 and not errors
+    data = json.loads(output)
+    assert data["verdict"] == "INSUFFICIENT_EVIDENCE"
+    assert data["policy"]["status"] in {"INSUFFICIENT_EVIDENCE", "NOT_EVALUATED"}
+    assert data["policy"]["criteria"][0]["observed_value"] is None
+
+
+def test_unknown_policy_target_is_rejected_before_execution(local_case):
+    from metria import study_recipe_to_data
+
+    data = study_recipe_to_data(local_case["recipe"])
+    data["policy"] = {
+        "schema": "metria.verification_policy.v1",
+        "criteria": [{"target": "arbitrary.json.path", "version": "0.3.4", "min": 0}],
+    }
+    local_case["path"].write_text(json.dumps(data))
+    stdout, stderr = io.StringIO(), io.StringIO()
+    code = main(
+        ["verify", str(local_case["path"]), "--output", str(local_case["output"])],
+        stdout=stdout,
+        stderr=stderr,
+    )
+    assert code == 2
+    assert "unknown policy target" in stderr.getvalue()
+    assert not local_case["calls"] and not local_case["output"].exists()
 
 
 @pytest.mark.parametrize(

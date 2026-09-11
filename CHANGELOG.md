@@ -5,6 +5,12 @@ TurboQuant reference packages have independent versions and release notes.
 
 ## Unreleased
 
+- Added optional, versioned verification policies with typed numeric bounds and
+  exact boolean/status checks. Policies are included in recipe identity and
+  produce PASS/FAIL only after verifier correctness gates succeed. Missing or
+  method-incompatible evidence remains insufficient; no default thresholds are
+  supplied. Reports retain each criterion, value, identity, and outcome.
+
 - Moved TurboQuant KV support policy into an explicit integration, with generic
   capability-check registration shared by inspection, execution, and verification.
   Built-in preflight protections and experimental override evidence are preserved.

@@ -28,6 +28,8 @@ Key properties (orthogonal S):
 
 import numpy as np
 
+from . import _validation as validate
+
 QJL_CONST = np.sqrt(np.pi / 2)
 
 
@@ -52,21 +54,25 @@ class QJL:
             d: Vector dimension.
             seed: Random seed for projection matrix.
         """
+        d = validate.dimension(d)
+        seed = validate.integer(seed, "seed")
         self.d = d
         rng = np.random.default_rng(seed)
         G = rng.standard_normal((d, d))
         Q, R = np.linalg.qr(G)
         diag_signs = np.sign(np.diag(R))
+        diag_signs[diag_signs == 0] = 1
         Q = Q * diag_signs[np.newaxis, :]
         self.S = Q
 
         # Orthogonality contract: ||S Sᵀ − I||_F must be ~0.
         # Required for E[⟨x̂, y⟩] = ⟨x, y⟩ and E[||x̂||²] = (π/2)·||x||².
         ortho_err = np.linalg.norm(self.S @ self.S.T - np.eye(d), "fro")
-        assert ortho_err < self._ORTHO_TOL, (
-            f"QJL projection matrix not orthogonal: ||S Sᵀ − I||_F = {ortho_err:.2e} "
-            f"(tolerance {self._ORTHO_TOL:.0e})"
-        )
+        if not np.isfinite(ortho_err) or ortho_err >= self._ORTHO_TOL:
+            raise RuntimeError(
+                f"QJL projection matrix not orthogonal: error {ortho_err:.2e} "
+                f"(tolerance {self._ORTHO_TOL:.0e})"
+            )
 
     def quantize(self, r: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Quantize residual vector(s) to sign bits.
@@ -79,11 +85,12 @@ class QJL:
                 signs: {+1, -1}^d or (batch, d), stored as int8
                 norms: scalar or (batch,) — ||r||_2, needed for dequantization
         """
+        r = validate.vectors(r, "r", self.d)
         single = r.ndim == 1
         if single:
             r = r[np.newaxis, :]
 
-        norms = np.linalg.norm(r, axis=1)
+        norms = validate.l2_norm(r)
         projected = (self.S @ r.T).T
         signs = np.sign(projected).astype(np.int8)
         signs[signs == 0] = 1
@@ -118,6 +125,9 @@ class QJL:
         Returns:
             Approximate residual, same shape as original.
         """
+        signs = validate.signs(signs, "signs", d=self.d)
+        norms = validate.norms(norms, signs.shape)
+        shrinkage = validate.real(shrinkage, "shrinkage")
         single = signs.ndim == 1
         if single:
             signs = signs[np.newaxis, :].astype(np.float64)
@@ -127,7 +137,9 @@ class QJL:
 
         # x̂ = √(π/2) / √d · ||x|| · S^T · signs
         reconstructed = (self.S.T @ signs.T).T
-        scale = QJL_CONST / np.sqrt(self.d) * norms
-        reconstructed *= scale[:, np.newaxis] * shrinkage
+        with np.errstate(over="ignore", invalid="ignore"):
+            scale = norms * shrinkage * (QJL_CONST / np.sqrt(self.d))
+            reconstructed *= scale[:, np.newaxis]
+        validate.finite_output(reconstructed)
 
         return reconstructed[0] if single else reconstructed

@@ -29,6 +29,8 @@ import numpy as np
 from turboquant.codebook import nearest_centroid_indices, optimal_centroids
 from turboquant.rotation import random_rotation_dense
 
+from . import _validation as validate
+
 
 class PolarQuant:
     """MSE-optimized vector quantizer via random rotation + scalar quantization.
@@ -46,6 +48,11 @@ class PolarQuant:
     def __init__(
         self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True
     ):
+        d = validate.dimension(d)
+        bit_width = validate.integer(bit_width, "bit_width", minimum=1, maximum=8)
+        seed = validate.integer(seed, "seed")
+        if not isinstance(norm_correction, (bool, np.bool_)):
+            raise TypeError("norm_correction must be a boolean")
         self.d = d
         self.bit_width = bit_width
         self.n_centroids = 1 << bit_width
@@ -66,12 +73,13 @@ class PolarQuant:
                 indices: integer indices, shape (d,) or (batch, d)
                 norms: L2 norms, scalar or (batch,) — needed for dequantization
         """
+        x = validate.vectors(x, "x", self.d)
         single = x.ndim == 1
         if single:
             x = x[np.newaxis, :]
 
         # Extract norms and normalize (paper page 5)
-        norms = np.linalg.norm(x, axis=1)  # (batch,)
+        norms = validate.l2_norm(x)  # (batch,)
         # Avoid division by zero for zero vectors
         safe_norms = np.where(norms > 0, norms, 1.0)
         x_normalized = x / safe_norms[:, np.newaxis]
@@ -96,6 +104,10 @@ class PolarQuant:
         Returns:
             Reconstructed vectors, same shape as original input.
         """
+        indices = validate.vectors(indices, "indices", self.d, kind="integer")
+        if np.any(indices < 0) or np.any(indices >= self.n_centroids):
+            raise ValueError(f"indices must be in [0, {self.n_centroids})")
+        norms = validate.norms(norms, indices.shape)
         single = indices.ndim == 1
         if single:
             indices = indices[np.newaxis, :]
@@ -116,7 +128,9 @@ class PolarQuant:
         x_hat_unit = (self.rotation.T @ y_hat.T).T
 
         # Rescale by original norms
-        x_hat = x_hat_unit * norms[:, np.newaxis]
+        with np.errstate(over="ignore", invalid="ignore"):
+            x_hat = x_hat_unit * norms[:, np.newaxis]
+        validate.finite_output(x_hat)
 
         return x_hat[0] if single else x_hat
 

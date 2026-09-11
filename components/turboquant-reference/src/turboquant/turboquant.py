@@ -31,6 +31,8 @@ from turboquant.polar_quant import PolarQuant
 from turboquant.qjl import QJL
 from turboquant.utils import pack_bits, pack_indices, unpack_bits, unpack_indices
 
+from . import _validation as validate
+
 
 @dataclass
 class CompressedVector:
@@ -110,12 +112,15 @@ class TurboQuant:
             bit_width: Total bits per coordinate (b). PolarQuant uses b-1, QJL uses 1.
             seed: Random seed for both rotation and projection matrices.
         """
+        d = validate.dimension(d)
+        bit_width = validate.integer(bit_width, "bit_width", minimum=None)
         if bit_width < 2:
             raise ValueError(
-                "TurboQuant requires bit_width >= 2 (1 bit PolarQuant + 1 bit QJL). "
-                "For 1-bit, use QJL directly."
+                "TurboQuant requires bit_width >= 2; use QJL directly for 1-bit quantization"
             )
-
+        if bit_width > 9:
+            raise ValueError("bit_width must be 2-9")
+        seed = validate.integer(seed, "seed")
         self.d = d
         self.bit_width = bit_width
 
@@ -170,6 +175,17 @@ class TurboQuant:
             Reconstructed vector(s), same shape as original.
         """
         # Stage 1: PolarQuant reconstruction (with norm rescaling)
+        if not isinstance(compressed, CompressedVector):
+            raise TypeError("compressed must be a CompressedVector")
+        stored_width = validate.integer(
+            compressed.bit_width, "compressed.bit_width", minimum=2, maximum=9
+        )
+        if stored_width != self.bit_width:
+            raise ValueError("compressed bit width does not match the quantizer")
+        if np.shape(compressed.mse_indices) != np.shape(compressed.qjl_signs):
+            raise ValueError(
+                "PolarQuant indices and QJL signs must have the same shape"
+            )
         x_mse = self.polar_quant.dequantize(
             compressed.mse_indices, compressed.vector_norms
         )
@@ -179,7 +195,9 @@ class TurboQuant:
             compressed.qjl_signs, compressed.residual_norms, shrinkage=shrinkage
         )
 
-        return x_mse + x_qjl
+        with np.errstate(over="ignore", invalid="ignore"):
+            reconstructed = x_mse + x_qjl
+        return validate.finite_output(reconstructed)
 
     def quantize_packed(self, x: np.ndarray) -> PackedCompressedVector:
         """Quantize ``x`` and bit-pack indices and QJL signs."""
@@ -187,9 +205,9 @@ class TurboQuant:
         compressed = self.quantize(x)
         return PackedCompressedVector(
             mse_indices=pack_indices(compressed.mse_indices, self.bit_width - 1),
-            vector_norms=np.asarray(compressed.vector_norms, dtype=np.float32),
+            vector_norms=validate.float32_norms(compressed.vector_norms),
             qjl_signs=pack_bits(compressed.qjl_signs),
-            residual_norms=np.asarray(compressed.residual_norms, dtype=np.float32),
+            residual_norms=validate.float32_norms(compressed.residual_norms),
             original_shape=tuple(x.shape),
             bit_width=self.bit_width,
         )
@@ -200,11 +218,7 @@ class TurboQuant:
         shrinkage: float = 1.0,
     ) -> np.ndarray:
         """Unpack and reconstruct a :class:`PackedCompressedVector`."""
-        if compressed.bit_width != self.bit_width:
-            raise ValueError(
-                f"packed bit width {compressed.bit_width} does not match "
-                f"quantizer bit width {self.bit_width}"
-            )
+        self._check_packed(compressed)
         unpacked = CompressedVector(
             mse_indices=unpack_indices(
                 compressed.mse_indices, self.bit_width - 1, self.d
@@ -218,8 +232,28 @@ class TurboQuant:
             compressed.original_shape
         )
 
+    def _check_packed(self, compressed: object) -> None:
+        if not isinstance(compressed, PackedCompressedVector):
+            raise TypeError("compressed must be a PackedCompressedVector")
+        width = validate.integer(
+            compressed.bit_width, "compressed.bit_width", minimum=2, maximum=9
+        )
+        if width != self.bit_width:
+            raise ValueError(
+                f"packed bit width {width} does not match quantizer bit width {self.bit_width}"
+            )
+        shape = validate.packed_shape(compressed.original_shape, d=self.d)
+        validate.packed_array(
+            compressed.mse_indices, shape, self.bit_width - 1, "mse_indices"
+        )
+        validate.packed_array(compressed.qjl_signs, shape, 1, "qjl_signs")
+        validate.packed_norms(compressed.vector_norms, shape, "vector_norms")
+        validate.packed_norms(compressed.residual_norms, shape, "residual_norms")
+
     def compressed_size_bits(self, n_vectors: int) -> int:
-        """Compute total storage in bits for n_vectors compressed vectors.
+        """Compute theoretical bits before per-vector byte padding.
+
+        Use packed payload ``nbytes`` for physical byte accounting.
 
         Includes:
         - PolarQuant indices: (b-1) bits per coordinate per vector
@@ -227,12 +261,13 @@ class TurboQuant:
         - Original vector norms: 32 bits (float32) per vector
         - Residual norms: 32 bits (float32) per vector
         """
+        n_vectors = validate.integer(n_vectors, "n_vectors")
         per_vector = self.d * self.bit_width  # (b-1) + 1 bits per coordinate
         norms = 64  # original vector norm + QJL residual norm, both float32
         return n_vectors * (per_vector + norms)
 
     def compression_ratio(self, original_bits_per_value: int = 16) -> float:
-        """Compute compression ratio vs original precision.
+        """Compute the theoretical ratio before per-vector byte padding.
 
         Args:
             original_bits_per_value: Bits per value in the original cache (16 for fp16).
@@ -240,9 +275,12 @@ class TurboQuant:
         Returns:
             Compression ratio (e.g., 4.0 means 4× smaller).
         """
+        original_bits_per_value = validate.integer(
+            original_bits_per_value, "original_bits_per_value", minimum=1
+        )
         original_per_vector = self.d * original_bits_per_value
         compressed_per_vector = self.d * self.bit_width + 64
-        return original_per_vector / compressed_per_vector
+        return validate.finite_ratio(original_per_vector, compressed_per_vector)
 
 
 class TurboQuantMSE:
@@ -255,6 +293,8 @@ class TurboQuantMSE:
     def __init__(
         self, d: int, bit_width: int, seed: int = 42, norm_correction: bool = True
     ):
+        d = validate.dimension(d)
+        bit_width = validate.integer(bit_width, "bit_width", minimum=1, maximum=8)
         self.d = d
         self.bit_width = bit_width
         self.polar_quant = PolarQuant(
@@ -277,19 +317,29 @@ class TurboQuantMSE:
         indices, norms = self.quantize(x)
         return PackedMSEVector(
             indices=pack_indices(indices, self.bit_width),
-            norms=np.asarray(norms, dtype=np.float32),
+            norms=validate.float32_norms(norms),
             original_shape=tuple(x.shape),
             bit_width=self.bit_width,
         )
 
     def dequantize_packed(self, compressed: PackedMSEVector) -> np.ndarray:
         """Unpack and reconstruct a :class:`PackedMSEVector`."""
-        if compressed.bit_width != self.bit_width:
-            raise ValueError(
-                f"packed bit width {compressed.bit_width} does not match "
-                f"quantizer bit width {self.bit_width}"
-            )
+        self._check_packed(compressed)
         indices = unpack_indices(compressed.indices, self.bit_width, self.d)
         return self.dequantize(indices, compressed.norms).reshape(
             compressed.original_shape
         )
+
+    def _check_packed(self, compressed: object) -> None:
+        if not isinstance(compressed, PackedMSEVector):
+            raise TypeError("compressed must be a PackedMSEVector")
+        width = validate.integer(
+            compressed.bit_width, "compressed.bit_width", minimum=1, maximum=8
+        )
+        if width != self.bit_width:
+            raise ValueError(
+                f"packed bit width {width} does not match quantizer bit width {self.bit_width}"
+            )
+        shape = validate.packed_shape(compressed.original_shape, d=self.d)
+        validate.packed_array(compressed.indices, shape, self.bit_width, "indices")
+        validate.packed_norms(compressed.norms, shape, "norms")

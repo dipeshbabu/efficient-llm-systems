@@ -29,6 +29,8 @@ import numpy as np
 from turboquant.polar_quant import PolarQuant
 from turboquant.qjl import QJL
 
+from . import _validation as validate
+
 
 @dataclass
 class OutlierCompressedVector:
@@ -80,6 +82,9 @@ class OutlierTurboQuant:
     """
 
     def __init__(self, d: int, target_bits: float, seed: int = 42):
+        d = validate.dimension(d)
+        target_bits = validate.real(target_bits, "target_bits", minimum=2, maximum=9)
+        seed = validate.integer(seed, "seed")
         self.d = d
         self.target_bits = target_bits
 
@@ -124,12 +129,14 @@ class OutlierTurboQuant:
         per-vector channel-index metadata. ``samples`` may be one vector or a
         batch with any leading dimensions.
         """
-        samples = np.asarray(samples)
-        if samples.shape[-1] != self.d:
-            raise ValueError(
-                f"expected final dimension {self.d}, got {samples.shape[-1]}"
-            )
-        importance = np.mean(np.abs(samples.reshape(-1, self.d)), axis=0)
+        samples = validate.array(samples, "samples", d=self.d)
+        if not samples.size:
+            raise ValueError("calibration requires at least one sample")
+        samples = samples.reshape(-1, self.d)
+        # Only relative importance is needed; scaling avoids overflowing the
+        # mean for otherwise finite, large activations.
+        scale = np.max(np.abs(samples))
+        importance = np.mean(np.abs(samples / (scale if scale else 1)), axis=0)
         if self.n_outlier:
             selected = np.argpartition(importance, -self.n_outlier)[-self.n_outlier :]
             self.outlier_idx = np.sort(selected)
@@ -142,6 +149,9 @@ class OutlierTurboQuant:
 
     def quantize(self, x: np.ndarray) -> OutlierCompressedVector:
         """Quantize with outlier channel split."""
+        x = validate.vectors(x, "x", self.d)
+        if not x.size:
+            raise ValueError("x must contain at least one vector")
         if not self.calibrated:
             self.calibrate(x)
         single = x.ndim == 1
@@ -157,20 +167,20 @@ class OutlierTurboQuant:
         # Quantize outlier channels at higher bits
         if self.pq_outlier is not None:
             out_idx, out_norms, out_residual = self.pq_outlier.quantize_and_residual(
-                x_outlier if batch > 1 else x_outlier[0]
+                x_outlier[0] if single else x_outlier
             )
         else:
-            out_idx = np.array([])
+            out_idx = np.array([], dtype=np.int64)
             out_norms = np.array([])
             out_residual = np.zeros_like(x_outlier)
 
         # Quantize normal channels at lower bits
         if self.pq_normal is not None:
             norm_idx, norm_norms, norm_residual = self.pq_normal.quantize_and_residual(
-                x_normal if batch > 1 else x_normal[0]
+                x_normal[0] if single else x_normal
             )
         else:
-            norm_idx = np.array([])
+            norm_idx = np.array([], dtype=np.int64)
             norm_norms = np.array([])
             norm_residual = np.zeros_like(x_normal)
 
@@ -216,6 +226,35 @@ class OutlierTurboQuant:
 
     def dequantize(self, compressed: OutlierCompressedVector) -> np.ndarray:
         """Dequantize outlier-strategy compressed vector."""
+        if not isinstance(compressed, OutlierCompressedVector):
+            raise TypeError("compressed must be an OutlierCompressedVector")
+        effective = validate.real(
+            compressed.effective_bits, "effective_bits", minimum=2, maximum=9
+        )
+        if effective != self.effective_bits:
+            raise ValueError("compressed effective_bits does not match the quantizer")
+        qjl_signs = validate.signs(compressed.qjl_signs, "qjl_signs", d=self.d)
+        validate.norms(compressed.residual_norms, qjl_signs.shape, "residual_norms")
+        for name, count, indices, norms in (
+            (
+                "outlier",
+                self.n_outlier,
+                compressed.outlier_indices,
+                compressed.outlier_norms,
+            ),
+            (
+                "normal",
+                self.n_normal,
+                compressed.normal_indices,
+                compressed.normal_norms,
+            ),
+        ):
+            if count:
+                expected = (*qjl_signs.shape[:-1], count)
+                if np.shape(indices) != expected:
+                    raise ValueError(f"{name}_indices must have shape {expected}")
+            elif np.size(indices) or np.size(norms):
+                raise ValueError(f"inactive {name} channels must have empty payloads")
         single = compressed.qjl_signs.ndim == 1
 
         # Reconstruct outlier channels
@@ -254,13 +293,14 @@ class OutlierTurboQuant:
                 x_hat[:, self.normal_idx] = x_normal
             x_hat += x_qjl
 
-        return x_hat
+        return validate.finite_output(x_hat)
 
     def compression_ratio(self, original_bits: int = 16) -> float:
         """Compression ratio vs original precision."""
+        original_bits = validate.integer(original_bits, "original_bits", minimum=1)
         # Effective bits per channel + norm overhead
         per_vector_bits = self.d * self.effective_bits + 32  # +32 for QJL norm
-        # Also need outlier and normal norms: 2 × 32 bits
-        per_vector_bits += 64
+        # Only active channel groups store a PolarQuant norm.
+        per_vector_bits += 32 * (int(self.n_outlier > 0) + int(self.n_normal > 0))
         original = self.d * original_bits
-        return original / per_vector_bits
+        return validate.finite_ratio(original, per_vector_bits)

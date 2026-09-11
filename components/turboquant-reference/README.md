@@ -63,6 +63,26 @@ The package exports `PolarQuant`, `QJL`, `TurboQuant`, `TurboQuantMSE`,
 `TurboQuantMSE` provides the direct reconstruction-oriented path used by most
 of the component experiments.
 
+Quantizers accept finite real vectors shaped `(d,)` or `(batch, d)` and compute
+in float64. Dimensions must be positive integers and seeds nonnegative integers
+(NumPy integer scalars are accepted); booleans are not counts. PolarQuant/MSE and scalar codebooks support
+1–8 bits, and full TurboQuant supports 2–9 total bits including QJL. Outlier
+precision must be finite and within 2–9 bits.
+
+Invalid types or dtypes raise `TypeError`; invalid values, shapes, or
+unrepresentable numeric results raise `ValueError`. QJL's orthogonality invariant
+raises an explicit `RuntimeError`. These checks remain active under `python -O`.
+Reconstruction requires valid indices/signs and matching nonnegative norms.
+Packed payloads require uint8 buffers, float32 norms, and consistent shape/bit
+metadata; values outside the packed norm range are rejected.
+
+Packing utilities support empty vectors and batches. Memory reports containing a
+compression ratio require positive vector counts and dimensions. Their estimates
+include norm storage; `compressed_size_bits` and quantizer compression ratios
+describe the theoretical bit layout before byte padding. Use a packed payload's
+`nbytes`, `memory_footprint_bytes`, or `KVCacheCompressor.memory_stats` for byte
+accounting. Outlier ratios count only the norms of active channel groups.
+
 ## Layout
 
 ```text

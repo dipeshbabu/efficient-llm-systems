@@ -21,6 +21,8 @@ Two implementations:
 
 import numpy as np
 
+from . import _validation as validate
+
 
 def random_rotation_dense(d: int, rng: np.random.Generator) -> np.ndarray:
     """Generate a Haar-distributed random rotation matrix via QR decomposition.
@@ -32,8 +34,9 @@ def random_rotation_dense(d: int, rng: np.random.Generator) -> np.ndarray:
     Returns:
         Orthogonal matrix Π ∈ R^(d×d) with det(Π) = +1.
     """
-    if d < 1:
-        raise ValueError(f"d must be >= 1, got {d}")
+    d = validate.dimension(d)
+    if not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a NumPy Generator")
     # Random Gaussian matrix
     G = rng.standard_normal((d, d))
     # QR decomposition gives orthogonal Q
@@ -63,8 +66,10 @@ def hadamard_matrix(n: int) -> np.ndarray:
 
     Uses the recursive Sylvester construction.
     """
+    n = validate.integer(n, "n", minimum=None)
     if n < 1 or (n & (n - 1)) != 0:
         raise ValueError(f"n must be a positive power of 2, got {n}")
+    n = validate.dimension(n, "n")
     if n == 1:
         return np.array([[1.0]])
     half = hadamard_matrix(n // 2)
@@ -92,7 +97,10 @@ def random_rotation_fast(
             4. x *= signs2
             5. Truncate back to d
     """
-    padded_d = _next_power_of_2(d)
+    d = validate.dimension(d)
+    if not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a NumPy Generator")
+    padded_d = validate.dimension(_next_power_of_2(d), "padded_d")
     signs1 = rng.choice([-1.0, 1.0], size=padded_d)
     signs2 = rng.choice([-1.0, 1.0], size=padded_d)
     return signs1, signs2, padded_d
@@ -128,14 +136,16 @@ def fast_walsh_hadamard_transform(x: np.ndarray) -> np.ndarray:
     Returns:
         New transformed array (normalized by 1/sqrt(n)).
     """
+    x = validate.array(x, "x")
     if x.ndim != 1:
         raise ValueError("Input must be a one-dimensional vector")
     n = len(x)
     if n < 1 or (n & (n - 1)) != 0:
         raise ValueError(f"Input length must be a positive power of 2, got {n}")
     result = x.astype(np.float64, copy=True)
-    _normalized_hadamard_inplace(result)
-    return result
+    with np.errstate(over="ignore", invalid="ignore"):
+        _normalized_hadamard_inplace(result)
+    return validate.finite_output(result, "Hadamard transform")
 
 
 def apply_fast_rotation(
@@ -151,6 +161,9 @@ def apply_fast_rotation(
     Returns:
         Rotated vector of dimension d.
     """
+    x, signs1, signs2, padded_d = _rotation_inputs(
+        x, signs1, signs2, padded_d, batch=False
+    )
     d = len(x)
     # Pad to power of 2
     padded = np.zeros(padded_d)
@@ -158,10 +171,11 @@ def apply_fast_rotation(
     # D1 @ x
     padded *= signs1
     # H @ D1 @ x (normalized)
-    padded = fast_walsh_hadamard_transform(padded)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _normalized_hadamard_inplace(padded)
     # D2 @ H @ D1 @ x
     padded *= signs2
-    return padded[:d]
+    return validate.finite_output(padded[:d], "rotation")
 
 
 def apply_fast_rotation_transpose(
@@ -171,25 +185,47 @@ def apply_fast_rotation_transpose(
 
     Since D and H are their own transposes (symmetric), the transpose is D1 @ H @ D2.
     """
+    y, signs1, signs2, padded_d = _rotation_inputs(
+        y, signs1, signs2, padded_d, batch=False
+    )
     d = len(y)
     padded = np.zeros(padded_d)
     padded[:d] = y
     # Reverse order: D2^T = D2, H^T = H, D1^T = D1
     padded *= signs2
-    padded = fast_walsh_hadamard_transform(padded)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _normalized_hadamard_inplace(padded)
     padded *= signs1
-    return padded[:d]
+    return validate.finite_output(padded[:d], "rotation")
 
 
 def apply_fast_rotation_batch(
     X: np.ndarray, signs1: np.ndarray, signs2: np.ndarray, padded_d: int
 ) -> np.ndarray:
     """Apply structured rotation to a batch of vectors. Shape: (batch, d)."""
+    X, signs1, signs2, padded_d = _rotation_inputs(
+        X, signs1, signs2, padded_d, batch=True
+    )
     batch, d = X.shape
     padded = np.zeros((batch, padded_d))
     padded[:, :d] = X
     padded *= signs1[np.newaxis, :]
 
-    _normalized_hadamard_inplace(padded)
+    with np.errstate(over="ignore", invalid="ignore"):
+        _normalized_hadamard_inplace(padded)
     padded *= signs2[np.newaxis, :]
-    return padded[:, :d]
+    return validate.finite_output(padded[:, :d], "rotation")
+
+
+def _rotation_inputs(values, signs1, signs2, padded_d, *, batch: bool):
+    values = validate.array(values, "values", ndim=(2,) if batch else (1,))
+    padded_d = validate.dimension(padded_d, "padded_d")
+    if padded_d & (padded_d - 1):
+        raise ValueError("padded_d must be a positive power of 2")
+    if not 1 <= values.shape[-1] <= padded_d:
+        raise ValueError("input dimension must be positive and no larger than padded_d")
+    signs1 = validate.signs(signs1, "signs1", d=padded_d)
+    signs2 = validate.signs(signs2, "signs2", d=padded_d)
+    if signs1.ndim != 1 or signs2.ndim != 1:
+        raise ValueError("rotation signs must be one-dimensional")
+    return values, signs1, signs2, padded_d

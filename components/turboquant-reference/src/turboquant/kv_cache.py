@@ -32,6 +32,8 @@ from turboquant.turboquant import (
     TurboQuantMSE,
 )
 
+from . import _validation as validate
+
 
 @dataclass
 class CompressedKVCache:
@@ -75,8 +77,6 @@ class KVCacheCompressor:
         # Decompress
         k_hat, v_hat = compressor.decompress(compressed)
 
-        # Or compress streaming (one token at a time)
-        compressor.compress_token(k_vec, v_vec, layer=0, head=0)
     """
 
     def __init__(
@@ -94,8 +94,10 @@ class KVCacheCompressor:
             v_bits: Bit-width for V cache (PolarQuant MSE-only).
             seed: Random seed.
         """
-        if head_dim <= 0:
-            raise ValueError("head_dim must be positive")
+        head_dim = validate.dimension(head_dim, "head_dim")
+        k_bits = validate.integer(k_bits, "k_bits", minimum=2, maximum=9)
+        v_bits = validate.integer(v_bits, "v_bits", minimum=1, maximum=8)
+        seed = validate.integer(seed, "seed")
         self.head_dim = head_dim
         self.k_bits = k_bits
         self.v_bits = v_bits
@@ -126,6 +128,8 @@ class KVCacheCompressor:
         Returns:
             CompressedKVCache with compressed K and V.
         """
+        k_cache = validate.array(k_cache, "k_cache")
+        v_cache = validate.array(v_cache, "v_cache")
         if k_cache.ndim != 4:
             raise ValueError(
                 "k_cache must have shape (layers, heads, sequence, head_dim)"
@@ -133,6 +137,8 @@ class KVCacheCompressor:
         if v_cache.shape != k_cache.shape:
             raise ValueError("v_cache must have the same shape as k_cache")
         num_layers, num_heads, seq_len, head_dim = k_cache.shape
+        if num_layers == 0 or num_heads == 0:
+            raise ValueError("cache layers and heads must be positive")
         if head_dim != self.head_dim:
             raise ValueError(
                 f"cache head_dim {head_dim} does not match compressor "
@@ -174,6 +180,49 @@ class KVCacheCompressor:
         Returns:
             (k_cache, v_cache) both shape (num_layers, num_heads, seq_len, head_dim).
         """
+        if not isinstance(compressed, CompressedKVCache):
+            raise TypeError("compressed must be a CompressedKVCache")
+        for name in (
+            "num_layers",
+            "num_heads",
+            "head_dim",
+            "k_bit_width",
+            "v_bit_width",
+        ):
+            validate.integer(getattr(compressed, name), name, minimum=1)
+        validate.integer(compressed.seq_len, "seq_len")
+        if (compressed.head_dim, compressed.k_bit_width, compressed.v_bit_width) != (
+            self.head_dim,
+            self.k_bits,
+            self.v_bits,
+        ):
+            raise ValueError(
+                "compressed cache geometry or bit widths do not match the compressor"
+            )
+        for name, layers in (
+            ("k_compressed", compressed.k_compressed),
+            ("v_compressed", compressed.v_compressed),
+        ):
+            if not isinstance(layers, (list, tuple)) or any(
+                not isinstance(layer, (list, tuple)) for layer in layers
+            ):
+                raise TypeError(f"{name} must contain lists of per-head payloads")
+            if len(layers) != compressed.num_layers or any(
+                len(layer) != compressed.num_heads for layer in layers
+            ):
+                raise ValueError(
+                    f"{name} does not match the declared layer/head counts"
+                )
+            for head_payloads in layers:
+                for item in head_payloads:
+                    if name == "k_compressed":
+                        self.k_quantizer._check_packed(item)
+                    else:
+                        self.v_quantizer._check_packed(item)
+                    if item.original_shape != (compressed.seq_len, self.head_dim):
+                        raise ValueError(
+                            f"{name} contains a payload with incompatible shape"
+                        )
         k_cache = np.zeros(
             (
                 compressed.num_layers,
@@ -200,23 +249,28 @@ class KVCacheCompressor:
 
         Returns dict with original_mb, compressed_mb, ratio.
         """
-        if seq_len <= 0 or num_layers <= 0 or num_heads <= 0:
-            raise ValueError("seq_len, num_layers, and num_heads must be positive")
+        seq_len = validate.integer(seq_len, "seq_len", minimum=1)
+        num_layers = validate.integer(num_layers, "num_layers", minimum=1)
+        num_heads = validate.integer(num_heads, "num_heads", minimum=1)
         n_vectors = num_layers * num_heads * seq_len
         # A KV cache contains both a key and a value fp16 vector.
         original_bytes = n_vectors * self.head_dim * 2 * 2
 
         # Packing is per vector, so include final-byte padding exactly.
-        k_index_bytes = int(np.ceil(self.head_dim * (self.k_bits - 1) / 8))
-        k_sign_bytes = int(np.ceil(self.head_dim / 8))
+        k_index_bytes = (self.head_dim * (self.k_bits - 1) + 7) // 8
+        k_sign_bytes = (self.head_dim + 7) // 8
         k_bytes_per_vector = k_index_bytes + k_sign_bytes + 8
-        v_index_bytes = int(np.ceil(self.head_dim * self.v_bits / 8))
+        v_index_bytes = (self.head_dim * self.v_bits + 7) // 8
         v_bytes_per_vector = v_index_bytes + 4
         compressed_bytes = n_vectors * (k_bytes_per_vector + v_bytes_per_vector)
 
         return {
-            "original_mb": original_bytes / 1024 / 1024,
-            "compressed_mb": compressed_bytes / 1024 / 1024,
+            "original_mb": validate.finite_ratio(
+                original_bytes, 1024**2, "original_mb"
+            ),
+            "compressed_mb": validate.finite_ratio(
+                compressed_bytes, 1024**2, "compressed_mb"
+            ),
             "compression_ratio": original_bytes / compressed_bytes,
             "k_bits_per_value": self.k_bits,
             "v_bits_per_value": self.v_bits,

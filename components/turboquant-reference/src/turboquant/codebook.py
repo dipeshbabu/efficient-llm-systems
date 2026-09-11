@@ -25,17 +25,21 @@ we use Lloyd's algorithm on the Gaussian approximation.
 import numpy as np
 from scipy import stats
 
+from . import _validation as validate
+
 
 def optimal_centroids(bit_width: int, d: int) -> np.ndarray:
     """Compute optimal MSE centroids for the post-rotation coordinate distribution.
 
     Args:
-        bit_width: Number of bits per coordinate (1, 2, 3, 4, ...).
+        bit_width: Number of bits per coordinate (1 through 8).
         d: Vector dimension (affects centroid scale).
 
     Returns:
         Sorted array of 2^bit_width centroids.
     """
+    bit_width = validate.integer(bit_width, "bit_width", minimum=1, maximum=8)
+    d = validate.dimension(d)
     n_centroids = 1 << bit_width
 
     if bit_width == 1:
@@ -130,7 +134,13 @@ def nearest_centroid_indices(values: np.ndarray, centroids: np.ndarray) -> np.nd
     Returns:
         Integer indices into centroids array, same shape as values.
     """
+    values = validate.array(values, "values")
+    centroids = validate.array(centroids, "centroids", ndim=(1,))
+    if not centroids.size:
+        raise ValueError("centroids must not be empty")
+    if np.any(centroids[1:] < centroids[:-1]):
+        raise ValueError("centroids must be sorted in nondecreasing order")
     # Use searchsorted for sorted centroids — O(n log k) instead of O(n * k)
     # Find the insertion point, then check left and right neighbors
-    boundaries = (centroids[:-1] + centroids[1:]) / 2.0
+    boundaries = centroids[:-1] / 2.0 + centroids[1:] / 2.0
     return np.searchsorted(boundaries, values.ravel()).reshape(values.shape)

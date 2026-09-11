@@ -16,6 +16,8 @@
 
 import numpy as np
 
+from . import _validation as validate
+
 
 def pack_bits(signs: np.ndarray) -> np.ndarray:
     """Pack {+1, -1} sign array into uint8 bitfield.
@@ -28,6 +30,7 @@ def pack_bits(signs: np.ndarray) -> np.ndarray:
     Returns:
         uint8 array of shape (ceil(d/8),) or (batch, ceil(d/8)).
     """
+    signs = validate.signs(signs, "signs")
     # NumPy packs boolean values directly and pads the final byte per row.
     return np.packbits(signs > 0, axis=-1)
 
@@ -42,13 +45,12 @@ def unpack_bits(packed: np.ndarray, d: int) -> np.ndarray:
     Returns:
         int8 array of shape (d,) or (batch, d) with values {+1, -1}.
     """
-    if packed.ndim == 1:
-        bits = np.unpackbits(packed)[:d]
-        # Convert {1, 0} → {+1, -1}
-        return bits.astype(np.int8) * 2 - 1
-    else:
-        bits = np.unpackbits(packed, axis=1)[:, :d]
-        return bits.astype(np.int8) * 2 - 1
+    d = validate.integer(d, "d")
+    packed = validate.array(packed, "packed", kind="byte", ndim=(1, 2))
+    if packed.shape[-1] * 8 < d:
+        raise ValueError(f"packed input has {packed.shape[-1] * 8} bits, need {d}")
+    bits = np.unpackbits(packed, axis=-1)[..., :d]
+    return bits.astype(np.int8) * 2 - 1
 
 
 def pack_indices(indices: np.ndarray, bit_width: int) -> np.ndarray:
@@ -65,19 +67,20 @@ def pack_indices(indices: np.ndarray, bit_width: int) -> np.ndarray:
     Returns:
         Packed byte array.
     """
-    if bit_width <= 0 or bit_width > 8:
-        raise ValueError(f"bit_width must be 1-8, got {bit_width}")
-
-    values = np.asarray(indices)
-    if not np.issubdtype(values.dtype, np.integer):
-        raise TypeError("indices must have an integer dtype")
+    bit_width = validate.integer(bit_width, "bit_width", minimum=1, maximum=8)
+    values = validate.array(indices, "indices", kind="integer", ndim=(1, 2))
     if values.size and (np.any(values < 0) or np.any(values >= (1 << bit_width))):
         raise ValueError(f"indices do not fit in {bit_width} bits")
 
-    values = values.astype(np.uint8, copy=False)
-    if bit_width == 8 and values.ndim:
+    if not values.size:
+        return np.empty(
+            (*values.shape[:-1], (values.shape[-1] * bit_width + 7) // 8),
+            dtype=np.uint8,
+        )
+    if bit_width == 8:
         # Each index already occupies one whole byte. Preserve owned output.
-        return values.copy()
+        return values.astype(np.uint8, copy=True)
+    values = values.astype(np.uint8, copy=False)
     shifts = np.arange(bit_width - 1, -1, -1, dtype=np.uint8)
     bits = ((values[..., np.newaxis] >> shifts) & 1).reshape(
         *values.shape[:-1], values.shape[-1] * bit_width
@@ -95,21 +98,18 @@ def unpack_indices(
     Packing is along the final axis. Padding bits in the final byte are
     discarded using ``n_indices``.
     """
-    if bit_width <= 0 or bit_width > 8:
-        raise ValueError(f"bit_width must be 1-8, got {bit_width}")
-    if n_indices < 0:
-        raise ValueError("n_indices must be non-negative")
-
-    packed = np.asarray(packed, dtype=np.uint8)
+    bit_width = validate.integer(bit_width, "bit_width", minimum=1, maximum=8)
+    n_indices = validate.integer(n_indices, "n_indices")
+    packed = validate.array(packed, "packed", kind="byte", ndim=(1, 2))
     needed_bits = n_indices * bit_width
-    available_bits = packed.shape[-1] * 8 if packed.ndim else 0
+    available_bits = packed.shape[-1] * 8
     if available_bits < needed_bits:
         raise ValueError(f"packed input has {available_bits} bits, need {needed_bits}")
-    if bit_width == 8 and packed.ndim:
-        return packed[..., :n_indices].copy()
-    bits = np.unpackbits(packed, axis=-1)[..., :needed_bits]
     if n_indices == 0:
         return np.empty((*packed.shape[:-1], 0), dtype=np.uint8)
+    if bit_width == 8:
+        return packed[..., :n_indices].copy()
+    bits = np.unpackbits(packed, axis=-1)[..., :needed_bits]
     groups = bits.reshape(*packed.shape[:-1], n_indices, bit_width)
     weights = (1 << np.arange(bit_width - 1, -1, -1)).astype(np.uint16)
     return np.asarray(
@@ -120,9 +120,14 @@ def unpack_indices(
 def memory_footprint_bytes(n_vectors: int, d: int, bit_width: int) -> dict:
     """Calculate memory footprint of compressed KV cache.
 
+    Counts and dimensions must be positive; an empty report has no ratio.
+
     Returns:
         Dict with breakdown: mse_indices, qjl_signs, norms, total, original_fp16.
     """
+    n_vectors = validate.integer(n_vectors, "n_vectors", minimum=1)
+    d = validate.dimension(d)
+    bit_width = validate.integer(bit_width, "bit_width", minimum=2, maximum=9)
     mse_bits = bit_width - 1  # PolarQuant uses b-1 bits
     qjl_bits = 1
 
@@ -141,5 +146,5 @@ def memory_footprint_bytes(n_vectors: int, d: int, bit_width: int) -> dict:
         "norms_bytes": norm_bytes,
         "total_bytes": total,
         "original_fp16_bytes": original,
-        "compression_ratio": original / total if total > 0 else float("inf"),
+        "compression_ratio": original / total,
     }

@@ -13,6 +13,14 @@ milestones. The first planned `kv-fidelity` release is 0.3.5.
 
 ## Unreleased
 
+- `compare` now routes reports through Metria's shared comparison semantics,
+  requires at least two valid inputs, and rejects missing identities or method
+  mismatches by default. Inspection overrides require a retained reason and
+  never relabel incompatible metrics. New reports retain named metric methods,
+  available local input/runtime identities, requested settings, and host evidence.
+  Existing report fields remain readable; historical reports without required
+  evidence need an explicit inspection override or a fresh scoring run.
+
 - WikiText-2 downloads now use an immutable upstream revision and pinned
   archive/member hashes through Metria's shared artifact API. Cached defaults
   are verified before use; unsafe, oversized, or unexpected archive entries

@@ -20,11 +20,11 @@ from ._fixtures import make_gtm, make_kld, make_plad
 
 def test_compare_handles_missing_composite_key(tmp_path, capsys):
     """Bug: _run_compare crashed with TypeError when a JSON report omitted the
-    'composite' key. Now it renders '—' as the placeholder instead."""
+    'composite' key. Now it rejects missing evidence while rendering a '—' placeholder."""
     p = tmp_path / "no_composite.json"
     p.write_text(json.dumps({"band": "PASS", "axes": {}}))
-    rc = _run_compare(argparse.Namespace(reports=[p]))
-    assert rc == 0
+    rc = _run_compare(argparse.Namespace(reports=[p, p]))
+    assert rc == 2
     out = capsys.readouterr().out
     assert "—" in out
 
@@ -33,15 +33,15 @@ def test_compare_handles_missing_band_key(tmp_path, capsys):
     """Bug: _run_compare crashed when the 'band' key was missing or null."""
     p = tmp_path / "no_band.json"
     p.write_text(json.dumps({"composite": 80.0, "axes": {}}))
-    rc = _run_compare(argparse.Namespace(reports=[p]))
-    assert rc == 0
+    rc = _run_compare(argparse.Namespace(reports=[p, p]))
+    assert rc == 2
 
 
 def test_compare_handles_explicit_null_composite(tmp_path, capsys):
     p = tmp_path / "null_composite.json"
     p.write_text(json.dumps({"composite": None, "band": None, "axes": {}}))
-    rc = _run_compare(argparse.Namespace(reports=[p]))
-    assert rc == 0
+    rc = _run_compare(argparse.Namespace(reports=[p, p]))
+    assert rc == 2
 
 
 def test_text_report_plad_nan_renders_as_skipped():

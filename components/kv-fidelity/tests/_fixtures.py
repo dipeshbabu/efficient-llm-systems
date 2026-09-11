@@ -17,6 +17,80 @@ from kv_fidelity.axes.rniah import RNIAHCell, RNIAHResult
 from kv_fidelity.axes.trajectory import TrajectoryResult
 
 
+def make_comparable_report() -> dict:
+    """Complete synthetic evidence for comparison tests, with no real runtime."""
+    from kv_fidelity.comparison import EVIDENCE_SCHEMA
+    from kv_fidelity.report import json_report
+    from kv_fidelity.score import composite_score
+
+    gtm = make_gtm()
+    kld = make_kld()
+    kld.metadata = {"kld_estimator": "llama_perplexity", "full_vocabulary": True}
+
+    def identity(char):
+        return {"sha256": char * 64, "size_bytes": 100}
+
+    report = json_report(
+        model="synthetic.gguf",
+        reference_label="ctk=f16,ctv=f16",
+        candidate_label="ctk=q8_0,ctv=q8_0",
+        composite=composite_score(gtm.score, kld.score),
+        gtm=gtm,
+        kld=kld,
+        extras={
+            "comparison_evidence": {
+                "schema": EVIDENCE_SCHEMA,
+                "requested": {
+                    "runtime": {
+                        "backend": "llamacpp",
+                        "settings": {"n_gpu_layers": 0},
+                        "environment_overrides": {},
+                    },
+                    "scenario": {
+                        "generation": {
+                            "ctx": 512,
+                            "n_predict": 128,
+                            "chunks": 32,
+                            "temperature": 0.0,
+                        }
+                    },
+                    "trial_policy": {"seed": 42},
+                },
+                "resolved": {
+                    "model": identity("a"),
+                    "tokenizer": identity("a"),
+                    "suite": identity("f"),
+                    "runtime": {
+                        "artifacts": {
+                            name: identity("b")
+                            for name in (
+                                "llama-cli",
+                                "llama-tokenize",
+                                "llama-perplexity",
+                            )
+                        }
+                    },
+                    "inputs": {"prompts": identity("c"), "corpus": identity("d")},
+                },
+                "observed": {
+                    "hardware": {
+                        "host": {"hostname_sha256": "e" * 64, "cpu_count": 4},
+                        "platform": {"system": "test", "machine": "test-cpu"},
+                        "software": {"python_version": "test"},
+                    }
+                },
+                "changed_inputs": [],
+            }
+        },
+    )
+    report["environment"] = {
+        "backend": "llamacpp",
+        "llama_cpp_commit": "synthetic-test-build",
+    }
+    report["timestamp"] = "2026-01-01T00:00:00"
+    return report
+
+
 def make_gtm(score: float = 95.0, n: int = 30) -> GTMResult:
     return GTMResult(
         score=score,

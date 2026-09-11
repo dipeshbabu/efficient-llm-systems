@@ -44,6 +44,12 @@ StudyExecutionResult
 
 ## Study semantics
 
+Capability support knowledge follows the same boundary: core normalizes model
+geometry and applies generic preflight/override semantics, while integrations
+own treatment names and support rules. Explicit application registries extend
+the built-ins without replacing them or enabling plugin auto-discovery. See the
+[capability integration contract](../guides/capability-integrations.md).
+
 The study, rather than a hard-coded fingerprint, decides what may vary.
 A comparison plan separates:
 

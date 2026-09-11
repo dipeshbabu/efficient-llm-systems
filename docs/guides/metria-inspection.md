@@ -55,6 +55,11 @@ claim that Metria independently queried the upstream model repository.
 
 ## TurboQuant KV-cache guardrail
 
+This domain rule is supplied by `metria.integrations.turboquant`. The generic
+core invokes registered checks and applies preflight/override policy; see the
+[capability integration contract](capability-integrations.md) for adding an
+application check without changing core support allowlists.
+
 The first enforced geometry rule covers the documented TurboQuant KV-cache
 head-dimension boundary.
 

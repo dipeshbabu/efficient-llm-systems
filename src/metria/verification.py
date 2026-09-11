@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from ._freeze import freeze_mapping
+from .capability_checks import CapabilityCheckRegistry
 from .comparison import compare_runs
 from .hardware import capture_hardware_fingerprint
+from .inspection import resolve_capability_checks
 from .measurements import TokenTrajectoryProtocol, TrajectoryAgreementAnalysis
 from .models import CompatibilityReport, RunRecord, RunStatus
 from .protocols import (
@@ -440,7 +442,10 @@ def render_verification(manifest: Mapping[str, Any]) -> str:
 
 
 def verify_recipe(
-    recipe: StudyRecipe, output_dir: str | Path = "verification"
+    recipe: StudyRecipe,
+    output_dir: str | Path = "verification",
+    *,
+    capability_checks: CapabilityCheckRegistry | None = None,
 ) -> VerificationResult:
     """Execute the first local CPU verifier and persist each run immediately.
 
@@ -448,6 +453,7 @@ def verify_recipe(
     interruption or write failure; the manifest is written last and is never
     presented as complete when persistence failed.
     """
+    resolve_capability_checks(capability_checks)
     registries = _builtin_registries()
     _validate(recipe, registries)
     recipe_digest = study_recipe_digest(recipe)
@@ -489,6 +495,7 @@ def verify_recipe(
             environment=recipe.environment,
             analyses=analyses,
             record_sink=save_record,
+            capability_checks=capability_checks,
         )
         comparison = execution.comparisons[0].report
         outcomes = execution.comparisons[0].analyses
